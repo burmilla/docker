@@ -73,7 +73,7 @@ func ensureSyscallTest(c *check.C) {
 
 	dockerFile := filepath.Join(tmp, "Dockerfile")
 	content := []byte(`
-	FROM debian:jessie
+	FROM debian:buster
 	COPY . /usr/bin/
 	`)
 	err = ioutil.WriteFile(dockerFile, content, 600)
@@ -88,9 +88,9 @@ func ensureSyscallTest(c *check.C) {
 	dockerCmd(c, buildArgs...)
 }
 
-func ensureSyscallTestBuild(c *check.C) {
-	err := load.FrozenImagesLinux(dockerBinary, "buildpack-deps:jessie")
-	c.Assert(err, checker.IsNil)
+func ensureSyscallTestBuild(c *testing.T) {
+	err := load.FrozenImagesLinux(testEnv.APIClient(), "buildpack-deps:buster")
+	assert.NilError(c, err)
 
 	var buildArgs []string
 	if arg := os.Getenv("DOCKER_BUILD_ARGS"); strings.TrimSpace(arg) != "" {
@@ -119,7 +119,7 @@ func ensureNNPTest(c *check.C) {
 
 	dockerfile := filepath.Join(tmp, "Dockerfile")
 	content := `
-	FROM debian:jessie
+	FROM debian:buster
 	COPY . /usr/bin
 	RUN chmod +s /usr/bin/nnp-test
 	`
@@ -135,9 +135,9 @@ func ensureNNPTest(c *check.C) {
 	dockerCmd(c, buildArgs...)
 }
 
-func ensureNNPTestBuild(c *check.C) {
-	err := load.FrozenImagesLinux(dockerBinary, "buildpack-deps:jessie")
-	c.Assert(err, checker.IsNil)
+func ensureNNPTestBuild(c *testing.T) {
+	err := load.FrozenImagesLinux(testEnv.APIClient(), "buildpack-deps:buster")
+	assert.NilError(c, err)
 
 	var buildArgs []string
 	if arg := os.Getenv("DOCKER_BUILD_ARGS"); strings.TrimSpace(arg) != "" {

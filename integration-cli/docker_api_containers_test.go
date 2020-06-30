@@ -376,9 +376,13 @@ func (s *DockerSuite) TestContainerAPIPause(c *check.C) {
 
 func (s *DockerSuite) TestContainerAPITop(c *check.C) {
 	testRequires(c, DaemonIsLinux)
-	out, _ := dockerCmd(c, "run", "-d", "busybox", "/bin/sh", "-c", "top")
-	id := strings.TrimSpace(string(out))
-	c.Assert(waitRun(id), checker.IsNil)
+	out, _ := dockerCmd(c, "run", "-d", "busybox", "/bin/sh", "-c", "top && true")
+	id := strings.TrimSpace(out)
+	assert.NilError(c, waitRun(id))
+
+	cli, err := client.NewClientWithOpts(client.FromEnv)
+	assert.NilError(c, err)
+	defer cli.Close()
 
 	type topResp struct {
 		Titles    []string
@@ -394,9 +398,9 @@ func (s *DockerSuite) TestContainerAPITop(c *check.C) {
 	if top.Titles[0] != "USER" || top.Titles[10] != "COMMAND" {
 		c.Fatalf("expected `USER` at `Titles[0]` and `COMMAND` at Titles[10]: %v", top.Titles)
 	}
-	c.Assert(top.Processes, checker.HasLen, 2, check.Commentf("expected 2 processes, found %d: %v", len(top.Processes), top.Processes))
-	c.Assert(top.Processes[0][10], checker.Equals, "/bin/sh -c top")
-	c.Assert(top.Processes[1][10], checker.Equals, "top")
+	assert.Equal(c, len(top.Processes), 2, fmt.Sprintf("expected 2 processes, found %d: %v", len(top.Processes), top.Processes))
+	assert.Equal(c, top.Processes[0][10], "/bin/sh -c top && true")
+	assert.Equal(c, top.Processes[1][10], "top")
 }
 
 func (s *DockerSuite) TestContainerAPITopWindows(c *check.C) {

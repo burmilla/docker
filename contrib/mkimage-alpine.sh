@@ -29,7 +29,7 @@ getapk() {
 }
 
 mkbase() {
-	$TMP/sbin/apk.static --repository $MAINREPO --update-cache --allow-untrusted \
+	$TMP/sbin/apk.static --repository $MAINREPO --no-cache --allow-untrusted \
 		--root $ROOTFS --initdb add alpine-base
 }
 
@@ -43,11 +43,11 @@ pack() {
 	id=$(tar --numeric-owner -C $ROOTFS -c . | docker import - alpine:$REL)
 
 	docker tag $id alpine:latest
-	docker run -i -t --rm alpine printf 'alpine:%s with id=%s created!\n' $REL $id
+	docker run --rm alpine printf 'alpine:%s with id=%s created!\n' $REL $id
 }
 
 save() {
-	[ $SAVE -eq 1 ] || return
+	[ $SAVE -eq 1 ] || return 0
 
 	tar --numeric-owner -C $ROOTFS -c . | xz > rootfs.tar.xz
 }

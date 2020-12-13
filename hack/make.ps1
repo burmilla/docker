@@ -60,6 +60,9 @@
 .PARAMETER TestUnit
      Runs unit tests.
 
+.PARAMETER TestIntegration
+     Runs integration tests.
+
 .PARAMETER All
      Runs everything this script knows about that can run in a container.
 
@@ -84,10 +87,12 @@ param(
     [Parameter(Mandatory=$False)][switch]$PkgImports,
     [Parameter(Mandatory=$False)][switch]$GoFormat,
     [Parameter(Mandatory=$False)][switch]$TestUnit,
+    [Parameter(Mandatory=$False)][switch]$TestIntegration,
     [Parameter(Mandatory=$False)][switch]$All
 )
 
 $ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
 $pushed=$False  # To restore the directory if we have temporarily pushed to one.
 
 # Utility function to get the commit ID of the repository
@@ -113,12 +118,6 @@ Function Get-GitCommit() {
     return $gitCommit
 }
 
-# Utility function to get get the current build version of docker
-Function Get-DockerVersion() {
-    if (-not (Test-Path ".\VERSION")) { Throw "VERSION file not found. Is this running from the root of a docker repository?" }
-    return $(Get-Content ".\VERSION" -raw).ToString().Replace("`n","").Trim()
-}
-
 # Utility function to determine if we are running in a container or not.
 # In Windows, we get this through an environment variable set in `Dockerfile.Windows`
 Function Check-InContainer() {
@@ -135,7 +134,7 @@ Function Check-InContainer() {
 # outside of a container where it may be out of date with master.
 Function Verify-GoVersion() {
     Try {
-        $goVersionDockerfile=(Get-Content ".\Dockerfile" | Select-String "ENV GO_VERSION").ToString().Split(" ")[2]
+        $goVersionDockerfile=(Select-String -Path ".\Dockerfile" -Pattern "^ARG[\s]+GO_VERSION=(.*)$").Matches.groups[1].Value -replace '\.0$',''
         $goVersionInstalled=(go version).ToString().Split(" ")[2].SubString(2)
     }
     Catch [Exception] {
@@ -175,7 +174,7 @@ Function Execute-Build($type, $additionalBuildTags, $directory) {
     if ($Race)                      { Write-Warning "Using race detector"; $raceParm=" -race"}
     if ($ForceBuildAll)             { $allParm=" -a" }
     if ($NoOpt)                     { $optParm=" -gcflags "+""""+"-N -l"+"""" }
-    if ($addtionalBuildTags -ne "") { $buildTags += $(" " + $additionalBuildTags) }
+    if ($additionalBuildTags -ne "") { $buildTags += $(" " + $additionalBuildTags) }
 
     # Do the go build in the appropriate directory
     # Note -linkmode=internal is required to be able to debug on Windows.
@@ -223,7 +222,7 @@ Function Validate-DCO($headCommit, $upstreamCommit) {
     if ($LASTEXITCODE -ne 0) { Throw "Failed git log --format" }
     $commits = $($commits -split '\s+' -match '\S')
     $badCommits=@()
-    $commits | %{
+    $commits | ForEach-Object{
         # Skip commits with no content such as merge commits etc
         if ($(git log -1 --format=format: --name-status $_).Length -gt 0) {
             # Ignore exit code on next call - always process regardless
@@ -249,24 +248,24 @@ Function Validate-PkgImports($headCommit, $upstreamCommit) {
 
     # Get a list of go source-code files which have changed under pkg\. Ignore exit code on next call - always process regardless
     $files=@(); $files = Invoke-Expression "git diff $upstreamCommit...$headCommit --diff-filter=ACMR --name-only -- `'pkg\*.go`'"
-    $badFiles=@(); $files | %{
+    $badFiles=@(); $files | ForEach-Object{
         $file=$_
         # For the current changed file, get its list of dependencies, sorted and uniqued.
         $imports = Invoke-Expression "go list -e -f `'{{ .Deps }}`' $file"
         if ($LASTEXITCODE -ne 0) { Throw "Failed go list for dependencies on $file" }
         $imports = $imports -Replace "\[" -Replace "\]", "" -Split(" ") | Sort-Object | Get-Unique
         # Filter out what we are looking for
-        $imports = $imports -NotMatch "^github.com/docker/docker/pkg/" `
-                            -NotMatch "^github.com/docker/docker/vendor" `
-                            -Match "^github.com/docker/docker" `
-                            -Replace "`n", ""
-        $imports | % { $badFiles+="$file imports $_`n" }
+        $imports = @() + $imports -NotMatch "^github.com/docker/docker/pkg/" `
+                                  -NotMatch "^github.com/docker/docker/vendor" `
+                                  -Match "^github.com/docker/docker" `
+                                  -Replace "`n", ""
+        $imports | ForEach-Object{ $badFiles+="$file imports $_`n" }
     }
     if ($badFiles.Length -eq 0) {
         Write-Host 'Congratulations!  ".\pkg\*.go" is safely isolated from internal code.'
     } else {
         $e = "`nThese files import internal code: (either directly or indirectly)`n"
-        $badFiles | %{ $e+=" - $_"}
+        $badFiles | ForEach-Object{ $e+=" - $_"}
         Throw $e
     }
 }
@@ -302,7 +301,7 @@ Function Validate-GoFormat($headCommit, $upstreamCommit) {
         Write-Host 'Congratulations!  All Go source files are properly formatted.'
     } else {
         $e = "`nThese files are not properly gofmt`'d:`n"
-        $badFiles | %{ $e+=" - $_`n"}
+        $badFiles | ForEach-Object{ $e+=" - $_`n"}
         $e+= "`nPlease reformat the above files using `"gofmt -s -w`" and commit the result."
         Throw $e
     }
@@ -318,11 +317,42 @@ Function Run-UnitTests() {
     $pkgList = $pkgList | Select-String -Pattern "github.com/docker/docker"
     $pkgList = $pkgList | Select-String -NotMatch "github.com/docker/docker/vendor"
     $pkgList = $pkgList | Select-String -NotMatch "github.com/docker/docker/man"
-    $pkgList = $pkgList | Select-String -NotMatch "github.com/docker/docker/integration-cli"
+    $pkgList = $pkgList | Select-String -NotMatch "github.com/docker/docker/integration"
     $pkgList = $pkgList -replace "`r`n", " "
     $goTestCommand = "go test" + $raceParm + " -cover -ldflags -w -tags """ + "autogen daemon" + """ -a """ + "-test.timeout=10m" + """ $pkgList"
     Invoke-Expression $goTestCommand
     if ($LASTEXITCODE -ne 0) { Throw "Unit tests failed" }
+}
+
+# Run the integration tests
+Function Run-IntegrationTests() {
+    $env:DOCKER_INTEGRATION_DAEMON_DEST = $root + "\bundles\tmp"
+    $dirs = go list -test -f '{{- if ne .ForTest `"`" -}}{{- .Dir -}}{{- end -}}' .\integration\...
+    $integration_api_dirs = @()
+    ForEach($dir in $dirs) {
+        $integration_api_dirs += $dir
+        Write-Host "Building test suite binary $dir"
+        go test -c -o "$dir\test.exe" $dir
+    }
+
+    ForEach($dir in $integration_api_dirs) {
+        Set-Location $dir
+        Write-Host "Running $($PWD.Path)"
+        $pinfo = New-Object System.Diagnostics.ProcessStartInfo
+        $pinfo.FileName = "$($PWD.Path)\test.exe"
+        $pinfo.WorkingDirectory = "$($PWD.Path)"
+        $pinfo.RedirectStandardError = $true
+        $pinfo.UseShellExecute = $false
+        $pinfo.Arguments = $env:INTEGRATION_TESTFLAGS
+        $p = New-Object System.Diagnostics.Process
+        $p.StartInfo = $pinfo
+        $p.Start() | Out-Null
+        $p.WaitForExit()
+        $err = $p.StandardError.ReadToEnd()
+        if (($LASTEXITCODE -ne 0) -and ($err -notlike "*warning: no tests to run*")) {
+            Throw "Integration tests failed: $err"
+        }
+    }
 }
 
 # Start of main code.
@@ -336,13 +366,13 @@ Try {
     # Handle the "-All" shortcut to turn on all things we can handle.
     # Note we expressly only include the items which can run in a container - the validations tests cannot
     # as they require the .git directory which is excluded from the image by .dockerignore
-    if ($All) { $Client=$True; $Daemon=$True; $TestUnit=$True }
+    if ($All) { $Client=$True; $Daemon=$True; $TestUnit=$True; }
 
     # Handle the "-Binary" shortcut to build both client and daemon.
     if ($Binary) { $Client = $True; $Daemon = $True }
 
     # Default to building the daemon if not asked for anything explicitly.
-    if (-not($Client) -and -not($Daemon) -and -not($DCO) -and -not($PkgImports) -and -not($GoFormat) -and -not($TestUnit)) { $Daemon=$True }
+    if (-not($Client) -and -not($Daemon) -and -not($DCO) -and -not($PkgImports) -and -not($GoFormat) -and -not($TestUnit) -and -not($TestIntegration)) { $Daemon=$True }
 
     # Verify git is installed
     if ($(Get-Command git -ErrorAction SilentlyContinue) -eq $nil) { Throw "Git does not appear to be installed" }
@@ -355,7 +385,9 @@ Try {
     if ($CommitSuffix -ne "") { $gitCommit += "-"+$CommitSuffix -Replace ' ', '' }
 
     # Get the version of docker (eg 17.04.0-dev)
-    $dockerVersion=Get-DockerVersion
+    $dockerVersion="0.0.0-dev"
+    # Overwrite dockerVersion if VERSION Environment variable is available
+    if (Test-Path Env:\VERSION) { $dockerVersion=$env:VERSION }
 
     # Give a warning if we are not running in a container and are building binaries or running unit tests.
     # Not relevant for validation tests as these are fine to run outside of a container.
@@ -370,7 +402,7 @@ Try {
     # Run autogen if building binaries or running unit tests.
     if ($Client -or $Daemon -or $TestUnit) {
         Write-Host "INFO: Invoking autogen..."
-        Try { .\hack\make\.go-autogen.ps1 -CommitString $gitCommit -DockerVersion $dockerVersion }
+        Try { .\hack\make\.go-autogen.ps1 -CommitString $gitCommit -DockerVersion $dockerVersion -Platform "$env:PLATFORM" -Product "$env:PRODUCT" }
         Catch [Exception] { Throw $_ }
     }
 
@@ -398,45 +430,38 @@ Try {
         # Perform the actual build
         if ($Daemon) { Execute-Build "daemon" "daemon" "dockerd" }
         if ($Client) {
-            # Get the repo and commit of the client to build.
-            "hack\dockerfile\binaries-commits" | ForEach-Object {
-                $dockerCliRepo = ((Get-Content $_ | Select-String "DOCKERCLI_REPO") -split "=")[1]
-                $dockerCliCommit = ((Get-Content $_ | Select-String "DOCKERCLI_COMMIT") -split "=")[1]
-            }
+            # Get the Docker channel and version from the environment, or use the defaults.
+            if (-not ($channel = $env:DOCKERCLI_CHANNEL)) { $channel = "stable" }
+            if (-not ($version = $env:DOCKERCLI_VERSION)) { $version = "17.06.2-ce" }
 
-            # Build from a temporary directory.
-            $tempLocation = "$env:TEMP\$(New-Guid)"
-            New-Item -ItemType Directory $tempLocation | Out-Null
-
-            # Temporarily override GOPATH, then clone, checkout, and build.
-            $saveGOPATH = $env:GOPATH
+            # Download the zip file and extract the client executable.
+            Write-Host "INFO: Downloading docker/cli version $version from $channel..."
+            $url = "https://download.docker.com/win/static/$channel/x86_64/docker-$version.zip"
+            Invoke-WebRequest $url -OutFile "docker.zip"
             Try {
-                $env:GOPATH = $tempLocation
-                $dockerCliRoot = "$env:GOPATH\src\github.com\docker\cli"
-                Write-Host "INFO: Cloning client repository..."
-                Invoke-Expression "git clone -q $dockerCliRepo $dockerCliRoot"
-                if ($LASTEXITCODE -ne 0) { Throw "Failed to clone client repository $dockerCliRepo" }
-                Invoke-Expression "git -C $dockerCliRoot  checkout -q $dockerCliCommit"
-                if ($LASTEXITCODE -ne 0) { Throw "Failed to checkout client commit $dockerCliCommit" }
-                Write-Host "INFO: Building client..."
-                Push-Location "$dockerCliRoot\cmd\docker"; $global:pushed=$True
-                Invoke-Expression "go build -o $root\bundles\docker.exe"
-                if ($LASTEXITCODE -ne 0) { Throw "Failed to compile client" }
-                Pop-Location; $global:pushed=$False
-            }
-            Catch [Exception] {
-                Throw $_
+                Add-Type -AssemblyName System.IO.Compression.FileSystem
+                $zip = [System.IO.Compression.ZipFile]::OpenRead("$PWD\docker.zip")
+                Try {
+                    if (-not ($entry = $zip.Entries | Where-Object { $_.Name -eq "docker.exe" })) {
+                        Throw "Cannot find docker.exe in $url"
+                    }
+                    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, "$PWD\bundles\docker.exe", $true)
+                }
+                Finally {
+                    $zip.Dispose()
+                }
             }
             Finally {
-                # Always restore GOPATH and remove the temporary directory.
-                $env:GOPATH = $saveGOPATH
-                Remove-Item -Force -Recurse $tempLocation
+                Remove-Item -Force "docker.zip"
             }
         }
     }
 
     # Run unit tests
     if ($TestUnit) { Run-UnitTests }
+
+    # Run integration tests
+    if ($TestIntegration) { Run-IntegrationTests }
 
     # Gratuitous ASCII art.
     if ($Daemon -or $Client) {
@@ -452,6 +477,7 @@ Try {
 }
 Catch [Exception] {
     Write-Host -ForegroundColor Red ("`nERROR: make.ps1 failed:`n$_")
+    Write-Host -ForegroundColor Red ($_.InvocationInfo.PositionMessage)
 
     # More gratuitous ASCII art.
     Write-Host

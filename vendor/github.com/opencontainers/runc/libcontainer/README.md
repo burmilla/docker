@@ -56,25 +56,91 @@ Once you have an instance of the factory created we can create a configuration
 struct describing how the container is to be created. A sample would look similar to this:
 
 ```go
-defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
+defaultMountFlags := unix.MS_NOEXEC | unix.MS_NOSUID | unix.MS_NODEV
 config := &configs.Config{
 	Rootfs: "/your/path/to/rootfs",
-	Capabilities: []string{
-		"CAP_CHOWN",
-		"CAP_DAC_OVERRIDE",
-		"CAP_FSETID",
-		"CAP_FOWNER",
-		"CAP_MKNOD",
-		"CAP_NET_RAW",
-		"CAP_SETGID",
-		"CAP_SETUID",
-		"CAP_SETFCAP",
-		"CAP_SETPCAP",
-		"CAP_NET_BIND_SERVICE",
-		"CAP_SYS_CHROOT",
-		"CAP_KILL",
-		"CAP_AUDIT_WRITE",
-	},
+	Capabilities: &configs.Capabilities{
+                Bounding: []string{
+                        "CAP_CHOWN",
+                        "CAP_DAC_OVERRIDE",
+                        "CAP_FSETID",
+                        "CAP_FOWNER",
+                        "CAP_MKNOD",
+                        "CAP_NET_RAW",
+                        "CAP_SETGID",
+                        "CAP_SETUID",
+                        "CAP_SETFCAP",
+                        "CAP_SETPCAP",
+                        "CAP_NET_BIND_SERVICE",
+                        "CAP_SYS_CHROOT",
+                        "CAP_KILL",
+                        "CAP_AUDIT_WRITE",
+                },
+                Effective: []string{
+                        "CAP_CHOWN",
+                        "CAP_DAC_OVERRIDE",
+                        "CAP_FSETID",
+                        "CAP_FOWNER",
+                        "CAP_MKNOD",
+                        "CAP_NET_RAW",
+                        "CAP_SETGID",
+                        "CAP_SETUID",
+                        "CAP_SETFCAP",
+                        "CAP_SETPCAP",
+                        "CAP_NET_BIND_SERVICE",
+                        "CAP_SYS_CHROOT",
+                        "CAP_KILL",
+                        "CAP_AUDIT_WRITE",
+                },
+                Inheritable: []string{
+                        "CAP_CHOWN",
+                        "CAP_DAC_OVERRIDE",
+                        "CAP_FSETID",
+                        "CAP_FOWNER",
+                        "CAP_MKNOD",
+                        "CAP_NET_RAW",
+                        "CAP_SETGID",
+                        "CAP_SETUID",
+                        "CAP_SETFCAP",
+                        "CAP_SETPCAP",
+                        "CAP_NET_BIND_SERVICE",
+                        "CAP_SYS_CHROOT",
+                        "CAP_KILL",
+                        "CAP_AUDIT_WRITE",
+                },
+                Permitted: []string{
+                        "CAP_CHOWN",
+                        "CAP_DAC_OVERRIDE",
+                        "CAP_FSETID",
+                        "CAP_FOWNER",
+                        "CAP_MKNOD",
+                        "CAP_NET_RAW",
+                        "CAP_SETGID",
+                        "CAP_SETUID",
+                        "CAP_SETFCAP",
+                        "CAP_SETPCAP",
+                        "CAP_NET_BIND_SERVICE",
+                        "CAP_SYS_CHROOT",
+                        "CAP_KILL",
+                        "CAP_AUDIT_WRITE",
+                },
+                Ambient: []string{
+                        "CAP_CHOWN",
+                        "CAP_DAC_OVERRIDE",
+                        "CAP_FSETID",
+                        "CAP_FOWNER",
+                        "CAP_MKNOD",
+                        "CAP_NET_RAW",
+                        "CAP_SETGID",
+                        "CAP_SETUID",
+                        "CAP_SETFCAP",
+                        "CAP_SETPCAP",
+                        "CAP_NET_BIND_SERVICE",
+                        "CAP_SYS_CHROOT",
+                        "CAP_KILL",
+                        "CAP_AUDIT_WRITE",
+                },
+        },
 	Namespaces: configs.Namespaces([]configs.Namespace{
 		{Type: configs.NEWNS},
 		{Type: configs.NEWUTS},
@@ -82,6 +148,7 @@ config := &configs.Config{
 		{Type: configs.NEWPID},
 		{Type: configs.NEWUSER},
 		{Type: configs.NEWNET},
+		{Type: configs.NEWCGROUP},
 	}),
 	Cgroups: &configs.Cgroup{
 		Name:   "test-container",
@@ -112,14 +179,14 @@ config := &configs.Config{
 			Source:      "tmpfs",
 			Destination: "/dev",
 			Device:      "tmpfs",
-			Flags:       syscall.MS_NOSUID | syscall.MS_STRICTATIME,
+			Flags:       unix.MS_NOSUID | unix.MS_STRICTATIME,
 			Data:        "mode=755",
 		},
 		{
 			Source:      "devpts",
 			Destination: "/dev/pts",
 			Device:      "devpts",
-			Flags:       syscall.MS_NOSUID | syscall.MS_NOEXEC,
+			Flags:       unix.MS_NOSUID | unix.MS_NOEXEC,
 			Data:        "newinstance,ptmxmode=0666,mode=0620,gid=5",
 		},
 		{
@@ -139,7 +206,7 @@ config := &configs.Config{
 			Source:      "sysfs",
 			Destination: "/sys",
 			Device:      "sysfs",
-			Flags:       defaultMountFlags | syscall.MS_RDONLY,
+			Flags:       defaultMountFlags | unix.MS_RDONLY,
 		},
 	},
 	UidMappings: []configs.IDMap{
@@ -165,7 +232,7 @@ config := &configs.Config{
 	},
 	Rlimits: []configs.Rlimit{
 		{
-			Type: syscall.RLIMIT_NOFILE,
+			Type: unix.RLIMIT_NOFILE,
 			Hard: uint64(1025),
 			Soft: uint64(1025),
 		},
@@ -194,6 +261,7 @@ process := &libcontainer.Process{
 	Stdin:  os.Stdin,
 	Stdout: os.Stdout,
 	Stderr: os.Stderr,
+	Init:   true,
 }
 
 err := container.Run(process)
@@ -257,6 +325,7 @@ generated when building libcontainer with docker.
 
 ## Copyright and license
 
-Code and documentation copyright 2014 Docker, inc. Code released under the Apache 2.0 license.
-Docs released under Creative commons.
-
+Code and documentation copyright 2014 Docker, inc.
+The code and documentation are released under the [Apache 2.0 license](../LICENSE).
+The documentation is also released under Creative Commons Attribution 4.0 International License.
+You may obtain a copy of the license, titled CC-BY-4.0, at http://creativecommons.org/licenses/by/4.0/.

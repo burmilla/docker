@@ -91,6 +91,15 @@ elif ${PKG_CONFIG} 'libsystemd-journal' 2> /dev/null ; then
 	DOCKER_BUILDTAGS+=" journald journald_compat"
 fi
 
+
+# Disable all other graphdrivers than overlay2
+DOCKER_BUILDTAGS+=' exclude_graphdriver_aufs'
+DOCKER_BUILDTAGS+=' exclude_graphdriver_btrfs'
+DOCKER_BUILDTAGS+=' exclude_graphdriver_devicemapper'
+DOCKER_BUILDTAGS+=' exclude_graphdriver_overlay'
+DOCKER_BUILDTAGS+=' exclude_graphdriver_vfs'
+DOCKER_BUILDTAGS+=' exclude_graphdriver_zfs'
+
 # test whether "libdevmapper.h" is new enough to support deferred remove
 # functionality. We favour libdm_dlsym_deferred_remove over
 # libdm_no_deferred_remove in dynamic cases because the binary could be shipped
@@ -106,7 +115,7 @@ fi
 
 IAMSTATIC='true'
 if [ -z "$DOCKER_DEBUG" ]; then
-	LDFLAGS='-w'
+	LDFLAGS='-s -w'
 fi
 
 LDFLAGS_STATIC=''

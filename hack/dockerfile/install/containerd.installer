@@ -16,7 +16,7 @@ install_containerd() {
 
 		export BUILDTAGS='netgo osusergo static_build'
 		export EXTRA_FLAGS='-buildmode=pie'
-		export EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"'
+		export EXTRA_LDFLAGS='-extldflags "-fno-PIC -static -s -w"'
 
 		# Reset build flags to nothing if we want a dynbinary
 		if [ "$1" = "dynamic" ]; then

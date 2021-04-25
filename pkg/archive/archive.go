@@ -23,6 +23,7 @@ import (
 	"github.com/docker/docker/pkg/pools"
 	"github.com/docker/docker/pkg/promise"
 	"github.com/docker/docker/pkg/system"
+	"github.com/klauspost/compress/zstd"
 )
 
 type (
@@ -55,6 +56,19 @@ type (
 	}
 )
 
+type readCloserWrapper struct {
+	io.Reader
+	compression Compression
+	closer      func() error
+}
+
+func (r *readCloserWrapper) Close() error {
+	if r.closer != nil {
+		return r.closer()
+	}
+	return nil
+}
+
 // Archiver allows the reuse of most utility functions of this package
 // with a pluggable Untar function. Also, to facilitate the passing of
 // specific id mappings for untar, an archiver can be created with maps
@@ -83,6 +97,8 @@ const (
 	Gzip
 	// Xz is xz compression algorithm.
 	Xz
+	// Zstd is zstd compression algorithm.
+	Zstd
 )
 
 const (
@@ -116,6 +132,7 @@ func DetectCompression(source []byte) Compression {
 		Bzip2: {0x42, 0x5A, 0x68},
 		Gzip:  {0x1F, 0x8B, 0x08},
 		Xz:    {0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00},
+		Zstd:  {0x28, 0xb5, 0x2f, 0xfd},
 	} {
 		if len(source) < len(m) {
 			logrus.Debug("Len too short")
@@ -175,6 +192,20 @@ func DecompressStream(archive io.Reader) (io.ReadCloser, error) {
 			<-chdone
 			return readBufWrapper.Close()
 		}), nil
+	case Zstd:
+		zstdReader, err := zstd.NewReader(buf)
+		if err != nil {
+			return nil, err
+		}
+		return &readCloserWrapper{
+			Reader:      zstdReader,
+			compression: compression,
+			closer: func() error {
+				zstdReader.Close()
+				return nil
+			},
+		}, nil
+
 	default:
 		return nil, fmt.Errorf("Unsupported compression format %s", (&compression).Extension())
 	}
@@ -196,6 +227,8 @@ func CompressStream(dest io.Writer, compression Compression) (io.WriteCloser, er
 		// archive/bzip2 does not support writing, and there is no xz support at all
 		// However, this is not a problem as docker only currently generates gzipped tars
 		return nil, fmt.Errorf("Unsupported compression format %s", (&compression).Extension())
+	case Zstd:
+		return zstd.NewWriter(dest)
 	default:
 		return nil, fmt.Errorf("Unsupported compression format %s", (&compression).Extension())
 	}
@@ -299,6 +332,8 @@ func (compression *Compression) Extension() string {
 		return "tar.gz"
 	case Xz:
 		return "tar.xz"
+	case Zstd:
+		return "tar.zst"
 	}
 	return ""
 }

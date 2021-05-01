@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/backend"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/logger"
@@ -15,6 +14,7 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	containertypes "github.com/docker/engine-api/types/container"
 	timetypes "github.com/docker/engine-api/types/time"
+	"github.com/sirupsen/logrus"
 )
 
 // ContainerLogs hooks up a container's stdout and stderr streams

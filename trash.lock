@@ -3,12 +3,8 @@ import:
   version: v0.1.0
 - package: github.com/RackSec/srslog
   version: 259aed10dfa74ea2961eddd1d9847619f6e98837
-- package: github.com/Sirupsen/logrus
-  version: v0.9.0
 - package: github.com/boltdb/bolt
   version: v1.2.0
-- package: github.com/burmilla/os/config
-  version: 98d7760c5f14bfa8cefa58bda7cc881048f4bc17
 - package: github.com/cloudfoundry/gosigar
   version: 3ed7c74352dae6dc00bdc8c74045375352e3ec05
 - package: github.com/codegangsta/cli
@@ -16,7 +12,7 @@ import:
 - package: github.com/coreos/go-systemd
   version: v4
 - package: github.com/docker/containerd
-  version: 0c177afbc8e949d150efec0e61bd37182c69c634
+  version: c5695fa78c8cd383e8ea8f9bd4a0920ebc165bf1
   repo: https://github.com/burmilla/containerd.git
 - package: github.com/docker/distribution
   version: 467fc068d88aa6610691b7f1a677271a3fac4aac
@@ -58,6 +54,8 @@ import:
   version: eeba7bd0dd01ace6e690fa833b3f22aaec29af43
 - package: github.com/seccomp/libseccomp-golang
   version: 1b506fc7c24eec5a3693cdcbed40d9c226cfc6a1
+- package: github.com/sirupsen/logrus
+  version: v1.8.1
 - package: github.com/syndtr/gocapability
   version: 2c00daeb6c3b45114c80ac44119e7b8801fdd852
 - package: github.com/tchap/go-patricia
@@ -69,11 +67,14 @@ import:
 - package: github.com/vishvananda/netlink
   version: 631962935bff4f3d20ff32a72e8944f6d2836a26
 - package: golang.org/x/net
-  version: 991d3e32f76f19ee6d9caadb3a22eae8d23315f7
+  version: aea8142032473bb41e874c31eb771c364b790fb4
   repo: https://github.com/golang/net.git
 - package: golang.org/x/sys
-  version: eb2c74142fd19a79b3f237334c7384d5167b1b46
+  version: bc7a7d42d5c30f4d0fe808715c002826ce2c624e
   repo: https://github.com/golang/sys.git
+- package: golang.org/x/text
+  version: afb9336c4530b4b18f37130eab53f245f7d6821e
+  repo: https://github.com/golang/text.git
 - package: google.golang.org/grpc
   version: ab0be5212fb225475f2087566eded7da5d727960
   repo: https://github.com/grpc/grpc-go.git

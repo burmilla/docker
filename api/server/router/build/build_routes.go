@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/server/httputils"
 	"github.com/docker/docker/builder"
 	"github.com/docker/docker/pkg/ioutils"
@@ -20,6 +19,7 @@ import (
 	"github.com/docker/engine-api/types"
 	"github.com/docker/engine-api/types/container"
 	"github.com/docker/go-units"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 

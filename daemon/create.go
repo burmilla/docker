@@ -3,7 +3,6 @@ package daemon
 import (
 	"fmt"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
@@ -14,6 +13,7 @@ import (
 	containertypes "github.com/docker/engine-api/types/container"
 	networktypes "github.com/docker/engine-api/types/network"
 	"github.com/opencontainers/runc/libcontainer/label"
+	"github.com/sirupsen/logrus"
 )
 
 // ContainerCreate creates a container.

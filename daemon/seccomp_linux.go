@@ -5,10 +5,10 @@ package daemon
 import (
 	"fmt"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/profiles/seccomp"
 	"github.com/opencontainers/specs/specs-go"
+	"github.com/sirupsen/logrus"
 )
 
 func setSeccomp(daemon *Daemon, rs *specs.Spec, c *container.Container) error {

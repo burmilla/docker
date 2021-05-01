@@ -3,8 +3,8 @@ package supervisor
 import (
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/containerd/runtime"
+	"github.com/sirupsen/logrus"
 )
 
 type DeleteTask struct {

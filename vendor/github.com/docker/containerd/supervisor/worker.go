@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/containerd/runtime"
+	"github.com/sirupsen/logrus"
 )
 
 type Worker interface {

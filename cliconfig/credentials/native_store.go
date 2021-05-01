@@ -8,9 +8,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/cliconfig"
 	"github.com/docker/engine-api/types"
+	"github.com/sirupsen/logrus"
 )
 
 const (

@@ -11,7 +11,6 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/Sirupsen/logrus"
 	Cli "github.com/docker/docker/cli"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/jsonlog"
@@ -19,6 +18,7 @@ import (
 	"github.com/docker/engine-api/types"
 	eventtypes "github.com/docker/engine-api/types/events"
 	"github.com/docker/engine-api/types/filters"
+	"github.com/sirupsen/logrus"
 )
 
 // CmdEvents prints a live stream of real time events from the server.

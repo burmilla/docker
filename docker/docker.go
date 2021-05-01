@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/burmilla/os/config"
 	"github.com/docker/docker/api/client"
 	"github.com/docker/docker/cli"
 	flag "github.com/docker/docker/pkg/mflag"
 	"github.com/docker/docker/pkg/term"
+	"github.com/sirupsen/logrus"
 )
 
 func Main() {

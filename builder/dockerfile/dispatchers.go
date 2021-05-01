@@ -16,7 +16,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api"
 	"github.com/docker/docker/builder"
 	"github.com/docker/docker/pkg/signal"
@@ -25,6 +24,7 @@ import (
 	"github.com/docker/engine-api/types/container"
 	"github.com/docker/engine-api/types/strslice"
 	"github.com/docker/go-connections/nat"
+	"github.com/sirupsen/logrus"
 )
 
 // ENV foo bar

@@ -6,9 +6,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/server/httputils"
 	"github.com/docker/docker/pkg/ioutils"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 

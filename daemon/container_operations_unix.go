@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/links"
 	"github.com/docker/docker/pkg/fileutils"
@@ -24,6 +23,7 @@ import (
 	"github.com/opencontainers/runc/libcontainer/devices"
 	"github.com/opencontainers/runc/libcontainer/label"
 	"github.com/opencontainers/specs/specs-go"
+	"github.com/sirupsen/logrus"
 )
 
 func u32Ptr(i int64) *uint32     { u := uint32(i); return &u }

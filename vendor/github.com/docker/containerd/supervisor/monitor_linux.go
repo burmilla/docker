@@ -4,9 +4,9 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/containerd/archutils"
 	"github.com/docker/containerd/runtime"
+	"github.com/sirupsen/logrus"
 )
 
 func NewMonitor() (*Monitor, error) {

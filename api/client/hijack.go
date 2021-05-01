@@ -3,9 +3,9 @@ package client
 import (
 	"io"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/engine-api/types"
+	"github.com/sirupsen/logrus"
 )
 
 func (cli *DockerCli) holdHijackedConnection(tty bool, inputStream io.ReadCloser, outputStream, errorStream io.Writer, resp types.HijackedResponse) error {

@@ -6,11 +6,11 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/Sirupsen/logrus"
 	Cli "github.com/docker/docker/cli"
 	flag "github.com/docker/docker/pkg/mflag"
 	"github.com/docker/docker/pkg/promise"
 	"github.com/docker/engine-api/types"
+	"github.com/sirupsen/logrus"
 )
 
 // CmdExec runs a command in a running container.

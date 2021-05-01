@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/daemon/logger"
 	"github.com/docker/docker/utils/templates"
+	"github.com/sirupsen/logrus"
 )
 
 // ParseLogTag generates a context aware tag for consistency across different

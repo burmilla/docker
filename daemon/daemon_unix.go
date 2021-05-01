@@ -14,7 +14,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
@@ -31,6 +30,7 @@ import (
 	"github.com/opencontainers/runc/libcontainer/label"
 	"github.com/opencontainers/runc/libcontainer/user"
 	"github.com/opencontainers/specs/specs-go"
+	"github.com/sirupsen/logrus"
 )
 
 const (

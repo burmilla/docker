@@ -8,7 +8,6 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/exec"
 	"github.com/docker/docker/errors"
@@ -17,6 +16,7 @@ import (
 	"github.com/docker/docker/pkg/term"
 	"github.com/docker/engine-api/types"
 	"github.com/docker/engine-api/types/strslice"
+	"github.com/sirupsen/logrus"
 )
 
 func (d *Daemon) registerExecCommand(container *container.Container, config *exec.Config) {

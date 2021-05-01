@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/cli"
 	"github.com/docker/docker/daemon"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/mflag"
 	"github.com/docker/go-connections/tlsconfig"
+	"github.com/sirupsen/logrus"
 )
 
 func TestLoadDaemonCliConfigWithoutOverriding(t *testing.T) {

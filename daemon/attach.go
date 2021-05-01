@@ -5,12 +5,12 @@ import (
 	"io"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/backend"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/logger"
 	"github.com/docker/docker/errors"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/sirupsen/logrus"
 )
 
 // ContainerAttach attaches to logs according to the config passed in. See ContainerAttachConfig.

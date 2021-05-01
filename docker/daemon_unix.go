@@ -8,12 +8,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Sirupsen/logrus"
 	apiserver "github.com/docker/docker/api/server"
 	"github.com/docker/docker/daemon"
 	"github.com/docker/docker/libcontainerd"
 	"github.com/docker/docker/pkg/mflag"
 	"github.com/docker/docker/pkg/system"
+	"github.com/sirupsen/logrus"
 )
 
 const defaultDaemonConfigFile = "/etc/docker/daemon.json"

@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	containerd "github.com/docker/containerd/api/grpc/types"
 	"github.com/docker/docker/restartmanager"
 	"github.com/opencontainers/specs/specs-go"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/distribution/metadata"
 	"github.com/docker/docker/distribution/xfer"
 	"github.com/docker/docker/image"
@@ -16,6 +15,7 @@ import (
 	"github.com/docker/docker/registry"
 	"github.com/docker/engine-api/types"
 	"github.com/docker/libtrust"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 

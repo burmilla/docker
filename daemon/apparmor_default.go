@@ -3,9 +3,9 @@
 package daemon
 
 import (
-	"github.com/Sirupsen/logrus"
 	aaprofile "github.com/docker/docker/profiles/apparmor"
 	"github.com/opencontainers/runc/libcontainer/apparmor"
+	"github.com/sirupsen/logrus"
 )
 
 // Define constants for native driver

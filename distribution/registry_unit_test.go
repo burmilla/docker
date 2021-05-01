@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/reference"
 	"github.com/docker/docker/registry"
 	"github.com/docker/docker/utils"
 	"github.com/docker/engine-api/types"
 	registrytypes "github.com/docker/engine-api/types/registry"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 

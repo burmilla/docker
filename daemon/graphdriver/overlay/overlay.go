@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"github.com/docker/containerd/subreaper/exec"
 	"path"
 	"sync"
 	"syscall"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/docker/containerd/subreaper/exec"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/pkg/archive"

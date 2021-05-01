@@ -9,13 +9,13 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/Sirupsen/logrus"
 	Cli "github.com/docker/docker/cli"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/promise"
 	"github.com/docker/docker/pkg/signal"
 	runconfigopts "github.com/docker/docker/runconfig/opts"
 	"github.com/docker/engine-api/types"
+	"github.com/sirupsen/logrus"
 )
 
 const (

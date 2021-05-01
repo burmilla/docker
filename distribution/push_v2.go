@@ -6,7 +6,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/digest"
 	"github.com/docker/distribution/manifest/schema1"
@@ -22,6 +21,7 @@ import (
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/reference"
 	"github.com/docker/docker/registry"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 

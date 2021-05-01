@@ -4,8 +4,8 @@ import (
 	"crypto/tls"
 	"net"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/go-connections/sockets"
+	"github.com/sirupsen/logrus"
 )
 
 func initTCPSocket(addr string, tlsConfig *tls.Config) (l net.Listener, err error) {

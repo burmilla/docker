@@ -3,7 +3,7 @@ package daemon
 import (
 	"fmt"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // ContainerRename changes the name of a container, using the oldName

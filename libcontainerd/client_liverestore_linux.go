@@ -5,8 +5,8 @@ package libcontainerd
 import (
 	"fmt"
 
-	"github.com/Sirupsen/logrus"
 	containerd "github.com/docker/containerd/api/grpc/types"
+	"github.com/sirupsen/logrus"
 )
 
 func (clnt *client) restore(cont *containerd.Container, options ...CreateOption) (err error) {

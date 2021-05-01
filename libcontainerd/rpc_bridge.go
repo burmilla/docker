@@ -5,11 +5,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/containerd/api/grpc/server"
 	"github.com/docker/containerd/api/grpc/types"
 	"github.com/docker/containerd/subreaper"
 	"github.com/docker/containerd/supervisor"
+	"github.com/sirupsen/logrus"
 )
 
 type bridge struct {

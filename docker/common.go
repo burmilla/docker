@@ -5,12 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/cli"
 	"github.com/docker/docker/cliconfig"
 	"github.com/docker/docker/opts"
 	flag "github.com/docker/docker/pkg/mflag"
 	"github.com/docker/go-connections/tlsconfig"
+	"github.com/sirupsen/logrus"
 )
 
 const (

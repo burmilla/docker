@@ -14,13 +14,13 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/signal"
 	"github.com/docker/docker/pkg/term"
 	"github.com/docker/docker/registry"
 	"github.com/docker/engine-api/client"
 	"github.com/docker/engine-api/types"
 	registrytypes "github.com/docker/engine-api/types/registry"
+	"github.com/sirupsen/logrus"
 )
 
 func (cli *DockerCli) electAuthServer() string {

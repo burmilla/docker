@@ -19,7 +19,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	containerd "github.com/docker/containerd/api/grpc/types"
 	"github.com/docker/docker/api"
 	"github.com/docker/docker/builder"
@@ -34,6 +33,8 @@ import (
 	networktypes "github.com/docker/engine-api/types/network"
 	registrytypes "github.com/docker/engine-api/types/registry"
 	"github.com/docker/engine-api/types/strslice"
+	"github.com/sirupsen/logrus"
+
 	// register graph drivers
 	_ "github.com/docker/docker/daemon/graphdriver/register"
 	"github.com/docker/docker/daemon/logger"

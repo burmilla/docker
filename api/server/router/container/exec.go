@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/server/httputils"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/engine-api/types"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 

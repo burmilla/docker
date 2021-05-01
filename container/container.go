@@ -12,7 +12,6 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/daemon/exec"
 	"github.com/docker/docker/daemon/logger"
 	"github.com/docker/docker/daemon/logger/jsonfilelog"
@@ -28,6 +27,7 @@ import (
 	"github.com/docker/docker/volume"
 	containertypes "github.com/docker/engine-api/types/container"
 	"github.com/opencontainers/runc/libcontainer/label"
+	"github.com/sirupsen/logrus"
 )
 
 const configFileName = "config.v2.json"

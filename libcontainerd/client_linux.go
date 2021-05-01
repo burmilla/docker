@@ -9,11 +9,11 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/Sirupsen/logrus"
 	containerd "github.com/docker/containerd/api/grpc/types"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/opencontainers/specs/specs-go"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 

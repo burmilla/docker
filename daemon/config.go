@@ -9,11 +9,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/opts"
 	flag "github.com/docker/docker/pkg/mflag"
 	"github.com/docker/docker/registry"
 	"github.com/imdario/mergo"
+	"github.com/sirupsen/logrus"
 )
 
 const (

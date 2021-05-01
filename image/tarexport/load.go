@@ -9,9 +9,8 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/image"
-	"github.com/docker/docker/image/v1"
+	v1 "github.com/docker/docker/image/v1"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/chrootarchive"
@@ -20,6 +19,7 @@ import (
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/symlink"
 	"github.com/docker/docker/reference"
+	"github.com/sirupsen/logrus"
 )
 
 func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer, quiet bool) error {

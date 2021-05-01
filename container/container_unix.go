@@ -10,7 +10,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/chrootarchive"
 	"github.com/docker/docker/pkg/symlink"
 	"github.com/docker/docker/pkg/system"
@@ -18,6 +17,7 @@ import (
 	"github.com/docker/docker/volume"
 	containertypes "github.com/docker/engine-api/types/container"
 	"github.com/opencontainers/runc/libcontainer/label"
+	"github.com/sirupsen/logrus"
 )
 
 // DefaultSHMSize is the default size (64MB) of the SHM which will be mounted in the container

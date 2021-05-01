@@ -7,9 +7,9 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/libcontainerd"
 	"github.com/docker/docker/runconfig"
+	"github.com/sirupsen/logrus"
 )
 
 // StateChanged updates daemon state changes from containerd

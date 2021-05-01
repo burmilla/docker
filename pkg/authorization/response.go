@@ -5,9 +5,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/Sirupsen/logrus"
 	"net"
 	"net/http"
+
+	"github.com/sirupsen/logrus"
 )
 
 // ResponseModifier allows authorization plugins to read and modify the content of the http.response

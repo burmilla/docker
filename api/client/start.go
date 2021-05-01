@@ -8,12 +8,12 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/Sirupsen/logrus"
 	Cli "github.com/docker/docker/cli"
 	flag "github.com/docker/docker/pkg/mflag"
 	"github.com/docker/docker/pkg/promise"
 	"github.com/docker/docker/pkg/signal"
 	"github.com/docker/engine-api/types"
+	"github.com/sirupsen/logrus"
 )
 
 func (cli *DockerCli) forwardAllSignals(cid string) chan os.Signal {

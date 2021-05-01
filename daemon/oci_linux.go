@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/caps"
 	"github.com/docker/docker/libcontainerd"
@@ -22,6 +21,7 @@ import (
 	"github.com/opencontainers/runc/libcontainer/devices"
 	"github.com/opencontainers/runc/libcontainer/user"
 	"github.com/opencontainers/specs/specs-go"
+	"github.com/sirupsen/logrus"
 )
 
 func setResources(s *specs.Spec, r containertypes.Resources) error {

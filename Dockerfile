@@ -126,16 +126,6 @@ RUN git clone https://github.com/golang/lint.git /go/src/github.com/golang/lint 
 	&& (cd /go/src/github.com/golang/lint && git checkout -q $GO_LINT_COMMIT) \
 	&& go install -v github.com/golang/lint/golint
 
-# Install CRIU for checkpoint/restore support
-ENV CRIU_VERSION 2.12.1
-# Install dependancy packages specific to criu
-RUN apt-get install libnet-dev -y && \
-	mkdir -p /usr/src/criu \
-	&& curl -sSL https://github.com/xemul/criu/archive/v${CRIU_VERSION}.tar.gz | tar -v -C /usr/src/criu/ -xz --strip-components=1 \
-	&& cd /usr/src/criu \
-	&& make \
-	&& make install-criu
-
 # Install two versions of the registry. The first is an older version that
 # only supports schema1 manifests. The second is a newer version that supports
 # both. This allows integration-cli tests to cover push/pull with both schema1

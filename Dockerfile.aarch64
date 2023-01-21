@@ -15,7 +15,7 @@
 # the case. Therefore, you don't have to disable it anymore.
 #
 
-FROM aarch64/ubuntu:xenial
+FROM aarch64/ubuntu:bionic
 
 # Packaged dependencies
 RUN apt-get update && apt-get install -y \

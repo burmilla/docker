@@ -71,6 +71,7 @@ RUN apt-get update && apt-get install -y \
 	xfsprogs \
 	zip \
 	--no-install-recommends \
+	&& pip install setuptools \
 	&& pip install awscli==1.10.15
 # Get lvm2 source for compiling statically
 ENV LVM2_VERSION 2.02.103
@@ -177,7 +178,7 @@ RUN git clone https://github.com/docker/docker-py.git /docker-py \
 	&& pip install -r test-requirements.txt
 
 # Install yamllint for validating swagger.yaml
-RUN pip install yamllint==1.5.0
+RUN pip install pathlib && pip install yamllint==1.5.0
 
 # Install go-swagger for validating swagger.yaml
 ENV GO_SWAGGER_COMMIT c28258affb0b6251755d92489ef685af8d4ff3eb

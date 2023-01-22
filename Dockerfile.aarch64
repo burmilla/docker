@@ -18,7 +18,7 @@
 FROM aarch64/ubuntu:xenial
 
 # Packaged dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --force-yes \
 	apparmor \
 	aufs-tools \
 	automake \
@@ -57,14 +57,14 @@ RUN apt-get update && apt-get install -y \
 # Get lvm2 source for compiling statically
 ENV LVM2_VERSION 2.02.103
 RUN mkdir -p /usr/local/lvm2 \
-	&& curl -fsSL "https://mirrors.kernel.org/sourceware/lvm2/LVM2.${LVM2_VERSION}.tgz" \
+	&& curl --insecure -fsSL "https://mirrors.kernel.org/sourceware/lvm2/LVM2.${LVM2_VERSION}.tgz" \
 		| tar -xzC /usr/local/lvm2 --strip-components=1
 # See https://git.fedorahosted.org/cgit/lvm2.git/refs/tags for release tags
 
 # Fix platform enablement in lvm2 to support aarch64 properly
 RUN set -e \
 	&& for f in config.guess config.sub; do \
-		curl -fsSL -o "/usr/local/lvm2/autoconf/$f" "http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=$f;hb=HEAD"; \
+		curl --insecure -fsSL -o "/usr/local/lvm2/autoconf/$f" "http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=$f;hb=HEAD"; \
 	done
 # "arch.c:78:2: error: #error the arch code needs to know about your machine type"
 
@@ -81,7 +81,7 @@ RUN cd /usr/local/lvm2 \
 ENV SECCOMP_VERSION 2.3.2
 RUN set -x \
 	&& export SECCOMP_PATH="$(mktemp -d)" \
-	&& curl -fsSL "https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz" \
+	&& curl --insecure -fsSL "https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz" \
 		| tar -xzC "$SECCOMP_PATH" --strip-components=1 \
 	&& ( \
 		cd "$SECCOMP_PATH" \
@@ -98,7 +98,7 @@ RUN set -x \
 # We don't use the official ARMv6 released binaries as a GOROOT_BOOTSTRAP, because
 # not all ARM64 platforms support 32-bit mode. 32-bit mode is optional for ARMv8.
 ENV GO_VERSION 1.8.3
-RUN mkdir /usr/src/go && curl -fsSL https://golang.org/dl/go${GO_VERSION}.src.tar.gz | tar -v -C /usr/src/go -xz --strip-components=1 \
+RUN mkdir /usr/src/go && curl --insecure -fsSL https://golang.org/dl/go${GO_VERSION}.src.tar.gz | tar -v -C /usr/src/go -xz --strip-components=1 \
 	&& cd /usr/src/go/src \
 	&& GOOS=linux GOARCH=arm64 GOROOT_BOOTSTRAP="$(go env GOROOT)" ./make.bash
 
@@ -153,7 +153,7 @@ RUN git clone https://github.com/docker/docker-py.git /docker-py \
 	&& pip install -r test-requirements.txt
 
 # Install yamllint for validating swagger.yaml
-RUN pip install yamllint==1.5.0
+RUN pip install pathlib && pip install yamllint==1.5.0
 
 # Install go-swagger for validating swagger.yaml
 ENV GO_SWAGGER_COMMIT c28258affb0b6251755d92489ef685af8d4ff3eb

@@ -30,7 +30,7 @@ ARG APT_MIRROR=deb.debian.org
 RUN sed -ri "s/(httpredir|deb).debian.org/$APT_MIRROR/g" /etc/apt/sources.list
 
 # Packaged dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --force-yes \
 	apparmor \
 	apt-utils \
 	aufs-tools \
@@ -75,7 +75,7 @@ RUN apt-get update && apt-get install -y \
 # Get lvm2 source for compiling statically
 ENV LVM2_VERSION 2.02.103
 RUN mkdir -p /usr/local/lvm2 \
-	&& curl -fsSL "https://mirrors.kernel.org/sourceware/lvm2/LVM2.${LVM2_VERSION}.tgz" \
+	&& curl --insecure -fsSL "https://mirrors.kernel.org/sourceware/lvm2/LVM2.${LVM2_VERSION}.tgz" \
 		| tar -xzC /usr/local/lvm2 --strip-components=1
 # See https://git.fedorahosted.org/cgit/lvm2.git/refs/tags for release tags
 
@@ -92,7 +92,7 @@ RUN cd /usr/local/lvm2 \
 ENV SECCOMP_VERSION 2.3.2
 RUN set -x \
 	&& export SECCOMP_PATH="$(mktemp -d)" \
-	&& curl -fsSL "https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz" \
+	&& curl --insecure -fsSL "https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz" \
 		| tar -xzC "$SECCOMP_PATH" --strip-components=1 \
 	&& ( \
 		cd "$SECCOMP_PATH" \
@@ -108,7 +108,7 @@ RUN set -x \
 #            will need updating, to avoid errors. Ping #docker-maintainers on IRC
 #            with a heads-up.
 ENV GO_VERSION 1.8.3
-RUN curl -fsSL "https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
+RUN curl --insecure -fsSL "https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
 	| tar -xzC /usr/local
 
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
@@ -128,9 +128,9 @@ RUN git clone https://github.com/golang/lint.git /go/src/github.com/golang/lint 
 # Install CRIU for checkpoint/restore support
 ENV CRIU_VERSION 2.12.1
 # Install dependancy packages specific to criu
-RUN apt-get install libnet-dev -y && \
+RUN apt-get install libnet-dev -y --force-yes && \
 	mkdir -p /usr/src/criu \
-	&& curl -sSL https://github.com/xemul/criu/archive/v${CRIU_VERSION}.tar.gz | tar -v -C /usr/src/criu/ -xz --strip-components=1 \
+	&& curl --insecure -sSL https://github.com/xemul/criu/archive/v${CRIU_VERSION}.tar.gz | tar -v -C /usr/src/criu/ -xz --strip-components=1 \
 	&& cd /usr/src/criu \
 	&& make \
 	&& make install-criu
@@ -177,7 +177,7 @@ RUN git clone https://github.com/docker/docker-py.git /docker-py \
 	&& pip install -r test-requirements.txt
 
 # Install yamllint for validating swagger.yaml
-RUN pip install yamllint==1.5.0
+RUN pip install pathlib && pip install yamllint==1.5.0
 
 # Install go-swagger for validating swagger.yaml
 ENV GO_SWAGGER_COMMIT c28258affb0b6251755d92489ef685af8d4ff3eb

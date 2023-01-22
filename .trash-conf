@@ -144,7 +144,7 @@ imports:
   github.com/docker/libnetwork:
     package: github.com/docker/libnetwork
     version: b5cf4625d08ddfcbfce4426e29996bddb15b22b6
-    repo: https://github.com/niusmallnan/libnetwork
+    repo: https://github.com/burmilla/libnetwork
     update: false
     options: {}
   github.com/docker/libtrust:

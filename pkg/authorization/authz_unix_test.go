@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 // TODO Windows: This uses a Unix socket for testing. This might be possible
@@ -20,8 +21,8 @@ import (
 	"bytes"
 	"strings"
 
+	"github.com/burmilla/go-connections-old/tlsconfig"
 	"github.com/docker/docker/pkg/plugins"
-	"github.com/docker/go-connections/tlsconfig"
 	"github.com/gorilla/mux"
 )
 
@@ -144,7 +145,7 @@ func TestDrainBody(t *testing.T) {
 		length             int // length is the message length send to drainBody
 		expectedBodyLength int // expectedBodyLength is the expected body length after drainBody is called
 	}{
-		{10, 10}, // Small message size
+		{10, 10},                           // Small message size
 		{maxBodySize - 1, maxBodySize - 1}, // Max message size
 		{maxBodySize * 2, 0},               // Large message size (skip copying body)
 

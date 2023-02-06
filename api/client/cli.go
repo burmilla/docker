@@ -8,6 +8,8 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/burmilla/go-connections-old/sockets"
+	"github.com/burmilla/go-connections-old/tlsconfig"
 	"github.com/docker/docker/api"
 	"github.com/docker/docker/cli"
 	"github.com/docker/docker/cliconfig"
@@ -16,8 +18,6 @@ import (
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/term"
 	"github.com/docker/engine-api/client"
-	"github.com/docker/go-connections/sockets"
-	"github.com/docker/go-connections/tlsconfig"
 )
 
 // DockerCli represents the docker command line client.

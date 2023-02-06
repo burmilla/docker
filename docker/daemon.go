@@ -1,3 +1,4 @@
+//go:build daemon
 // +build daemon
 
 package docker
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/burmilla/go-connections-old/tlsconfig"
 	"github.com/docker/distribution/uuid"
 	apiserver "github.com/docker/docker/api/server"
 	"github.com/docker/docker/api/server/router"
@@ -36,7 +38,6 @@ import (
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/registry"
 	"github.com/docker/docker/utils"
-	"github.com/docker/go-connections/tlsconfig"
 	"github.com/sirupsen/logrus"
 )
 

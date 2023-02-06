@@ -13,7 +13,7 @@ import:
   version: 7e54b5c2aa6eaff4286c44129c3def899dff528c
 - package: github.com/docker/docker
   version: 2f6e3b0ba027b558adabd41344fee59db4441011
-- package: github.com/docker/go-connections
+- package: github.com/burmilla/go-connections-old
   version: v0.2.0
 - package: github.com/docker/go-units
   version: 5d2041e26a699eaca682e2ea41c8f891e1060444

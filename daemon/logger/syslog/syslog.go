@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 // Package syslog provides the logdriver for forwarding server logs to syslog endpoints.
@@ -17,10 +18,10 @@ import (
 
 	syslog "github.com/RackSec/srslog"
 
+	"github.com/burmilla/go-connections-old/tlsconfig"
 	"github.com/docker/docker/daemon/logger"
 	"github.com/docker/docker/daemon/logger/loggerutils"
 	"github.com/docker/docker/pkg/urlutil"
-	"github.com/docker/go-connections/tlsconfig"
 	"github.com/sirupsen/logrus"
 )
 

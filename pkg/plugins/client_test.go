@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/burmilla/go-connections-old/tlsconfig"
 	"github.com/docker/docker/pkg/plugins/transport"
-	"github.com/docker/go-connections/tlsconfig"
 )
 
 var (

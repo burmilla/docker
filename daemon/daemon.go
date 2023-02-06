@@ -36,6 +36,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	// register graph drivers
+	"github.com/burmilla/go-connections-old/nat"
 	_ "github.com/docker/docker/daemon/graphdriver/register"
 	"github.com/docker/docker/daemon/logger"
 	"github.com/docker/docker/daemon/network"
@@ -66,7 +67,6 @@ import (
 	volumedrivers "github.com/docker/docker/volume/drivers"
 	"github.com/docker/docker/volume/local"
 	"github.com/docker/docker/volume/store"
-	"github.com/docker/go-connections/nat"
 	"github.com/docker/libtrust"
 	"golang.org/x/net/context"
 )
@@ -129,11 +129,11 @@ type Daemon struct {
 
 // GetContainer looks for a container using the provided information, which could be
 // one of the following inputs from the caller:
-//  - A full container ID, which will exact match a container in daemon's list
-//  - A container name, which will only exact match via the GetByName() function
-//  - A partial container ID prefix (e.g. short ID) of any length that is
-//    unique enough to only return a single container object
-//  If none of these searches succeed, an error is returned
+//   - A full container ID, which will exact match a container in daemon's list
+//   - A container name, which will only exact match via the GetByName() function
+//   - A partial container ID prefix (e.g. short ID) of any length that is
+//     unique enough to only return a single container object
+//     If none of these searches succeed, an error is returned
 func (daemon *Daemon) GetContainer(prefixOrName string) (*container.Container, error) {
 	if len(prefixOrName) == 0 {
 		return nil, errors.NewBadRequestError(fmt.Errorf("No container name or ID supplied"))

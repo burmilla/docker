@@ -6,9 +6,9 @@ import (
 
 	"golang.org/x/net/context"
 
+	"github.com/burmilla/go-connections-old/nat"
 	Cli "github.com/docker/docker/cli"
 	flag "github.com/docker/docker/pkg/mflag"
-	"github.com/docker/go-connections/nat"
 )
 
 // CmdPort lists port mappings for a container.

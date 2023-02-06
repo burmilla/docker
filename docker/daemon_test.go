@@ -1,3 +1,4 @@
+//go:build daemon
 // +build daemon
 
 package docker
@@ -8,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/burmilla/go-connections-old/tlsconfig"
 	"github.com/docker/docker/cli"
 	"github.com/docker/docker/daemon"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/mflag"
-	"github.com/docker/go-connections/tlsconfig"
 	"github.com/sirupsen/logrus"
 )
 

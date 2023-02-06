@@ -3,9 +3,9 @@ package runconfig
 import (
 	"testing"
 
+	"github.com/burmilla/go-connections-old/nat"
 	"github.com/docker/engine-api/types/container"
 	"github.com/docker/engine-api/types/strslice"
-	"github.com/docker/go-connections/nat"
 )
 
 // Just to make life easier

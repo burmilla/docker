@@ -1,8 +1,8 @@
 package network
 
 import (
+	"github.com/burmilla/go-connections-old/nat"
 	networktypes "github.com/docker/engine-api/types/network"
-	"github.com/docker/go-connections/nat"
 )
 
 // Settings stores configuration details about the daemon network config

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/burmilla/go-connections-old/nat"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/dockerversion"
 	"github.com/docker/docker/image"
@@ -16,7 +17,6 @@ import (
 	"github.com/docker/docker/reference"
 	"github.com/docker/engine-api/types"
 	containertypes "github.com/docker/engine-api/types/container"
-	"github.com/docker/go-connections/nat"
 )
 
 // merge merges two Config, the image container configuration (defaults values),

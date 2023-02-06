@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/burmilla/go-connections-old/tlsconfig"
 	"github.com/docker/docker/pkg/plugins"
-	"github.com/docker/go-connections/tlsconfig"
 )
 
 func TestVolumeRequestError(t *testing.T) {

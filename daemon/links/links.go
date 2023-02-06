@@ -5,7 +5,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/docker/go-connections/nat"
+	"github.com/burmilla/go-connections-old/nat"
 )
 
 // Link struct holds informations about parent/child linked container

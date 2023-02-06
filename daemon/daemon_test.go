@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/burmilla/go-connections-old/nat"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/pkg/discovery"
 	_ "github.com/docker/docker/pkg/discovery/memory"
@@ -18,7 +19,6 @@ import (
 	"github.com/docker/docker/volume/local"
 	"github.com/docker/docker/volume/store"
 	containertypes "github.com/docker/engine-api/types/container"
-	"github.com/docker/go-connections/nat"
 )
 
 //

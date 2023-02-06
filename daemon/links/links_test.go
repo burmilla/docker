@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/docker/go-connections/nat"
+	"github.com/burmilla/go-connections-old/nat"
 )
 
 // Just to make life easier

@@ -10,11 +10,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/burmilla/go-connections-old/nat"
 	flag "github.com/docker/docker/pkg/mflag"
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/engine-api/types/container"
 	networktypes "github.com/docker/engine-api/types/network"
-	"github.com/docker/go-connections/nat"
 )
 
 func parseRun(args []string) (*container.Config, *container.HostConfig, *networktypes.NetworkingConfig, *flag.FlagSet, error) {

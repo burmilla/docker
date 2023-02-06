@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"net"
 
-	"github.com/docker/go-connections/sockets"
+	"github.com/burmilla/go-connections-old/sockets"
 	"github.com/sirupsen/logrus"
 )
 

@@ -1,4 +1,4 @@
-[![GoDoc](https://godoc.org/github.com/docker/go-connections?status.svg)](https://godoc.org/github.com/docker/go-connections)
+[![GoDoc](https://godoc.org/github.com/burmilla/go-connections-old?status.svg)](https://godoc.org/github.com/burmilla/go-connections-old)
 
 # Introduction
 
@@ -6,7 +6,7 @@ go-connections provides common package to work with network connections.
 
 ## Usage
 
-See the [docs in godoc](https://godoc.org/github.com/docker/go-connections) for examples and documentation.
+See the [docs in godoc](https://godoc.org/github.com/burmilla/go-connections-old) for examples and documentation.
 
 ## License
 

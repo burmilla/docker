@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/burmilla/go-connections-old/sockets"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/dockerversion"
 	"github.com/docker/docker/pkg/fileutils"
@@ -18,7 +19,6 @@ import (
 	"github.com/docker/docker/utils"
 	volumedrivers "github.com/docker/docker/volume/drivers"
 	"github.com/docker/engine-api/types"
-	"github.com/docker/go-connections/sockets"
 	"github.com/sirupsen/logrus"
 )
 

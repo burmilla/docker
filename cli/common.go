@@ -1,8 +1,8 @@
 package cli
 
 import (
+	"github.com/burmilla/go-connections-old/tlsconfig"
 	flag "github.com/docker/docker/pkg/mflag"
-	"github.com/docker/go-connections/tlsconfig"
 )
 
 // CommonFlags represents flags that are common to both the client and the daemon.

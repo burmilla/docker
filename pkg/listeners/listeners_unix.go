@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package listeners
@@ -8,8 +9,8 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/burmilla/go-connections-old/sockets"
 	"github.com/coreos/go-systemd/activation"
-	"github.com/docker/go-connections/sockets"
 	"github.com/sirupsen/logrus"
 )
 

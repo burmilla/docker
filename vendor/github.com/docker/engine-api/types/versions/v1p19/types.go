@@ -2,10 +2,10 @@
 package v1p19
 
 import (
+	"github.com/burmilla/go-connections-old/nat"
 	"github.com/docker/engine-api/types"
 	"github.com/docker/engine-api/types/container"
 	"github.com/docker/engine-api/types/versions/v1p20"
-	"github.com/docker/go-connections/nat"
 )
 
 // ContainerJSON is a backcompatibility struct for APIs prior to 1.20.

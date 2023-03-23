@@ -24,10 +24,7 @@
 #
 
 FROM debian:jessie
-
-# allow replacing httpredir or deb mirror
-ARG APT_MIRROR=deb.debian.org
-RUN sed -ri "s/(httpredir|deb).debian.org/$APT_MIRROR/g" /etc/apt/sources.list
+COPY /sources.list /etc/apt/
 
 # Packaged dependencies
 RUN apt-get update && apt-get install -y --force-yes \

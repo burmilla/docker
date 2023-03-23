@@ -1,0 +1,4 @@
+deb http://snapshot.debian.org/archive/debian/20221231T090612Z/ jessie main
+deb http://snapshot.debian.org/archive/debian-security/20221231T090612Z/ jessie/updates main
+deb http://snapshot.debian.org/archive/debian/20221231T090612Z/ jessie-updates main
+

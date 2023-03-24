@@ -55,11 +55,6 @@ imports:
     version: e39d623f12e8e41c7b5529e9a9dd67a1e2261f80
     update: false
     options: {}
-  github.com/aws/aws-sdk-go:
-    package: github.com/aws/aws-sdk-go
-    version: v1.4.22
-    update: false
-    options: {}
   github.com/beorn7/perks:
     package: github.com/beorn7/perks
     version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9

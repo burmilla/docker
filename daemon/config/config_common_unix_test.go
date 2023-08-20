@@ -72,7 +72,7 @@ func TestCommonUnixGetInitPath(t *testing.T) {
 		},
 		{
 			config:           &Config{},
-			expectedInitPath: "system-docker-init",
+			expectedInitPath: "system-engine-init",
 		},
 	}
 	for _, tc := range testCases {

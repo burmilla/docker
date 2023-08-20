@@ -64,7 +64,7 @@ import (
 var (
 	// DefaultRuntimeBinary is the default runtime to be used by
 	// containerd if none is specified
-	DefaultRuntimeBinary = "system-docker-runc"
+	DefaultRuntimeBinary = "system-engine-rc"
 
 	errSystemNotSupported = errors.New("The Docker daemon is not supported on this platform.")
 )

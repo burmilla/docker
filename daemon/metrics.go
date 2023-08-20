@@ -141,7 +141,7 @@ func (p metricsPlugin) sock() string {
 }
 
 func (p metricsPlugin) sockBase() string {
-	return filepath.Join(p.BasePath(), "run", "system-docker")
+	return filepath.Join(p.BasePath(), "run", "system-engine")
 }
 
 func pluginStartMetricsCollection(p plugingetter.CompatPlugin) error {

@@ -368,7 +368,7 @@ func (container *Container) StartLogger() (logger.Logger, error) {
 		ContainerCreated:    container.Created,
 		ContainerEnv:        container.Config.Env,
 		ContainerLabels:     container.Config.Labels,
-		DaemonName:          "system-docker",
+		DaemonName:          "system-engine",
 	}
 
 	// Set logging file for "json-logger"

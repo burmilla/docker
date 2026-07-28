@@ -90,11 +90,11 @@ for version in "${versions[@]}"; do
 	case "$suite" in
 		wheezy|jessie|trusty)
 			packages=( "${packages[@]/libseccomp-dev}" )
-			runcBuildTags="apparmor selinux"
+			runcBuildTags="apparmor"
 			;;
 		*)
 			extraBuildTags+=' seccomp'
-			runcBuildTags="apparmor seccomp selinux"
+			runcBuildTags="apparmor seccomp"
 			;;
 	esac
 
@@ -123,7 +123,7 @@ for version in "${versions[@]}"; do
 	echo >> "$version/Dockerfile"
 
 	# print build tags in alphabetical order
-	buildTags=$( echo "apparmor selinux $extraBuildTags" | xargs -n1 | sort -n | tr '\n' ' ' | sed -e 's/[[:space:]]*$//' )
+	buildTags=$( echo "apparmor $extraBuildTags" | xargs -n1 | sort -n | tr '\n' ' ' | sed -e 's/[[:space:]]*$//' )
 
 	echo "ENV DOCKER_BUILDTAGS $buildTags" >> "$version/Dockerfile"
 	echo "ENV RUNC_BUILDTAGS $runcBuildTags" >> "$version/Dockerfile"

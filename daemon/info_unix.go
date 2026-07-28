@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package daemon
@@ -16,14 +17,6 @@ import (
 
 // FillPlatformInfo fills the platform related info.
 func (daemon *Daemon) FillPlatformInfo(v *types.Info, sysInfo *sysinfo.SysInfo) {
-	v.MemoryLimit = sysInfo.MemoryLimit
-	v.SwapLimit = sysInfo.SwapLimit
-	v.KernelMemory = sysInfo.KernelMemory
-	v.OomKillDisable = sysInfo.OomKillDisable
-	v.CPUCfsPeriod = sysInfo.CPUCfsPeriod
-	v.CPUCfsQuota = sysInfo.CPUCfsQuota
-	v.CPUShares = sysInfo.CPUShares
-	v.CPUSet = sysInfo.Cpuset
 	v.Runtimes = daemon.configStore.GetAllRuntimes()
 	v.DefaultRuntime = daemon.configStore.GetDefaultRuntimeName()
 	v.InitBinary = daemon.configStore.GetInitPath()

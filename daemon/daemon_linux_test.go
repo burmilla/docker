@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package daemon
@@ -13,17 +14,6 @@ const mountsFixture = `142 78 0:38 / / rw,relatime - aufs none rw,si=573b861da0b
 145 144 0:78 / /dev/pts rw,nosuid,noexec,relatime - devpts devpts rw,gid=5,mode=620,ptmxmode=666
 146 144 0:49 / /dev/mqueue rw,nosuid,nodev,noexec,relatime - mqueue mqueue rw
 147 142 0:84 / /sys rw,nosuid,nodev,noexec,relatime - sysfs sysfs rw
-148 147 0:86 / /sys/fs/cgroup rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,mode=755
-149 148 0:22 /docker/5425782a95e643181d8a485a2bab3c0bb21f51d7dfc03511f0e6fbf3f3aa356a /sys/fs/cgroup/cpuset rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,cpuset
-150 148 0:25 /docker/5425782a95e643181d8a485a2bab3c0bb21f51d7dfc03511f0e6fbf3f3aa356a /sys/fs/cgroup/cpu rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,cpu
-151 148 0:27 /docker/5425782a95e643181d8a485a2bab3c0bb21f51d7dfc03511f0e6fbf3f3aa356a /sys/fs/cgroup/cpuacct rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,cpuacct
-152 148 0:28 /docker/5425782a95e643181d8a485a2bab3c0bb21f51d7dfc03511f0e6fbf3f3aa356a /sys/fs/cgroup/memory rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,memory
-153 148 0:29 /docker/5425782a95e643181d8a485a2bab3c0bb21f51d7dfc03511f0e6fbf3f3aa356a /sys/fs/cgroup/devices rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,devices
-154 148 0:30 /docker/5425782a95e643181d8a485a2bab3c0bb21f51d7dfc03511f0e6fbf3f3aa356a /sys/fs/cgroup/freezer rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,freezer
-155 148 0:31 /docker/5425782a95e643181d8a485a2bab3c0bb21f51d7dfc03511f0e6fbf3f3aa356a /sys/fs/cgroup/blkio rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,blkio
-156 148 0:32 /docker/5425782a95e643181d8a485a2bab3c0bb21f51d7dfc03511f0e6fbf3f3aa356a /sys/fs/cgroup/perf_event rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,perf_event
-157 148 0:33 /docker/5425782a95e643181d8a485a2bab3c0bb21f51d7dfc03511f0e6fbf3f3aa356a /sys/fs/cgroup/hugetlb rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,hugetlb
-158 148 0:35 /docker/5425782a95e643181d8a485a2bab3c0bb21f51d7dfc03511f0e6fbf3f3aa356a /sys/fs/cgroup/systemd rw,nosuid,nodev,noexec,relatime - cgroup systemd rw,name=systemd
 159 142 8:4 /home/mlaventure/gopath /home/mlaventure/gopath rw,relatime - ext4 /dev/disk/by-uuid/d99e196c-1fc4-4b4f-bab9-9962b2b34e99 rw,errors=remount-ro,data=ordered
 160 142 8:4 /var/lib/docker/volumes/9a428b651ee4c538130143cad8d87f603a4bf31b928afe7ff3ecd65480692b35/_data /var/lib/docker rw,relatime - ext4 /dev/disk/by-uuid/d99e196c-1fc4-4b4f-bab9-9962b2b34e99 rw,errors=remount-ro,data=ordered
 164 142 8:4 /home/mlaventure/gopath/src/github.com/docker/docker /go/src/github.com/docker/docker rw,relatime - ext4 /dev/disk/by-uuid/d99e196c-1fc4-4b4f-bab9-9962b2b34e99 rw,errors=remount-ro,data=ordered

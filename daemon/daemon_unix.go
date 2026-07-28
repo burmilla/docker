@@ -1,3 +1,4 @@
+//go:build linux || freebsd
 // +build linux freebsd
 
 package daemon
@@ -20,14 +21,12 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/blkiodev"
-	pblkiodev "github.com/docker/docker/api/types/blkiodev"
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/config"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/idtools"
-	"github.com/docker/docker/pkg/parsers"
 	"github.com/docker/docker/pkg/parsers/kernel"
 	"github.com/docker/docker/pkg/sysinfo"
 	"github.com/docker/docker/runconfig"
@@ -40,7 +39,6 @@ import (
 	"github.com/docker/libnetwork/options"
 	lntypes "github.com/docker/libnetwork/types"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/opencontainers/runc/libcontainer/cgroups"
 	rsystem "github.com/opencontainers/runc/libcontainer/system"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/opencontainers/selinux/go-selinux/label"
@@ -58,10 +56,6 @@ const (
 	// constants for remapped root settings
 	defaultIDSpecifier string = "default"
 	defaultRemappedID  string = "dockremap"
-
-	// constant for cgroup drivers
-	cgroupFsDriver      = "cgroupfs"
-	cgroupSystemdDriver = "systemd"
 )
 
 func getMemoryResources(config containertypes.Resources) *specs.LinuxMemory {
@@ -297,221 +291,28 @@ func (daemon *Daemon) adaptContainerSettings(hostConfig *containertypes.HostConf
 func verifyContainerResources(resources *containertypes.Resources, sysInfo *sysinfo.SysInfo, update bool) ([]string, error) {
 	warnings := []string{}
 
-	// memory subsystem checks and adjustments
-	if resources.Memory != 0 && resources.Memory < linuxMinMemory {
-		return warnings, fmt.Errorf("Minimum memory limit allowed is 4MB")
-	}
-	if resources.Memory > 0 && !sysInfo.MemoryLimit {
-		warnings = append(warnings, "Your kernel does not support memory limit capabilities or the cgroup is not mounted. Limitation discarded.")
-		logrus.Warn("Your kernel does not support memory limit capabilities or the cgroup is not mounted. Limitation discarded.")
-		resources.Memory = 0
-		resources.MemorySwap = -1
-	}
-	if resources.Memory > 0 && resources.MemorySwap != -1 && !sysInfo.SwapLimit {
-		warnings = append(warnings, "Your kernel does not support swap limit capabilities or the cgroup is not mounted. Memory limited without swap.")
-		logrus.Warn("Your kernel does not support swap limit capabilities,or the cgroup is not mounted. Memory limited without swap.")
-		resources.MemorySwap = -1
-	}
-	if resources.Memory > 0 && resources.MemorySwap > 0 && resources.MemorySwap < resources.Memory {
-		return warnings, fmt.Errorf("Minimum memoryswap limit should be larger than memory limit, see usage")
-	}
-	if resources.Memory == 0 && resources.MemorySwap > 0 && !update {
-		return warnings, fmt.Errorf("You should always set the Memory limit when using Memoryswap limit, see usage")
-	}
-	if resources.MemorySwappiness != nil && *resources.MemorySwappiness != -1 && !sysInfo.MemorySwappiness {
-		warnings = append(warnings, "Your kernel does not support memory swappiness capabilities or the cgroup is not mounted. Memory swappiness discarded.")
-		logrus.Warn("Your kernel does not support memory swappiness capabilities, or the cgroup is not mounted. Memory swappiness discarded.")
-		resources.MemorySwappiness = nil
-	}
-	if resources.MemorySwappiness != nil {
-		swappiness := *resources.MemorySwappiness
-		if swappiness < -1 || swappiness > 100 {
-			return warnings, fmt.Errorf("Invalid value: %v, valid memory swappiness range is 0-100", swappiness)
-		}
-	}
-	if resources.MemoryReservation > 0 && !sysInfo.MemoryReservation {
-		warnings = append(warnings, "Your kernel does not support memory soft limit capabilities or the cgroup is not mounted. Limitation discarded.")
-		logrus.Warn("Your kernel does not support memory soft limit capabilities or the cgroup is not mounted. Limitation discarded.")
-		resources.MemoryReservation = 0
-	}
-	if resources.MemoryReservation > 0 && resources.MemoryReservation < linuxMinMemory {
-		return warnings, fmt.Errorf("Minimum memory reservation allowed is 4MB")
-	}
-	if resources.Memory > 0 && resources.MemoryReservation > 0 && resources.Memory < resources.MemoryReservation {
-		return warnings, fmt.Errorf("Minimum memory limit can not be less than memory reservation limit, see usage")
-	}
-	if resources.KernelMemory > 0 && !sysInfo.KernelMemory {
-		warnings = append(warnings, "Your kernel does not support kernel memory limit capabilities or the cgroup is not mounted. Limitation discarded.")
-		logrus.Warn("Your kernel does not support kernel memory limit capabilities or the cgroup is not mounted. Limitation discarded.")
-		resources.KernelMemory = 0
-	}
-	if resources.KernelMemory > 0 && resources.KernelMemory < linuxMinMemory {
-		return warnings, fmt.Errorf("Minimum kernel memory limit allowed is 4MB")
-	}
-	if resources.KernelMemory > 0 && !kernel.CheckKernelVersion(4, 0, 0) {
-		warnings = append(warnings, "You specified a kernel memory limit on a kernel older than 4.0. Kernel memory limits are experimental on older kernels, it won't work as expected and can cause your system to be unstable.")
-		logrus.Warn("You specified a kernel memory limit on a kernel older than 4.0. Kernel memory limits are experimental on older kernels, it won't work as expected and can cause your system to be unstable.")
-	}
-	if resources.OomKillDisable != nil && !sysInfo.OomKillDisable {
-		// only produce warnings if the setting wasn't to *disable* the OOM Kill; no point
-		// warning the caller if they already wanted the feature to be off
-		if *resources.OomKillDisable {
-			warnings = append(warnings, "Your kernel does not support OomKillDisable. OomKillDisable discarded.")
-			logrus.Warn("Your kernel does not support OomKillDisable. OomKillDisable discarded.")
-		}
-		resources.OomKillDisable = nil
-	}
-
-	if resources.PidsLimit != 0 && !sysInfo.PidsLimit {
-		warnings = append(warnings, "Your kernel does not support pids limit capabilities or the cgroup is not mounted. PIDs limit discarded.")
-		logrus.Warn("Your kernel does not support pids limit capabilities or the cgroup is not mounted. PIDs limit discarded.")
-		resources.PidsLimit = 0
-	}
-
-	// cpu subsystem checks and adjustments
-	if resources.NanoCPUs > 0 && resources.CPUPeriod > 0 {
-		return warnings, fmt.Errorf("Conflicting options: Nano CPUs and CPU Period cannot both be set")
-	}
-	if resources.NanoCPUs > 0 && resources.CPUQuota > 0 {
-		return warnings, fmt.Errorf("Conflicting options: Nano CPUs and CPU Quota cannot both be set")
-	}
-	if resources.NanoCPUs > 0 && (!sysInfo.CPUCfsPeriod || !sysInfo.CPUCfsQuota) {
-		return warnings, fmt.Errorf("NanoCPUs can not be set, as your kernel does not support CPU cfs period/quota or the cgroup is not mounted")
-	}
-	// The highest precision we could get on Linux is 0.001, by setting
-	//   cpu.cfs_period_us=1000ms
-	//   cpu.cfs_quota=1ms
-	// See the following link for details:
-	// https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt
-	// Here we don't set the lower limit and it is up to the underlying platform (e.g., Linux) to return an error.
-	// The error message is 0.01 so that this is consistent with Windows
-	if resources.NanoCPUs < 0 || resources.NanoCPUs > int64(sysinfo.NumCPU())*1e9 {
-		return warnings, fmt.Errorf("Range of CPUs is from 0.01 to %d.00, as there are only %d CPUs available", sysinfo.NumCPU(), sysinfo.NumCPU())
-	}
-
-	if resources.CPUShares > 0 && !sysInfo.CPUShares {
-		warnings = append(warnings, "Your kernel does not support CPU shares or the cgroup is not mounted. Shares discarded.")
-		logrus.Warn("Your kernel does not support CPU shares or the cgroup is not mounted. Shares discarded.")
-		resources.CPUShares = 0
-	}
-	if resources.CPUPeriod > 0 && !sysInfo.CPUCfsPeriod {
-		warnings = append(warnings, "Your kernel does not support CPU cfs period or the cgroup is not mounted. Period discarded.")
-		logrus.Warn("Your kernel does not support CPU cfs period or the cgroup is not mounted. Period discarded.")
-		resources.CPUPeriod = 0
-	}
-	if resources.CPUPeriod != 0 && (resources.CPUPeriod < 1000 || resources.CPUPeriod > 1000000) {
-		return warnings, fmt.Errorf("CPU cfs period can not be less than 1ms (i.e. 1000) or larger than 1s (i.e. 1000000)")
-	}
-	if resources.CPUQuota > 0 && !sysInfo.CPUCfsQuota {
-		warnings = append(warnings, "Your kernel does not support CPU cfs quota or the cgroup is not mounted. Quota discarded.")
-		logrus.Warn("Your kernel does not support CPU cfs quota or the cgroup is not mounted. Quota discarded.")
-		resources.CPUQuota = 0
-	}
-	if resources.CPUQuota > 0 && resources.CPUQuota < 1000 {
-		return warnings, fmt.Errorf("CPU cfs quota can not be less than 1ms (i.e. 1000)")
-	}
-	if resources.CPUPercent > 0 {
-		warnings = append(warnings, fmt.Sprintf("%s does not support CPU percent. Percent discarded.", runtime.GOOS))
-		logrus.Warnf("%s does not support CPU percent. Percent discarded.", runtime.GOOS)
-		resources.CPUPercent = 0
-	}
-
-	// cpuset subsystem checks and adjustments
-	if (resources.CpusetCpus != "" || resources.CpusetMems != "") && !sysInfo.Cpuset {
-		warnings = append(warnings, "Your kernel does not support cpuset or the cgroup is not mounted. Cpuset discarded.")
-		logrus.Warn("Your kernel does not support cpuset or the cgroup is not mounted. Cpuset discarded.")
-		resources.CpusetCpus = ""
-		resources.CpusetMems = ""
-	}
-	cpusAvailable, err := sysInfo.IsCpusetCpusAvailable(resources.CpusetCpus)
-	if err != nil {
-		return warnings, fmt.Errorf("Invalid value %s for cpuset cpus", resources.CpusetCpus)
-	}
-	if !cpusAvailable {
-		return warnings, fmt.Errorf("Requested CPUs are not available - requested %s, available: %s", resources.CpusetCpus, sysInfo.Cpus)
-	}
-	memsAvailable, err := sysInfo.IsCpusetMemsAvailable(resources.CpusetMems)
-	if err != nil {
-		return warnings, fmt.Errorf("Invalid value %s for cpuset mems", resources.CpusetMems)
-	}
-	if !memsAvailable {
-		return warnings, fmt.Errorf("Requested memory nodes are not available - requested %s, available: %s", resources.CpusetMems, sysInfo.Mems)
-	}
-
-	// blkio subsystem checks and adjustments
-	if resources.BlkioWeight > 0 && !sysInfo.BlkioWeight {
-		warnings = append(warnings, "Your kernel does not support Block I/O weight or the cgroup is not mounted. Weight discarded.")
-		logrus.Warn("Your kernel does not support Block I/O weight or the cgroup is not mounted. Weight discarded.")
-		resources.BlkioWeight = 0
-	}
-	if resources.BlkioWeight > 0 && (resources.BlkioWeight < 10 || resources.BlkioWeight > 1000) {
-		return warnings, fmt.Errorf("Range of blkio weight is from 10 to 1000")
-	}
-	if resources.IOMaximumBandwidth != 0 || resources.IOMaximumIOps != 0 {
-		return warnings, fmt.Errorf("Invalid QoS settings: %s does not support Maximum IO Bandwidth or Maximum IO IOps", runtime.GOOS)
-	}
-	if len(resources.BlkioWeightDevice) > 0 && !sysInfo.BlkioWeightDevice {
-		warnings = append(warnings, "Your kernel does not support Block I/O weight_device or the cgroup is not mounted. Weight-device discarded.")
-		logrus.Warn("Your kernel does not support Block I/O weight_device or the cgroup is not mounted. Weight-device discarded.")
+	// Remove all limits which would require cgroups
+	resources.Memory = 0
+	resources.MemorySwap = -1
+	resources.MemoryReservation = 0
+	// resources.KernelMemory = 0
+	// resources.PidsLimit = 0
+	resources.CPUShares = 0
+	resources.CPUPeriod = 0
+	resources.CPUQuota = 0
+	resources.CPUPercent = 0
+	resources.CpusetCpus = ""
+	resources.CpusetMems = ""
+	resources.BlkioWeight = 0
+	/*
 		resources.BlkioWeightDevice = []*pblkiodev.WeightDevice{}
-	}
-	if len(resources.BlkioDeviceReadBps) > 0 && !sysInfo.BlkioReadBpsDevice {
-		warnings = append(warnings, "Your kernel does not support BPS Block I/O read limit or the cgroup is not mounted. Block I/O BPS read limit discarded.")
-		logrus.Warn("Your kernel does not support BPS Block I/O read limit or the cgroup is not mounted. Block I/O BPS read limit discarded")
 		resources.BlkioDeviceReadBps = []*pblkiodev.ThrottleDevice{}
-	}
-	if len(resources.BlkioDeviceWriteBps) > 0 && !sysInfo.BlkioWriteBpsDevice {
-		warnings = append(warnings, "Your kernel does not support BPS Block I/O write limit or the cgroup is not mounted. Block I/O BPS write limit discarded.")
-		logrus.Warn("Your kernel does not support BPS Block I/O write limit or the cgroup is not mounted. Block I/O BPS write limit discarded.")
 		resources.BlkioDeviceWriteBps = []*pblkiodev.ThrottleDevice{}
-	}
-	if len(resources.BlkioDeviceReadIOps) > 0 && !sysInfo.BlkioReadIOpsDevice {
-		warnings = append(warnings, "Your kernel does not support IOPS Block read limit or the cgroup is not mounted. Block I/O IOPS read limit discarded.")
-		logrus.Warn("Your kernel does not support IOPS Block I/O read limit in IO or the cgroup is not mounted. Block I/O IOPS read limit discarded.")
 		resources.BlkioDeviceReadIOps = []*pblkiodev.ThrottleDevice{}
-	}
-	if len(resources.BlkioDeviceWriteIOps) > 0 && !sysInfo.BlkioWriteIOpsDevice {
-		warnings = append(warnings, "Your kernel does not support IOPS Block write limit or the cgroup is not mounted. Block I/O IOPS write limit discarded.")
-		logrus.Warn("Your kernel does not support IOPS Block I/O write limit or the cgroup is not mounted. Block I/O IOPS write limit discarded.")
 		resources.BlkioDeviceWriteIOps = []*pblkiodev.ThrottleDevice{}
-	}
+	*/
 
 	return warnings, nil
-}
-
-func (daemon *Daemon) getCgroupDriver() string {
-	cgroupDriver := cgroupFsDriver
-
-	if UsingSystemd(daemon.configStore) {
-		cgroupDriver = cgroupSystemdDriver
-	}
-	return cgroupDriver
-}
-
-// getCD gets the raw value of the native.cgroupdriver option, if set.
-func getCD(config *config.Config) string {
-	for _, option := range config.ExecOptions {
-		key, val, err := parsers.ParseKeyValueOpt(option)
-		if err != nil || !strings.EqualFold(key, "native.cgroupdriver") {
-			continue
-		}
-		return val
-	}
-	return ""
-}
-
-// VerifyCgroupDriver validates native.cgroupdriver
-func VerifyCgroupDriver(config *config.Config) error {
-	cd := getCD(config)
-	if cd == "" || cd == cgroupFsDriver || cd == cgroupSystemdDriver {
-		return nil
-	}
-	return fmt.Errorf("native.cgroupdriver option %s not supported", cd)
-}
-
-// UsingSystemd returns true if cli option includes native.cgroupdriver=systemd
-func UsingSystemd(config *config.Config) bool {
-	return getCD(config) == cgroupSystemdDriver
 }
 
 // verifyPlatformContainerSettings performs platform-specific validation of the
@@ -557,12 +358,6 @@ func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.
 		}
 		if hostConfig.PidMode.IsHost() && !hostConfig.UsernsMode.IsHost() {
 			return warnings, fmt.Errorf("Cannot share the host PID namespace when user namespaces are enabled")
-		}
-	}
-	if hostConfig.CgroupParent != "" && UsingSystemd(daemon.configStore) {
-		// CgroupParent for systemd cgroup should be named as "xxx.slice"
-		if len(hostConfig.CgroupParent) <= 6 || !strings.HasSuffix(hostConfig.CgroupParent, ".slice") {
-			return warnings, fmt.Errorf("cgroup-parent for systemd cgroup should be a valid slice named as \"xxx.slice\"")
 		}
 	}
 	if hostConfig.Runtime == "" {
@@ -624,14 +419,6 @@ func verifyDaemonSettings(conf *config.Config) error {
 	}
 	if !conf.BridgeConfig.EnableIPTables && conf.BridgeConfig.EnableIPMasq {
 		conf.BridgeConfig.EnableIPMasq = false
-	}
-	if err := VerifyCgroupDriver(conf); err != nil {
-		return err
-	}
-	if conf.CgroupParent != "" && UsingSystemd(conf) {
-		if len(conf.CgroupParent) <= 6 || !strings.HasSuffix(conf.CgroupParent, ".slice") {
-			return fmt.Errorf("cgroup-parent for systemd cgroup should be a valid slice named as \"xxx.slice\"")
-		}
 	}
 
 	if conf.DefaultRuntime == "" {
@@ -942,15 +729,16 @@ func (daemon *Daemon) getLayerInit() func(string) error {
 }
 
 // Parse the remapped root (user namespace) option, which can be one of:
-//   username            - valid username from /etc/passwd
-//   username:groupname  - valid username; valid groupname from /etc/group
-//   uid                 - 32-bit unsigned int valid Linux UID value
-//   uid:gid             - uid value; 32-bit unsigned int Linux GID value
 //
-//  If no groupname is specified, and a username is specified, an attempt
-//  will be made to lookup a gid for that username as a groupname
+//	 username            - valid username from /etc/passwd
+//	 username:groupname  - valid username; valid groupname from /etc/group
+//	 uid                 - 32-bit unsigned int valid Linux UID value
+//	 uid:gid             - uid value; 32-bit unsigned int Linux GID value
 //
-//  If names are used, they are verified to exist in passwd/group
+//	If no groupname is specified, and a username is specified, an attempt
+//	will be made to lookup a gid for that username as a groupname
+//
+//	If names are used, they are verified to exist in passwd/group
 func parseRemappedRoot(usergrp string) (string, string, error) {
 
 	var (
@@ -1171,50 +959,6 @@ func (daemon *Daemon) stats(c *container.Container) (*types.StatsJSON, error) {
 		return nil, err
 	}
 	s := &types.StatsJSON{}
-	cgs := stats.CgroupStats
-	if cgs != nil {
-		s.BlkioStats = types.BlkioStats{
-			IoServiceBytesRecursive: copyBlkioEntry(cgs.BlkioStats.IoServiceBytesRecursive),
-			IoServicedRecursive:     copyBlkioEntry(cgs.BlkioStats.IoServicedRecursive),
-			IoQueuedRecursive:       copyBlkioEntry(cgs.BlkioStats.IoQueuedRecursive),
-			IoServiceTimeRecursive:  copyBlkioEntry(cgs.BlkioStats.IoServiceTimeRecursive),
-			IoWaitTimeRecursive:     copyBlkioEntry(cgs.BlkioStats.IoWaitTimeRecursive),
-			IoMergedRecursive:       copyBlkioEntry(cgs.BlkioStats.IoMergedRecursive),
-			IoTimeRecursive:         copyBlkioEntry(cgs.BlkioStats.IoTimeRecursive),
-			SectorsRecursive:        copyBlkioEntry(cgs.BlkioStats.SectorsRecursive),
-		}
-		cpu := cgs.CpuStats
-		s.CPUStats = types.CPUStats{
-			CPUUsage: types.CPUUsage{
-				TotalUsage:        cpu.CpuUsage.TotalUsage,
-				PercpuUsage:       cpu.CpuUsage.PercpuUsage,
-				UsageInKernelmode: cpu.CpuUsage.UsageInKernelmode,
-				UsageInUsermode:   cpu.CpuUsage.UsageInUsermode,
-			},
-			ThrottlingData: types.ThrottlingData{
-				Periods:          cpu.ThrottlingData.Periods,
-				ThrottledPeriods: cpu.ThrottlingData.ThrottledPeriods,
-				ThrottledTime:    cpu.ThrottlingData.ThrottledTime,
-			},
-		}
-		mem := cgs.MemoryStats.Usage
-		s.MemoryStats = types.MemoryStats{
-			Usage:    mem.Usage,
-			MaxUsage: mem.MaxUsage,
-			Stats:    cgs.MemoryStats.Stats,
-			Failcnt:  mem.Failcnt,
-			Limit:    mem.Limit,
-		}
-		// if the container does not set memory limit, use the machineMemory
-		if mem.Limit > daemon.machineMemory && daemon.machineMemory > 0 {
-			s.MemoryStats.Limit = daemon.machineMemory
-		}
-		if cgs.PidsStats != nil {
-			s.PidsStats = types.PidsStats{
-				Current: cgs.PidsStats.Current,
-			}
-		}
-	}
 	s.Read, err = ptypes.Timestamp(stats.Timestamp)
 	if err != nil {
 		return nil, err
@@ -1264,40 +1008,6 @@ func setupOOMScoreAdj(score int) error {
 	}
 
 	return err
-}
-
-func (daemon *Daemon) initCgroupsPath(path string) error {
-	if path == "/" || path == "." {
-		return nil
-	}
-
-	if daemon.configStore.CPURealtimePeriod == 0 && daemon.configStore.CPURealtimeRuntime == 0 {
-		return nil
-	}
-
-	// Recursively create cgroup to ensure that the system and all parent cgroups have values set
-	// for the period and runtime as this limits what the children can be set to.
-	daemon.initCgroupsPath(filepath.Dir(path))
-
-	mnt, root, err := cgroups.FindCgroupMountpointAndRoot("cpu")
-	if err != nil {
-		return err
-	}
-	// When docker is run inside docker, the root is based of the host cgroup.
-	// Should this be handled in runc/libcontainer/cgroups ?
-	if strings.HasPrefix(root, "/docker/") {
-		root = "/"
-	}
-
-	path = filepath.Join(mnt, root, path)
-	sysinfo := sysinfo.New(true)
-	if err := maybeCreateCPURealTimeFile(sysinfo.CPURealtimePeriod, daemon.configStore.CPURealtimePeriod, "cpu.rt_period_us", path); err != nil {
-		return err
-	}
-	if err := maybeCreateCPURealTimeFile(sysinfo.CPURealtimeRuntime, daemon.configStore.CPURealtimeRuntime, "cpu.rt_runtime_us", path); err != nil {
-		return err
-	}
-	return nil
 }
 
 func maybeCreateCPURealTimeFile(sysinfoPresent bool, configValue int64, file string, path string) error {

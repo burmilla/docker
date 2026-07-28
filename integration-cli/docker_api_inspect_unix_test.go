@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package main
@@ -15,7 +16,6 @@ import (
 // #16665
 func (s *DockerSuite) TestInspectAPICpusetInConfigPre120(c *check.C) {
 	testRequires(c, DaemonIsLinux)
-	testRequires(c, cgroupCpuset)
 
 	name := "cpusetinconfig-pre120"
 	dockerCmd(c, "run", "--name", name, "--cpuset-cpus", "0", "busybox", "true")

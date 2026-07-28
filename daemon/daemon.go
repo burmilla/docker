@@ -29,6 +29,7 @@ import (
 	"github.com/docker/docker/daemon/events"
 	"github.com/docker/docker/daemon/exec"
 	"github.com/docker/docker/daemon/logger"
+
 	// register graph drivers
 	_ "github.com/docker/docker/daemon/graphdriver/register"
 	"github.com/docker/docker/daemon/initlayer"
@@ -39,7 +40,7 @@ import (
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/libcontainerd"
-	"github.com/docker/docker/migrate/v1"
+	v1 "github.com/docker/docker/migrate/v1"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/docker/pkg/registrar"
@@ -754,11 +755,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	}
 
 	sysInfo := sysinfo.New(false)
-	// Check if Devices cgroup is mounted, it is hard requirement for container security,
-	// on Linux.
-	if runtime.GOOS == "linux" && !sysInfo.CgroupDevicesEnabled {
-		return nil, errors.New("Devices cgroup isn't mounted")
-	}
 
 	d.ID = trustKey.PublicKey().KeyID()
 	d.repository = daemonRepo

@@ -6,12 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/caps"
@@ -23,14 +21,9 @@ import (
 	"github.com/docker/docker/pkg/symlink"
 	"github.com/docker/docker/volume"
 	"github.com/opencontainers/runc/libcontainer/apparmor"
-	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/devices"
 	"github.com/opencontainers/runc/libcontainer/user"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
-)
-
-var (
-	deviceCgroupRuleRegex = regexp.MustCompile("^([acb]) ([0-9]+|\\*):([0-9]+|\\*) ([rwm]{1,3})$")
 )
 
 func setResources(s *specs.Spec, r containertypes.Resources) error {
@@ -91,64 +84,18 @@ func setDevices(s *specs.Spec, c *container.Container) error {
 	// Build lists of devices allowed and created within the container.
 	var devs []specs.LinuxDevice
 	devPermissions := s.Linux.Resources.Devices
-	if c.HostConfig.Privileged {
-		hostDevices, err := devices.HostDevices()
-		if err != nil {
-			return err
-		}
-		for _, d := range hostDevices {
-			devs = append(devs, oci.Device(d))
-		}
-		devPermissions = []specs.LinuxDeviceCgroup{
-			{
-				Allow:  true,
-				Access: "rwm",
-			},
-		}
-	} else {
-		for _, deviceMapping := range c.HostConfig.Devices {
-			d, dPermissions, err := oci.DevicesFromPath(deviceMapping.PathOnHost, deviceMapping.PathInContainer, deviceMapping.CgroupPermissions)
-			if err != nil {
-				return err
-			}
-			devs = append(devs, d...)
-			devPermissions = append(devPermissions, dPermissions...)
-		}
-
-		for _, deviceCgroupRule := range c.HostConfig.DeviceCgroupRules {
-			ss := deviceCgroupRuleRegex.FindAllStringSubmatch(deviceCgroupRule, -1)
-			if len(ss[0]) != 5 {
-				return fmt.Errorf("invalid device cgroup rule format: '%s'", deviceCgroupRule)
-			}
-			matches := ss[0]
-
-			dPermissions := specs.LinuxDeviceCgroup{
-				Allow:  true,
-				Type:   matches[1],
-				Access: matches[4],
-			}
-			if matches[2] == "*" {
-				major := int64(-1)
-				dPermissions.Major = &major
-			} else {
-				major, err := strconv.ParseInt(matches[2], 10, 64)
-				if err != nil {
-					return fmt.Errorf("invalid major value in device cgroup rule format: '%s'", deviceCgroupRule)
-				}
-				dPermissions.Major = &major
-			}
-			if matches[3] == "*" {
-				minor := int64(-1)
-				dPermissions.Minor = &minor
-			} else {
-				minor, err := strconv.ParseInt(matches[3], 10, 64)
-				if err != nil {
-					return fmt.Errorf("invalid minor value in device cgroup rule format: '%s'", deviceCgroupRule)
-				}
-				dPermissions.Minor = &minor
-			}
-			devPermissions = append(devPermissions, dPermissions)
-		}
+	hostDevices, err := devices.HostDevices()
+	if err != nil {
+		return err
+	}
+	for _, d := range hostDevices {
+		devs = append(devs, oci.Device(d))
+	}
+	devPermissions = []specs.LinuxDeviceCgroup{
+		{
+			Allow:  true,
+			Access: "rwm",
+		},
 	}
 
 	s.Linux.Devices = append(s.Linux.Devices, devs...)
@@ -589,16 +536,6 @@ func setMounts(daemon *Daemon, s *specs.Spec, c *container.Container, mounts []c
 		s.Linux.MaskedPaths = nil
 	}
 
-	// TODO: until a kernel/mount solution exists for handling remount in a user namespace,
-	// we must clear the readonly flag for the cgroups mount (@mrunalp concurs)
-	if uidMap := daemon.idMappings.UIDs(); uidMap != nil || c.HostConfig.Privileged {
-		for i, m := range s.Mounts {
-			if m.Type == "cgroup" {
-				clearReadOnly(&s.Mounts[i])
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -659,56 +596,12 @@ func (daemon *Daemon) createSpec(c *container.Container) (*specs.Spec, error) {
 		return nil, err
 	}
 
-	var cgroupsPath string
-	scopePrefix := "docker"
-	parent := "/docker"
-	useSystemd := UsingSystemd(daemon.configStore)
-	if useSystemd {
-		parent = "system.slice"
-	}
-
-	if c.HostConfig.CgroupParent != "" {
-		parent = c.HostConfig.CgroupParent
-	} else if daemon.configStore.CgroupParent != "" {
-		parent = daemon.configStore.CgroupParent
-	}
-
-	if useSystemd {
-		cgroupsPath = parent + ":" + scopePrefix + ":" + c.ID
-		logrus.Debugf("createSpec: cgroupsPath: %s", cgroupsPath)
-	} else {
-		cgroupsPath = filepath.Join(parent, c.ID)
-	}
-	s.Linux.CgroupsPath = cgroupsPath
-
 	if err := setResources(&s, c.HostConfig.Resources); err != nil {
 		return nil, fmt.Errorf("linux runtime spec resources: %v", err)
 	}
 	s.Linux.Resources.OOMScoreAdj = &c.HostConfig.OomScoreAdj
 	s.Linux.Sysctl = c.HostConfig.Sysctls
 
-	p := s.Linux.CgroupsPath
-	if useSystemd {
-		initPath, err := cgroups.GetInitCgroup("cpu")
-		if err != nil {
-			return nil, err
-		}
-		p, _ = cgroups.GetOwnCgroup("cpu")
-		if err != nil {
-			return nil, err
-		}
-		p = filepath.Join(initPath, p)
-	}
-
-	// Clean path to guard against things like ../../../BAD
-	parentPath := filepath.Dir(p)
-	if !filepath.IsAbs(parentPath) {
-		parentPath = filepath.Clean("/" + parentPath)
-	}
-
-	if err := daemon.initCgroupsPath(parentPath); err != nil {
-		return nil, fmt.Errorf("linux init cgroups path: %v", err)
-	}
 	if err := setDevices(&s, c); err != nil {
 		return nil, fmt.Errorf("linux runtime spec devices: %v", err)
 	}

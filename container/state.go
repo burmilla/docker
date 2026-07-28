@@ -17,10 +17,6 @@ import (
 // functions defined against State to run against Container.
 type State struct {
 	sync.Mutex
-	// Note that `Running` and `Paused` are not mutually exclusive:
-	// When pausing a container (on Linux), the cgroups freezer is used to suspend
-	// all processes in the container. Freezing the process requires the process to
-	// be running. As a result, paused containers are both `Running` _and_ `Paused`.
 	Running           bool
 	Paused            bool
 	Restarting        bool

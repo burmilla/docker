@@ -11,7 +11,6 @@ import (
 	"github.com/docker/docker/api"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/cli/debug"
-	"github.com/docker/docker/daemon/logger"
 	"github.com/docker/docker/dockerversion"
 	"github.com/docker/docker/pkg/fileutils"
 	"github.com/docker/docker/pkg/parsers/kernel"
@@ -20,7 +19,6 @@ import (
 	"github.com/docker/docker/pkg/sysinfo"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/registry"
-	"github.com/docker/docker/volume/drivers"
 	"github.com/docker/go-connections/sockets"
 )
 
@@ -38,16 +36,6 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 		logrus.Warnf("Could not get operating system name: %v", err)
 	} else {
 		operatingSystem = s
-	}
-
-	// Don't do containerized check on Windows
-	if runtime.GOOS != "windows" {
-		if inContainer, err := operatingsystem.IsContainerized(); err != nil {
-			logrus.Errorf("Could not determine if daemon is containerized: %v", err)
-			operatingSystem += " (error determining if containerized)"
-		} else if inContainer {
-			operatingSystem += " (containerized)"
-		}
 	}
 
 	meminfo, err := system.ReadMemInfo()
@@ -113,7 +101,6 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 		NGoroutines:        runtime.NumGoroutine(),
 		SystemTime:         time.Now().Format(time.RFC3339Nano),
 		LoggingDriver:      daemon.defaultLogConfig.Type,
-		CgroupDriver:       daemon.getCgroupDriver(),
 		NEventsListener:    daemon.EventsService.SubscribersCount(),
 		KernelVersion:      kernelVersion,
 		OperatingSystem:    operatingSystem,
@@ -177,13 +164,5 @@ func (daemon *Daemon) SystemVersion() types.Version {
 
 func (daemon *Daemon) showPluginsInfo() types.PluginsInfo {
 	var pluginsInfo types.PluginsInfo
-
-	pluginsInfo.Volume = volumedrivers.GetDriverList()
-	pluginsInfo.Network = daemon.GetNetworkDriverList()
-	// The authorization plugins are returned in the order they are
-	// used as they constitute a request/response modification chain.
-	pluginsInfo.Authorization = daemon.configStore.AuthorizationPlugins
-	pluginsInfo.Log = logger.ListDrivers()
-
 	return pluginsInfo
 }

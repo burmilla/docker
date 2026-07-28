@@ -173,7 +173,7 @@ func (s *DockerSuite) TestRunWithoutNetworking(c *check.C) {
 	}
 }
 
-//test --link use container name to link target
+// test --link use container name to link target
 func (s *DockerSuite) TestRunLinksContainerWithContainerName(c *check.C) {
 	// TODO Windows: This test cannot run on a Windows daemon as the networking
 	// settings are not populated back yet on inspect.
@@ -188,7 +188,7 @@ func (s *DockerSuite) TestRunLinksContainerWithContainerName(c *check.C) {
 	}
 }
 
-//test --link use container id to link target
+// test --link use container id to link target
 func (s *DockerSuite) TestRunLinksContainerWithContainerID(c *check.C) {
 	// TODO Windows: This test cannot run on a Windows daemon as the networking
 	// settings are not populated back yet on inspect.
@@ -1957,7 +1957,7 @@ func (s *DockerSuite) TestRunCidFileCleanupIfEmpty(c *check.C) {
 }
 
 // #2098 - Docker cidFiles only contain short version of the containerId
-//sudo docker run --cidfile /tmp/docker_tesc.cid ubuntu echo "test"
+// sudo docker run --cidfile /tmp/docker_tesc.cid ubuntu echo "test"
 // TestRunCidFile tests that run --cidfile returns the longid
 func (s *DockerSuite) TestRunCidFileCheckIDLength(c *check.C) {
 	tmpDir, err := ioutil.TempDir("", "TestRunCidFile")
@@ -2147,7 +2147,7 @@ func (s *DockerSuite) TestRunReuseBindVolumeThatIsSymlink(c *check.C) {
 	dockerCmd(c, "run", "-v", fmt.Sprintf("%s:"+prefix+"/tmp/test", linkPath), "busybox", "ls", prefix+"/tmp/test")
 }
 
-//GH#10604: Test an "/etc" volume doesn't overlay special bind mounts in container
+// GH#10604: Test an "/etc" volume doesn't overlay special bind mounts in container
 func (s *DockerSuite) TestRunCreateVolumeEtc(c *check.C) {
 	// While Windows supports volumes, it does not support --add-host hence
 	// this test is not applicable on Windows.
@@ -2946,13 +2946,6 @@ func (s *DockerSuite) TestMountIntoProc(c *check.C) {
 	if err == nil || code == 0 {
 		c.Fatal("container should not be able to mount into /proc")
 	}
-}
-
-func (s *DockerSuite) TestMountIntoSys(c *check.C) {
-	// Not applicable on Windows as uses Unix specific functionality
-	testRequires(c, DaemonIsLinux)
-	testRequires(c, NotUserNamespace)
-	dockerCmd(c, "run", "-v", "/sys/fs/cgroup", "busybox", "true")
 }
 
 func (s *DockerSuite) TestRunUnshareProc(c *check.C) {

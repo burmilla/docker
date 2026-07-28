@@ -28,6 +28,8 @@ COPY /sources.list /etc/apt/
 
 # Packaged dependencies
 RUN apt-get update && apt-get install -y --force-yes \
+	--allow-unauthenticated \
+	--no-install-recommends \
 	apparmor \
 	apt-utils \
 	aufs-tools \
@@ -66,9 +68,10 @@ RUN apt-get update && apt-get install -y --force-yes \
 	vim \
 	vim-common \
 	xfsprogs \
-	zip \
-	--no-install-recommends \
-	&& pip install awscli==1.10.15
+	zip
+
+# RUN	pip install awscli==1.10.15
+
 # Get lvm2 source for compiling statically
 ENV LVM2_VERSION 2.02.103
 RUN mkdir -p /usr/local/lvm2 \
@@ -174,7 +177,7 @@ RUN git clone https://github.com/docker/docker-py.git /docker-py \
 	&& pip install -r test-requirements.txt
 
 # Install yamllint for validating swagger.yaml
-RUN pip install pathlib && pip install yamllint==1.5.0
+# RUN pip install pathlib && pip install yamllint==1.5.0
 
 # Install go-swagger for validating swagger.yaml
 ENV GO_SWAGGER_COMMIT c28258affb0b6251755d92489ef685af8d4ff3eb
@@ -211,7 +214,8 @@ RUN ./contrib/download-frozen-image-v2.sh /docker-frozen-images \
 # Please edit hack/dockerfile/install-binaries.sh to update them.
 COPY hack/dockerfile/binaries-commits /tmp/binaries-commits
 COPY hack/dockerfile/install-binaries.sh /tmp/install-binaries.sh
-RUN /tmp/install-binaries.sh tomlv vndr runc containerd tini proxy dockercli
+RUN /tmp/install-binaries.sh tomlv vndr runc containerd tini proxy
+# dockercli
 ENV PATH=/usr/local/cli:$PATH
 
 # Activate bash completion if mounted with DOCKER_BASH_COMPLETION_PATH

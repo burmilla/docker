@@ -1,96 +1,14 @@
 package runtime
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
-	"strings"
-	"syscall"
 
 	"github.com/containerd/containerd/specs"
 	ocs "github.com/opencontainers/runtime-spec/specs-go"
 )
-
-func findCgroupMountpointAndRoot(pid int, subsystem string) (string, string, error) {
-	f, err := os.Open(fmt.Sprintf("/proc/%d/mountinfo", pid))
-	if err != nil {
-		return "", "", err
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		txt := scanner.Text()
-		fields := strings.Split(txt, " ")
-		for _, opt := range strings.Split(fields[len(fields)-1], ",") {
-			if opt == subsystem {
-				return fields[4], fields[3], nil
-			}
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return "", "", err
-	}
-
-	return "", "", fmt.Errorf("cgroup path for %s not found", subsystem)
-}
-
-func parseCgroupFile(path string) (map[string]string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	s := bufio.NewScanner(f)
-	cgroups := make(map[string]string)
-
-	for s.Scan() {
-		if err := s.Err(); err != nil {
-			return nil, err
-		}
-
-		text := s.Text()
-		parts := strings.Split(text, ":")
-
-		for _, subs := range strings.Split(parts[1], ",") {
-			cgroups[subs] = parts[2]
-		}
-	}
-	return cgroups, nil
-}
-
-func (c *container) OOM() (OOM, error) {
-	p := c.processes[InitProcessID]
-	if p == nil {
-		return nil, fmt.Errorf("no init process found")
-	}
-
-	mountpoint, hostRoot, err := findCgroupMountpointAndRoot(os.Getpid(), "memory")
-	if err != nil {
-		return nil, err
-	}
-
-	cgroups, err := parseCgroupFile(fmt.Sprintf("/proc/%d/cgroup", p.pid))
-	if err != nil {
-		return nil, err
-	}
-
-	root, ok := cgroups["memory"]
-	if !ok {
-		return nil, fmt.Errorf("no memory cgroup for container %s", c.ID())
-	}
-
-	// Take care of the case were we're running inside a container
-	// ourself
-	root = strings.TrimPrefix(root, hostRoot)
-
-	return c.getMemoryEventFD(filepath.Join(mountpoint, root))
-}
 
 func (c *container) Pids() ([]int, error) {
 	var pids []int
@@ -166,25 +84,4 @@ func getRootIDs(s *specs.Spec) (int, int, error) {
 	uid := hostIDFromMap(0, s.Linux.UIDMappings)
 	gid := hostIDFromMap(0, s.Linux.GIDMappings)
 	return uid, gid, nil
-}
-
-func (c *container) getMemoryEventFD(root string) (*oom, error) {
-	f, err := os.Open(filepath.Join(root, "memory.oom_control"))
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	fd, _, serr := syscall.RawSyscall(syscall.SYS_EVENTFD2, 0, syscall.FD_CLOEXEC, 0)
-	if serr != 0 {
-		return nil, serr
-	}
-	if err := c.writeEventFD(root, int(f.Fd()), int(fd)); err != nil {
-		syscall.Close(int(fd))
-		return nil, err
-	}
-	return &oom{
-		root:    root,
-		id:      c.id,
-		eventfd: int(fd),
-	}, nil
 }

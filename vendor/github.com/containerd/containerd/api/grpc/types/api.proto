@@ -324,17 +324,8 @@ message HugetlbStats {
 	uint64 limit = 4;
 }
 
-message CgroupStats {
-	CpuStats cpu_stats = 1;
-	MemoryStats memory_stats  = 2;
-	BlkioStats blkio_stats = 3;
-	map<string, HugetlbStats> hugetlb_stats = 4; // the map is in the format "size of hugepage: stats of the hugepage"
-	PidsStats pids_stats = 5;
-}
-
 message StatsResponse {
 	repeated NetworkStats network_stats = 1;
-	CgroupStats cgroup_stats = 2;
 	// Tag 3 is deprecated (old uint64 timestamp)
 	google.protobuf.Timestamp timestamp = 4;
 };

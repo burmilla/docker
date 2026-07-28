@@ -15,10 +15,6 @@ func getRootIDs(s *specs.Spec) (int, int, error) {
 	return 0, 0, nil
 }
 
-func (c *container) OOM() (OOM, error) {
-	return nil, nil
-}
-
 func (c *container) Pids() ([]int, error) {
 	var pids []int
 

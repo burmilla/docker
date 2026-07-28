@@ -24,7 +24,6 @@ func installConfigFlags(conf *config.Config, flags *pflag.FlagSet) {
 	conf.ShmSize = opts.MemBytes(config.DefaultShmSize)
 
 	// Then platform-specific install flags
-	flags.BoolVar(&conf.EnableSelinuxSupport, "selinux-enabled", false, "Enable selinux support")
 	flags.Var(opts.NewNamedUlimitOpt("default-ulimits", &conf.Ulimits), "default-ulimit", "Default ulimits for containers")
 	flags.BoolVar(&conf.BridgeConfig.EnableIPTables, "iptables", true, "Enable addition of iptables rules")
 	flags.BoolVar(&conf.BridgeConfig.EnableIPForward, "ip-forward", true, "Enable net.ipv4.ip_forward")

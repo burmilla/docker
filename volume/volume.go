@@ -11,7 +11,6 @@ import (
 	mounttypes "github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
 )
 
@@ -152,21 +151,6 @@ func (m *MountPoint) Cleanup() error {
 // The, optional, checkFun parameter allows doing additional checking
 // before creating the source directory on the host.
 func (m *MountPoint) Setup(mountLabel string, rootIDs idtools.IDPair, checkFun func(m *MountPoint) error) (path string, err error) {
-	defer func() {
-		if err != nil || !label.RelabelNeeded(m.Mode) {
-			return
-		}
-
-		err = label.Relabel(m.Source, mountLabel, label.IsShared(m.Mode))
-		if err == syscall.ENOTSUP {
-			err = nil
-		}
-		if err != nil {
-			path = ""
-			err = errors.Wrapf(err, "error setting label on mount source '%s'", m.Source)
-		}
-	}()
-
 	if m.Volume != nil {
 		id := m.ID
 		if id == "" {

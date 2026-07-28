@@ -52,8 +52,6 @@ type Process struct {
 	NoNewPrivileges bool `json:"noNewPrivileges,omitempty" platform:"linux"`
 	// ApparmorProfile specifies the apparmor profile for the container.
 	ApparmorProfile string `json:"apparmorProfile,omitempty" platform:"linux"`
-	// SelinuxLabel specifies the selinux context that the container process is run as.
-	SelinuxLabel string `json:"selinuxLabel,omitempty" platform:"linux"`
 }
 
 // LinuxCapabilities specifies the whitelist of capabilities that are kept for a process.

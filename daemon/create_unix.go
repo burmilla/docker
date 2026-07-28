@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package daemon
@@ -12,7 +13,6 @@ import (
 	mounttypes "github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 // createContainerPlatformSpecificSettings performs platform specific container create functionality
@@ -48,10 +48,6 @@ func (daemon *Daemon) createContainerPlatformSpecificSettings(container *contain
 
 		v, err := daemon.volumes.CreateWithRef(name, hostConfig.VolumeDriver, container.ID, nil, nil)
 		if err != nil {
-			return err
-		}
-
-		if err := label.Relabel(v.Path(), container.MountLabel, true); err != nil {
 			return err
 		}
 

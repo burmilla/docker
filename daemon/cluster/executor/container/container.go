@@ -645,25 +645,6 @@ func (c *containerConfig) applyPrivileges(hc *enginecontainer.HostConfig) {
 			hc.SecurityOpt = append(hc.SecurityOpt, "credentialspec=registry://"+credentials.GetRegistry())
 		}
 	}
-
-	selinux := privileges.SELinuxContext
-	if selinux != nil {
-		if selinux.Disable {
-			hc.SecurityOpt = append(hc.SecurityOpt, "label=disable")
-		}
-		if selinux.User != "" {
-			hc.SecurityOpt = append(hc.SecurityOpt, "label=user:"+selinux.User)
-		}
-		if selinux.Role != "" {
-			hc.SecurityOpt = append(hc.SecurityOpt, "label=role:"+selinux.Role)
-		}
-		if selinux.Level != "" {
-			hc.SecurityOpt = append(hc.SecurityOpt, "label=level:"+selinux.Level)
-		}
-		if selinux.Type != "" {
-			hc.SecurityOpt = append(hc.SecurityOpt, "label=type:"+selinux.Type)
-		}
-	}
 }
 
 func (c containerConfig) eventFilter() filters.Args {

@@ -1,3 +1,4 @@
+//go:build linux || freebsd
 // +build linux freebsd
 
 package daemon
@@ -18,7 +19,6 @@ import (
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/libnetwork"
-	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
 )
 
@@ -123,7 +123,7 @@ func (daemon *Daemon) setupIpcDirs(c *container.Container) error {
 				shmSize = c.HostConfig.ShmSize
 			}
 			shmproperty := "mode=1777,size=" + strconv.FormatInt(shmSize, 10)
-			if err := syscall.Mount("shm", shmPath, "tmpfs", uintptr(syscall.MS_NOEXEC|syscall.MS_NOSUID|syscall.MS_NODEV), label.FormatMountLabel(shmproperty, c.GetMountLabel())); err != nil {
+			if err := syscall.Mount("shm", shmPath, "tmpfs", uintptr(syscall.MS_NOEXEC|syscall.MS_NOSUID|syscall.MS_NODEV), shmproperty); err != nil {
 				return fmt.Errorf("mounting shm tmpfs: %s", err)
 			}
 			if err := os.Chown(shmPath, rootIDs.UID, rootIDs.GID); err != nil {

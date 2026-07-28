@@ -80,7 +80,6 @@ message AddProcessRequest {
 	string stderr = 10; // path to file where stderr will be written (optional)
 	repeated string capabilities = 11;
 	string apparmorProfile = 12;
-	string selinuxLabel = 13;
 	bool noNewPrivileges = 14;
 	repeated Rlimit rlimits = 15;
 }
@@ -158,7 +157,6 @@ message Process {
 	string stderr = 10; // path to file where stderr will be written (optional)
 	repeated string capabilities = 11;
 	string apparmorProfile = 12;
-	string selinuxLabel = 13;
 	bool noNewPrivileges = 14;
 	repeated Rlimit rlimits = 15;
 }

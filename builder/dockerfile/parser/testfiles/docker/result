@@ -19,6 +19,6 @@
 (run "useradd --create-home --gid docker unprivilegeduser")
 (volume "/var/lib/docker")
 (workdir "/go/src/github.com/docker/docker")
-(env "DOCKER_BUILDTAGS" "apparmor selinux")
+(env "DOCKER_BUILDTAGS" "apparmor")
 (entrypoint "hack/dind")
 (copy "." "/go/src/github.com/docker/docker")

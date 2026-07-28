@@ -100,7 +100,6 @@ func (clnt *client) AddProcess(ctx context.Context, containerID, processFriendly
 		Stderr:          p.fifo(syscall.Stderr),
 		Capabilities:    sp.Capabilities.Effective,
 		ApparmorProfile: sp.ApparmorProfile,
-		SelinuxLabel:    sp.SelinuxLabel,
 		NoNewPrivileges: sp.NoNewPrivileges,
 		Rlimits:         convertRlimits(sp.Rlimits),
 	}

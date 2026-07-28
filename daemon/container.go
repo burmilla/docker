@@ -18,16 +18,15 @@ import (
 	"github.com/docker/docker/pkg/truncindex"
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/go-connections/nat"
-	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 // GetContainer looks for a container using the provided information, which could be
 // one of the following inputs from the caller:
-//  - A full container ID, which will exact match a container in daemon's list
-//  - A container name, which will only exact match via the GetByName() function
-//  - A partial container ID prefix (e.g. short ID) of any length that is
-//    unique enough to only return a single container object
-//  If none of these searches succeed, an error is returned
+//   - A full container ID, which will exact match a container in daemon's list
+//   - A container name, which will only exact match via the GetByName() function
+//   - A partial container ID prefix (e.g. short ID) of any length that is
+//     unique enough to only return a single container object
+//     If none of these searches succeed, an error is returned
 func (daemon *Daemon) GetContainer(prefixOrName string) (*container.Container, error) {
 	if len(prefixOrName) == 0 {
 		return nil, errors.NewBadRequestError(fmt.Errorf("No container name or ID supplied"))
@@ -89,9 +88,6 @@ func (daemon *Daemon) load(id string) (*container.Container, error) {
 	container := daemon.newBaseContainer(id)
 
 	if err := container.FromDisk(); err != nil {
-		return nil, err
-	}
-	if err := label.ReserveLabel(container.ProcessLabel); err != nil {
 		return nil, err
 	}
 

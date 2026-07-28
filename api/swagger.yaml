@@ -661,7 +661,7 @@ definitions:
           SecurityOpt:
             type: "array"
             description: "A list of string values to customize labels for MLS
-            systems, such as SELinux."
+            systems, such as AppArmor."
             items:
               type: "string"
           StorageOpt:
@@ -5477,8 +5477,6 @@ paths:
                   Value: "default"
                 - Key: "Name"
                   Value: "apparmor"
-                - Key: "Name"
-                  Value: "selinux"
                 - Key: "Name"
                   Value: "userns"
               ServerVersion: "1.9.0"

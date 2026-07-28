@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package devmapper
@@ -30,8 +31,6 @@ import (
 	"github.com/docker/docker/pkg/parsers"
 	units "github.com/docker/go-units"
 	"github.com/pkg/errors"
-
-	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 var (
@@ -2392,7 +2391,6 @@ func (devices *DeviceSet) MountDevice(hash, path, mountLabel string) error {
 	}
 
 	options = joinMountOptions(options, devices.mountOptions)
-	options = joinMountOptions(options, label.FormatMountLabel("", mountLabel))
 
 	if err := mount.Mount(info.DevName(), path, fstype, options); err != nil {
 		return fmt.Errorf("devmapper: Error mounting '%s' on '%s': %s", info.DevName(), path, err)

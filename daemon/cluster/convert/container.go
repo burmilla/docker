@@ -54,16 +54,6 @@ func containerSpecFromGRPC(c *swarmapi.ContainerSpec) types.ContainerSpec {
 				containerSpec.Privileges.CredentialSpec.Registry = c.Privileges.CredentialSpec.GetRegistry()
 			}
 		}
-
-		if c.Privileges.SELinuxContext != nil {
-			containerSpec.Privileges.SELinuxContext = &types.SELinuxContext{
-				Disable: c.Privileges.SELinuxContext.Disable,
-				User:    c.Privileges.SELinuxContext.User,
-				Type:    c.Privileges.SELinuxContext.Type,
-				Role:    c.Privileges.SELinuxContext.Role,
-				Level:   c.Privileges.SELinuxContext.Level,
-			}
-		}
 	}
 
 	// Mounts
@@ -263,16 +253,6 @@ func containerToGRPC(c types.ContainerSpec) (*swarmapi.ContainerSpec, error) {
 				}
 			} else {
 				return nil, errors.New("must either provide \"file\" or \"registry\" for credential spec")
-			}
-		}
-
-		if c.Privileges.SELinuxContext != nil {
-			containerSpec.Privileges.SELinuxContext = &swarmapi.Privileges_SELinuxContext{
-				Disable: c.Privileges.SELinuxContext.Disable,
-				User:    c.Privileges.SELinuxContext.User,
-				Type:    c.Privileges.SELinuxContext.Type,
-				Role:    c.Privileges.SELinuxContext.Role,
-				Level:   c.Privileges.SELinuxContext.Level,
 			}
 		}
 	}

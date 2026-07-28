@@ -130,7 +130,6 @@ func (daemon *Daemon) cleanupContainer(container *container.Container, forceRemo
 
 	daemon.nameIndex.Delete(container.ID)
 	daemon.linkIndex.delete(container)
-	selinuxFreeLxcContexts(container.ProcessLabel)
 	daemon.idIndex.Delete(container.ID)
 	daemon.containers.Delete(container.ID)
 	daemon.containersReplica.Delete(container)

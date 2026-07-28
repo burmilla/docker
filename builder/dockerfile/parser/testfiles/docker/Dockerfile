@@ -93,7 +93,7 @@ RUN useradd --create-home --gid docker unprivilegeduser
 
 VOLUME	/var/lib/docker
 WORKDIR	/go/src/github.com/docker/docker
-ENV	DOCKER_BUILDTAGS	apparmor selinux
+ENV	DOCKER_BUILDTAGS	apparmor
 
 # Wrap all commands in the "docker-in-docker" script to allow nested containers
 ENTRYPOINT	["hack/dind"]

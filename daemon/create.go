@@ -21,7 +21,6 @@ import (
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/runconfig"
-	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 // CreateManagedContainer creates a container that is managed by a Service
@@ -175,13 +174,6 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig, managed bool) (
 	return container, nil
 }
 
-func toHostConfigSelinuxLabels(labels []string) []string {
-	for i, l := range labels {
-		labels[i] = "label=" + l
-	}
-	return labels
-}
-
 func (daemon *Daemon) generateSecurityOpt(hostConfig *containertypes.HostConfig) ([]string, error) {
 	for _, opt := range hostConfig.SecurityOpt {
 		con := strings.Split(opt, "=")
@@ -194,43 +186,22 @@ func (daemon *Daemon) generateSecurityOpt(hostConfig *containertypes.HostConfig)
 	pidMode := hostConfig.PidMode
 	privileged := hostConfig.Privileged
 	if ipcMode.IsHost() || pidMode.IsHost() || privileged {
-		return toHostConfigSelinuxLabels(label.DisableSecOpt()), nil
+		return []string{}, nil
 	}
 
-	var ipcLabel []string
-	var pidLabel []string
 	ipcContainer := ipcMode.Container()
 	pidContainer := pidMode.Container()
 	if ipcContainer != "" {
-		c, err := daemon.GetContainer(ipcContainer)
-		if err != nil {
-			return nil, err
-		}
-		ipcLabel = label.DupSecOpt(c.ProcessLabel)
 		if pidContainer == "" {
-			return toHostConfigSelinuxLabels(ipcLabel), err
+			return []string{}, nil
 		}
 	}
 	if pidContainer != "" {
-		c, err := daemon.GetContainer(pidContainer)
-		if err != nil {
-			return nil, err
-		}
-
-		pidLabel = label.DupSecOpt(c.ProcessLabel)
 		if ipcContainer == "" {
-			return toHostConfigSelinuxLabels(pidLabel), err
+			return []string{}, nil
 		}
 	}
 
-	if pidLabel != nil && ipcLabel != nil {
-		for i := 0; i < len(pidLabel); i++ {
-			if pidLabel[i] != ipcLabel[i] {
-				return nil, fmt.Errorf("--ipc and --pid containers SELinux labels aren't the same")
-			}
-		}
-		return toHostConfigSelinuxLabels(pidLabel), nil
-	}
 	return nil, nil
 }
 

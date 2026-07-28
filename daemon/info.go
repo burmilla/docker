@@ -58,9 +58,6 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 		}
 		securityOptions = append(securityOptions, fmt.Sprintf("name=seccomp,profile=%s", profile))
 	}
-	if selinuxEnabled() {
-		securityOptions = append(securityOptions, "name=selinux")
-	}
 	rootIDs := daemon.idMappings.RootPair()
 	if rootIDs.UID != 0 || rootIDs.GID != 0 {
 		securityOptions = append(securityOptions, "name=userns")

@@ -674,11 +674,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 		graphDrivers = append(graphDrivers, ls.DriverName())
 	}
 
-	// Configure and validate the kernels security support
-	if err := configureKernelSecuritySupport(config, graphDrivers); err != nil {
-		return nil, err
-	}
-
 	logrus.Debugf("Max Concurrent Downloads: %d", *config.MaxConcurrentDownloads)
 	lsMap := make(map[string]layer.Store)
 	for platform, ds := range d.stores {

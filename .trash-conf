@@ -324,11 +324,6 @@ imports:
     version: d42f1eb741e6361e858d83fc75aa6893b66292c4
     update: false
     options: {}
-  github.com/opencontainers/selinux:
-    package: github.com/opencontainers/selinux
-    version: v1.0.0-rc1
-    update: false
-    options: {}
   github.com/pborman/uuid:
     package: github.com/pborman/uuid
     version: v1.0

@@ -1,3 +1,4 @@
+//go:build linux || freebsd || solaris
 // +build linux freebsd solaris
 
 package container
@@ -19,8 +20,6 @@ import (
 	"github.com/docker/docker/pkg/symlink"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/volume"
-	"github.com/opencontainers/selinux/go-selinux/label"
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -68,14 +67,10 @@ func (container *Container) BuildHostnameFile() error {
 // NetworkMounts returns the list of network mounts.
 func (container *Container) NetworkMounts() []Mount {
 	var mounts []Mount
-	shared := container.HostConfig.NetworkMode.IsContainer()
 	if container.ResolvConfPath != "" {
 		if _, err := os.Stat(container.ResolvConfPath); err != nil {
 			logrus.Warnf("ResolvConfPath set to %q, but can't stat this filename (err = %v); skipping", container.ResolvConfPath, err)
 		} else {
-			if !container.HasMountFor("/etc/resolv.conf") {
-				label.Relabel(container.ResolvConfPath, container.MountLabel, shared)
-			}
 			writable := !container.HostConfig.ReadonlyRootfs
 			if m, exists := container.MountPoints["/etc/resolv.conf"]; exists {
 				writable = m.RW
@@ -92,9 +87,6 @@ func (container *Container) NetworkMounts() []Mount {
 		if _, err := os.Stat(container.HostnamePath); err != nil {
 			logrus.Warnf("HostnamePath set to %q, but can't stat this filename (err = %v); skipping", container.HostnamePath, err)
 		} else {
-			if !container.HasMountFor("/etc/hostname") {
-				label.Relabel(container.HostnamePath, container.MountLabel, shared)
-			}
 			writable := !container.HostConfig.ReadonlyRootfs
 			if m, exists := container.MountPoints["/etc/hostname"]; exists {
 				writable = m.RW
@@ -111,9 +103,6 @@ func (container *Container) NetworkMounts() []Mount {
 		if _, err := os.Stat(container.HostsPath); err != nil {
 			logrus.Warnf("HostsPath set to %q, but can't stat this filename (err = %v); skipping", container.HostsPath, err)
 		} else {
-			if !container.HasMountFor("/etc/hosts") {
-				label.Relabel(container.HostsPath, container.MountLabel, shared)
-			}
 			writable := !container.HostConfig.ReadonlyRootfs
 			if m, exists := container.MountPoints["/etc/hosts"]; exists {
 				writable = m.RW
@@ -154,9 +143,6 @@ func (container *Container) CopyImagePathContent(v volume.Volume, destination st
 			logrus.Warnf("error while unmounting volume %s: %v", v.Name(), err)
 		}
 	}()
-	if err := label.Relabel(path, container.MountLabel, true); err != nil && err != unix.ENOTSUP {
-		return err
-	}
 	return copyExistingContents(rootfs, path)
 }
 
@@ -204,7 +190,6 @@ func (container *Container) IpcMounts() []Mount {
 	var mounts []Mount
 
 	if !container.HasMountFor("/dev/shm") {
-		label.SetFileLabel(container.ShmPath, container.MountLabel)
 		mounts = append(mounts, Mount{
 			Source:      container.ShmPath,
 			Destination: "/dev/shm",

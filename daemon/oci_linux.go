@@ -697,7 +697,6 @@ func (daemon *Daemon) createSpec(c *container.Container) (*specs.Spec, error) {
 
 		s.Process.ApparmorProfile = appArmorProfile
 	}
-	s.Process.SelinuxLabel = c.GetProcessLabel()
 	s.Process.NoNewPrivileges = c.NoNewPrivileges
 	s.Linux.MountLabel = c.MountLabel
 

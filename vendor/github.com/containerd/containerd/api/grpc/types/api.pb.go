@@ -347,7 +347,6 @@ type AddProcessRequest struct {
 	Stderr          string    `protobuf:"bytes,10,opt,name=stderr" json:"stderr,omitempty"`
 	Capabilities    []string  `protobuf:"bytes,11,rep,name=capabilities" json:"capabilities,omitempty"`
 	ApparmorProfile string    `protobuf:"bytes,12,opt,name=apparmorProfile" json:"apparmorProfile,omitempty"`
-	SelinuxLabel    string    `protobuf:"bytes,13,opt,name=selinuxLabel" json:"selinuxLabel,omitempty"`
 	NoNewPrivileges bool      `protobuf:"varint,14,opt,name=noNewPrivileges" json:"noNewPrivileges,omitempty"`
 	Rlimits         []*Rlimit `protobuf:"bytes,15,rep,name=rlimits" json:"rlimits,omitempty"`
 }
@@ -437,13 +436,6 @@ func (m *AddProcessRequest) GetCapabilities() []string {
 func (m *AddProcessRequest) GetApparmorProfile() string {
 	if m != nil {
 		return m.ApparmorProfile
-	}
-	return ""
-}
-
-func (m *AddProcessRequest) GetSelinuxLabel() string {
-	if m != nil {
-		return m.SelinuxLabel
 	}
 	return ""
 }
@@ -763,7 +755,6 @@ type Process struct {
 	Stderr          string    `protobuf:"bytes,10,opt,name=stderr" json:"stderr,omitempty"`
 	Capabilities    []string  `protobuf:"bytes,11,rep,name=capabilities" json:"capabilities,omitempty"`
 	ApparmorProfile string    `protobuf:"bytes,12,opt,name=apparmorProfile" json:"apparmorProfile,omitempty"`
-	SelinuxLabel    string    `protobuf:"bytes,13,opt,name=selinuxLabel" json:"selinuxLabel,omitempty"`
 	NoNewPrivileges bool      `protobuf:"varint,14,opt,name=noNewPrivileges" json:"noNewPrivileges,omitempty"`
 	Rlimits         []*Rlimit `protobuf:"bytes,15,rep,name=rlimits" json:"rlimits,omitempty"`
 }
@@ -853,13 +844,6 @@ func (m *Process) GetCapabilities() []string {
 func (m *Process) GetApparmorProfile() string {
 	if m != nil {
 		return m.ApparmorProfile
-	}
-	return ""
-}
-
-func (m *Process) GetSelinuxLabel() string {
-	if m != nil {
-		return m.SelinuxLabel
 	}
 	return ""
 }

@@ -24,8 +24,6 @@ type Process struct {
 	Rlimits []specs.LinuxRlimit `json:"rlimits,omitempty"`
 	// ApparmorProfile specifies the apparmor profile for the container.
 	ApparmorProfile *string `json:"apparmorProfile,omitempty"`
-	// SelinuxLabel specifies the selinux context that the container process is run as.
-	SelinuxLabel *string `json:"selinuxLabel,omitempty"`
 }
 
 // StateInfo contains description about the new state container has entered.

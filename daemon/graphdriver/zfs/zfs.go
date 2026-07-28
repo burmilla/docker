@@ -1,3 +1,4 @@
+//go:build linux || freebsd || solaris
 // +build linux freebsd solaris
 
 package zfs
@@ -19,7 +20,6 @@ import (
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/parsers"
 	zfs "github.com/mistifyio/go-zfs"
-	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 type zfsOptions struct {
@@ -363,7 +363,7 @@ func (d *Driver) Get(id, mountLabel string) (string, error) {
 	}
 
 	filesystem := d.zfsPath(id)
-	options := label.FormatMountLabel("", mountLabel)
+	options := ""
 	logrus.Debugf(`[zfs] mount("%s", "%s", "%s")`, filesystem, mountpoint, options)
 
 	rootUID, rootGID, err := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)

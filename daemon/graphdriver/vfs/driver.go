@@ -9,7 +9,6 @@ import (
 	"github.com/docker/docker/pkg/chrootarchive"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/system"
-	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 var (
@@ -82,10 +81,6 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) error {
 	}
 	if err := idtools.MkdirAndChown(dir, 0755, rootIDs); err != nil {
 		return err
-	}
-	labelOpts := []string{"level:s0"}
-	if _, mountLabel, err := label.InitLabels(labelOpts); err == nil {
-		label.SetFileLabel(dir, mountLabel)
 	}
 	if parent == "" {
 		return nil

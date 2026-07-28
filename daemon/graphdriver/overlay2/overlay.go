@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package overlay2
@@ -33,8 +34,6 @@ import (
 	"github.com/docker/docker/pkg/parsers/kernel"
 	"github.com/docker/docker/pkg/system"
 	units "github.com/docker/go-units"
-
-	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 var (
@@ -550,8 +549,7 @@ func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
 	for i, s := range splitLowers {
 		absLowers[i] = path.Join(d.home, s)
 	}
-	opts := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(absLowers, ":"), path.Join(dir, "diff"), path.Join(dir, "work"))
-	mountData := label.FormatMountLabel(opts, mountLabel)
+	mountData := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(absLowers, ":"), path.Join(dir, "diff"), path.Join(dir, "work"))
 	mount := syscall.Mount
 	mountTarget := mergedDir
 
@@ -571,8 +569,7 @@ func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
 	// fit within a page and relative links make the mount data much
 	// smaller at the expense of requiring a fork exec to chroot.
 	if len(mountData) > pageSize {
-		opts = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", string(lowers), path.Join(id, "diff"), path.Join(id, "work"))
-		mountData = label.FormatMountLabel(opts, mountLabel)
+		mountData = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", string(lowers), path.Join(id, "diff"), path.Join(id, "work"))
 		if len(mountData) > pageSize {
 			return "", fmt.Errorf("cannot mount layer, mount label too large %d", len(mountData))
 		}

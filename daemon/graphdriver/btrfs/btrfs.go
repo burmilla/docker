@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package btrfs
@@ -34,7 +35,6 @@ import (
 	"github.com/docker/docker/pkg/parsers"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/go-units"
-	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 func init() {
@@ -552,12 +552,7 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) error {
 		}
 	}
 
-	mountLabel := ""
-	if opts != nil {
-		mountLabel = opts.MountLabel
-	}
-
-	return label.Relabel(path.Join(subvolumes, id), mountLabel, false)
+	return nil
 }
 
 // Parse btrfs storage options

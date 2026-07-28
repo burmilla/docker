@@ -21,16 +21,6 @@ type DNSConfig struct {
 	Options []string `json:",omitempty"`
 }
 
-// SELinuxContext contains the SELinux labels of the container.
-type SELinuxContext struct {
-	Disable bool
-
-	User  string
-	Role  string
-	Type  string
-	Level string
-}
-
 // CredentialSpec for managed service account (Windows only)
 type CredentialSpec struct {
 	File     string
@@ -40,7 +30,6 @@ type CredentialSpec struct {
 // Privileges defines the security options for the container.
 type Privileges struct {
 	CredentialSpec *CredentialSpec
-	SELinuxContext *SELinuxContext
 }
 
 // ContainerSpec represents the spec of a container.

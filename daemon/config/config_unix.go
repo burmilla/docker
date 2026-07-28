@@ -20,17 +20,16 @@ type Config struct {
 	CommonUnixConfig
 
 	// Fields below here are platform specific.
-	EnableSelinuxSupport bool                     `json:"selinux-enabled,omitempty"`
-	RemappedRoot         string                   `json:"userns-remap,omitempty"`
-	Ulimits              map[string]*units.Ulimit `json:"default-ulimits,omitempty"`
-	CPURealtimePeriod    int64                    `json:"cpu-rt-period,omitempty"`
-	CPURealtimeRuntime   int64                    `json:"cpu-rt-runtime,omitempty"`
-	OOMScoreAdjust       int                      `json:"oom-score-adjust,omitempty"`
-	Init                 bool                     `json:"init,omitempty"`
-	InitPath             string                   `json:"init-path,omitempty"`
-	SeccompProfile       string                   `json:"seccomp-profile,omitempty"`
-	ShmSize              opts.MemBytes            `json:"default-shm-size,omitempty"`
-	NoNewPrivileges      bool                     `json:"no-new-privileges,omitempty"`
+	RemappedRoot       string                   `json:"userns-remap,omitempty"`
+	Ulimits            map[string]*units.Ulimit `json:"default-ulimits,omitempty"`
+	CPURealtimePeriod  int64                    `json:"cpu-rt-period,omitempty"`
+	CPURealtimeRuntime int64                    `json:"cpu-rt-runtime,omitempty"`
+	OOMScoreAdjust     int                      `json:"oom-score-adjust,omitempty"`
+	Init               bool                     `json:"init,omitempty"`
+	InitPath           string                   `json:"init-path,omitempty"`
+	SeccompProfile     string                   `json:"seccomp-profile,omitempty"`
+	ShmSize            opts.MemBytes            `json:"default-shm-size,omitempty"`
+	NoNewPrivileges    bool                     `json:"no-new-privileges,omitempty"`
 }
 
 // BridgeConfig stores all the bridge driver specific

@@ -130,8 +130,7 @@ type Config struct {
 	// change at the time the process is execed
 	AppArmorProfile string `json:"apparmor_profile,omitempty"`
 
-	// ProcessLabel specifies the label to apply to the process running in the container.  It is
-	// commonly used by selinux
+	// ProcessLabel specifies the label to apply to the process running in the container.
 	ProcessLabel string `json:"process_label,omitempty"`
 
 	// Rlimits specifies the resource limits, such as max open files, to set in the container

@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package overlay
@@ -22,7 +23,6 @@ import (
 	"github.com/docker/docker/pkg/locker"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/system"
-	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 // This is a small wrapper over the NaiveDiffWriter that lets us have a custom
@@ -377,7 +377,7 @@ func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
 		workDir  = path.Join(dir, "work")
 		opts     = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", lowerDir, upperDir, workDir)
 	)
-	if err := syscall.Mount("overlay", mergedDir, "overlay", 0, label.FormatMountLabel(opts, mountLabel)); err != nil {
+	if err := syscall.Mount("overlay", mergedDir, "overlay", 0, opts); err != nil {
 		return "", fmt.Errorf("error creating overlay mount to %s: %v", mergedDir, err)
 	}
 	// chown "workdir/work" to the remapped root UID/GID. Overlay fs inside a

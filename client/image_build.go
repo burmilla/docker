@@ -92,7 +92,6 @@ func (cli *Client) imageBuildOptionsToQuery(options types.ImageBuildOptions) (ur
 	query.Set("cpuperiod", strconv.FormatInt(options.CPUPeriod, 10))
 	query.Set("memory", strconv.FormatInt(options.Memory, 10))
 	query.Set("memswap", strconv.FormatInt(options.MemorySwap, 10))
-	query.Set("cgroupparent", options.CgroupParent)
 	query.Set("shmsize", strconv.FormatInt(options.ShmSize, 10))
 	query.Set("dockerfile", options.Dockerfile)
 	query.Set("target", options.Target)

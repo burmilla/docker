@@ -71,7 +71,6 @@ func (daemon *Daemon) ContainerStart(name string, hostConfig *containertypes.Hos
 	}
 
 	// check if hostConfig is in line with the current system settings.
-	// It may happen cgroups are umounted or the like.
 	if _, err = daemon.verifyContainerSettings(container.HostConfig, nil, false); err != nil {
 		return err
 	}

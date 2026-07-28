@@ -96,7 +96,7 @@ func (n NetworkMode) ConnectedContainer() string {
 	return ""
 }
 
-//UserDefined indicates user-created network
+// UserDefined indicates user-created network
 func (n NetworkMode) UserDefined() string {
 	if n.IsUserDefined() {
 		return string(n)
@@ -126,29 +126,6 @@ func (n UsernsMode) Valid() bool {
 		return false
 	}
 	return true
-}
-
-// CgroupSpec represents the cgroup to use for the container.
-type CgroupSpec string
-
-// IsContainer indicates whether the container is using another container cgroup
-func (c CgroupSpec) IsContainer() bool {
-	parts := strings.SplitN(string(c), ":", 2)
-	return len(parts) > 1 && parts[0] == "container"
-}
-
-// Valid indicates whether the cgroup spec is valid.
-func (c CgroupSpec) Valid() bool {
-	return c.IsContainer() || c == ""
-}
-
-// Container returns the name of the container whose cgroup will be used.
-func (c CgroupSpec) Container() string {
-	parts := strings.SplitN(string(c), ":", 2)
-	if len(parts) > 1 {
-		return parts[1]
-	}
-	return ""
 }
 
 // UTSMode represents the UTS namespace of the container.
@@ -220,9 +197,8 @@ func (n PidMode) Container() string {
 
 // DeviceMapping represents the device mapping between the host and the container.
 type DeviceMapping struct {
-	PathOnHost        string
-	PathInContainer   string
-	CgroupPermissions string
+	PathOnHost      string
+	PathInContainer string
 }
 
 // RestartPolicy represents the restart policies of the container.
@@ -278,7 +254,7 @@ type LogConfig struct {
 	Config map[string]string
 }
 
-// Resources contains container's resources (cgroups config, ulimits...)
+// Resources contains container's resources (ulimits...)
 type Resources struct {
 	// Applicable to all platforms
 	CPUShares int64 `json:"CpuShares"` // CPU shares (relative weight vs. other containers)
@@ -286,7 +262,6 @@ type Resources struct {
 	NanoCPUs  int64 `json:"NanoCpus"` // CPU quota in units of 10<sup>-9</sup> CPUs.
 
 	// Applicable to UNIX platforms
-	CgroupParent         string // Parent cgroup.
 	BlkioWeight          uint16 // Block IO weight (relative weight vs. other containers)
 	BlkioWeightDevice    []*blkiodev.WeightDevice
 	BlkioDeviceReadBps   []*blkiodev.ThrottleDevice
@@ -300,7 +275,6 @@ type Resources struct {
 	CpusetCpus           string          // CpusetCpus 0-2, 0,1
 	CpusetMems           string          // CpusetMems 0-2, 0,1
 	Devices              []DeviceMapping // List of devices to map inside the container
-	DeviceCgroupRules    []string        // List of rule to be added to the device cgroup
 	DiskQuota            int64           // Disk limit (in bytes)
 	KernelMemory         int64           // Kernel memory limit (in bytes)
 	MemoryReservation    int64           // Memory soft limit (in bytes)
@@ -320,7 +294,7 @@ type Resources struct {
 // UpdateConfig holds the mutable attributes of a Container.
 // Those attributes can be updated at runtime.
 type UpdateConfig struct {
-	// Contains container's resources (cgroups, ulimits)
+	// Contains container's resources (ulimits)
 	Resources
 	RestartPolicy RestartPolicy
 }
@@ -349,7 +323,6 @@ type HostConfig struct {
 	ExtraHosts      []string          // List of extra hosts
 	GroupAdd        []string          // List of additional groups that the container process will run as
 	IpcMode         IpcMode           // IPC namespace to use for the container
-	Cgroup          CgroupSpec        // Cgroup to use for the container
 	Links           []string          // List of links (in the name:alias form)
 	OomScoreAdj     int               // Container preference for OOM-killing
 	PidMode         PidMode           // PID namespace to use for the container
@@ -369,7 +342,7 @@ type HostConfig struct {
 	ConsoleSize [2]uint   // Initial console size (height,width)
 	Isolation   Isolation // Isolation technology of the container (e.g. default, hyperv)
 
-	// Contains container's resources (cgroups, ulimits)
+	// Contains container's resources (ulimits)
 	Resources
 
 	// Mounts specs used by the container

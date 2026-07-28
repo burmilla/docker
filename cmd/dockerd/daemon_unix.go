@@ -1,3 +1,4 @@
+//go:build !windows && !solaris
 // +build !windows,!solaris
 
 package main
@@ -55,10 +56,6 @@ func (cli *DaemonCli) getPlatformRemoteOptions() []libcontainerd.RemoteOption {
 		opts = append(opts, libcontainerd.WithRemoteAddr(cli.Config.ContainerdAddr))
 	} else {
 		opts = append(opts, libcontainerd.WithStartDaemon(true))
-	}
-	if daemon.UsingSystemd(cli.Config) {
-		args := []string{"--systemd-cgroup=true"}
-		opts = append(opts, libcontainerd.WithRuntimeArgs(args))
 	}
 	if cli.Config.LiveRestoreEnabled {
 		opts = append(opts, libcontainerd.WithLiveRestore(true))

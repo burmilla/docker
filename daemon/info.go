@@ -20,7 +20,6 @@ import (
 	"github.com/docker/docker/pkg/sysinfo"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/registry"
-	"github.com/docker/docker/volume/drivers"
 	"github.com/docker/go-connections/sockets"
 )
 
@@ -38,16 +37,6 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 		logrus.Warnf("Could not get operating system name: %v", err)
 	} else {
 		operatingSystem = s
-	}
-
-	// Don't do containerized check on Windows
-	if runtime.GOOS != "windows" {
-		if inContainer, err := operatingsystem.IsContainerized(); err != nil {
-			logrus.Errorf("Could not determine if daemon is containerized: %v", err)
-			operatingSystem += " (error determining if containerized)"
-		} else if inContainer {
-			operatingSystem += " (containerized)"
-		}
 	}
 
 	meminfo, err := system.ReadMemInfo()
@@ -113,7 +102,6 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 		NGoroutines:        runtime.NumGoroutine(),
 		SystemTime:         time.Now().Format(time.RFC3339Nano),
 		LoggingDriver:      daemon.defaultLogConfig.Type,
-		CgroupDriver:       daemon.getCgroupDriver(),
 		NEventsListener:    daemon.EventsService.SubscribersCount(),
 		KernelVersion:      kernelVersion,
 		OperatingSystem:    operatingSystem,

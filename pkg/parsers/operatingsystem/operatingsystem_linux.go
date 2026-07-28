@@ -4,9 +4,7 @@ package operatingsystem
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -14,9 +12,6 @@ import (
 )
 
 var (
-	// file to use to detect if the daemon is running in a container
-	proc1Cgroup = "/proc/1/cgroup"
-
 	// file to check to determine Operating System
 	etcOsRelease = "/etc/os-release"
 
@@ -70,18 +65,4 @@ func GetOperatingSystem() (string, error) {
 	// If not set, defaults to PRETTY_NAME="Linux"
 	// c.f. http://www.freedesktop.org/software/systemd/man/os-release.html
 	return "Linux", nil
-}
-
-// IsContainerized returns true if we are running inside a container.
-func IsContainerized() (bool, error) {
-	b, err := ioutil.ReadFile(proc1Cgroup)
-	if err != nil {
-		return false, err
-	}
-	for _, line := range bytes.Split(b, []byte{'\n'}) {
-		if len(line) > 0 && !bytes.HasSuffix(line, []byte{'/'}) && !bytes.HasSuffix(line, []byte("init.scope")) {
-			return true, nil
-		}
-	}
-	return false, nil
 }

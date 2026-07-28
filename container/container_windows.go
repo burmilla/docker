@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package container
@@ -132,7 +133,6 @@ func (container *Container) UpdateContainer(hostConfig *containertypes.HostConfi
 	if resources.CPUShares != 0 ||
 		resources.Memory != 0 ||
 		resources.NanoCPUs != 0 ||
-		resources.CgroupParent != "" ||
 		resources.BlkioWeight != 0 ||
 		len(resources.BlkioWeightDevice) != 0 ||
 		len(resources.BlkioDeviceReadBps) != 0 ||
@@ -146,7 +146,6 @@ func (container *Container) UpdateContainer(hostConfig *containertypes.HostConfi
 		resources.CpusetCpus != "" ||
 		resources.CpusetMems != "" ||
 		len(resources.Devices) != 0 ||
-		len(resources.DeviceCgroupRules) != 0 ||
 		resources.DiskQuota != 0 ||
 		resources.KernelMemory != 0 ||
 		resources.MemoryReservation != 0 ||

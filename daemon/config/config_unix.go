@@ -1,3 +1,4 @@
+//go:build linux || freebsd
 // +build linux freebsd
 
 package config
@@ -19,7 +20,6 @@ type Config struct {
 	CommonUnixConfig
 
 	// Fields below here are platform specific.
-	CgroupParent         string                   `json:"cgroup-parent,omitempty"`
 	EnableSelinuxSupport bool                     `json:"selinux-enabled,omitempty"`
 	RemappedRoot         string                   `json:"userns-remap,omitempty"`
 	Ulimits              map[string]*units.Ulimit `json:"default-ulimits,omitempty"`

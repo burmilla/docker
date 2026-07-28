@@ -169,20 +169,6 @@ func ConsumeWithSpeed(reader io.Reader, chunkSize int, interval time.Duration, s
 	}
 }
 
-// ParseCgroupPaths parses 'procCgroupData', which is output of '/proc/<pid>/cgroup', and returns
-// a map which cgroup name as key and path as value.
-func ParseCgroupPaths(procCgroupData string) map[string]string {
-	cgroupPaths := map[string]string{}
-	for _, line := range strings.Split(procCgroupData, "\n") {
-		parts := strings.Split(line, ":")
-		if len(parts) != 3 {
-			continue
-		}
-		cgroupPaths[parts[1]] = parts[2]
-	}
-	return cgroupPaths
-}
-
 // ChannelBuffer holds a chan of byte array that can be populate in a goroutine.
 type ChannelBuffer struct {
 	C chan []byte

@@ -155,7 +155,6 @@ type ImageBuildOptions struct {
 	CPUPeriod      int64
 	Memory         int64
 	MemorySwap     int64
-	CgroupParent   string
 	NetworkMode    string
 	ShmSize        int64
 	Dockerfile     string
@@ -239,7 +238,7 @@ type ImagePullOptions struct {
 // if the privilege request fails.
 type RequestPrivilegeFunc func() (string, error)
 
-//ImagePushOptions holds information to push images.
+// ImagePushOptions holds information to push images.
 type ImagePushOptions ImagePullOptions
 
 // ImageRemoveOptions holds parameters to remove images.

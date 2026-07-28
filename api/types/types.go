@@ -158,7 +158,6 @@ type Info struct {
 	NGoroutines        int
 	SystemTime         string
 	LoggingDriver      string
-	CgroupDriver       string
 	NEventsListener    int
 	KernelVersion      string
 	OperatingSystem    string

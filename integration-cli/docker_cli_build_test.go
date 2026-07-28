@@ -655,7 +655,7 @@ func (s *DockerSuite) TestBuildCopyWildcard(c *check.C) {
 			"file2.txt":                     "test2",
 			"dir/nested_file":               "nested file",
 			"dir/nested_dir/nest_nest_file": "2 times nested",
-			"dirt": "dirty",
+			"dirt":                          "dirty",
 		}))
 	defer ctx.Close()
 
@@ -4042,33 +4042,6 @@ func (s *DockerSuite) TestBuildEmptyStringVolume(c *check.C) {
   `)).Assert(c, icmd.Expected{
 		ExitCode: 1,
 	})
-}
-
-func (s *DockerSuite) TestBuildContainerWithCgroupParent(c *check.C) {
-	testRequires(c, SameHostDaemon, DaemonIsLinux)
-
-	cgroupParent := "test"
-	data, err := ioutil.ReadFile("/proc/self/cgroup")
-	if err != nil {
-		c.Fatalf("failed to read '/proc/self/cgroup - %v", err)
-	}
-	selfCgroupPaths := testutil.ParseCgroupPaths(string(data))
-	_, found := selfCgroupPaths["memory"]
-	if !found {
-		c.Fatalf("unable to find self memory cgroup path. CgroupsPath: %v", selfCgroupPaths)
-	}
-	result := buildImage("buildcgroupparent",
-		cli.WithFlags("--cgroup-parent", cgroupParent),
-		build.WithDockerfile(`
-FROM busybox
-RUN cat /proc/self/cgroup
-`))
-	result.Assert(c, icmd.Success)
-	m, err := regexp.MatchString(fmt.Sprintf("memory:.*/%s/.*", cgroupParent), result.Combined())
-	c.Assert(err, check.IsNil)
-	if !m {
-		c.Fatalf("There is no expected memory cgroup with parent /%s/: %s", cgroupParent, result.Combined())
-	}
 }
 
 // FIXME(vdemeester) could be a unit test

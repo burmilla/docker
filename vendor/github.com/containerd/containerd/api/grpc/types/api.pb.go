@@ -52,6 +52,7 @@ It has these top-level messages:
 	BlkioStatsEntry
 	BlkioStats
 	HugetlbStats
+	CgroupStats
 	StatsResponse
 	StatsRequest
 */
@@ -347,6 +348,7 @@ type AddProcessRequest struct {
 	Stderr          string    `protobuf:"bytes,10,opt,name=stderr" json:"stderr,omitempty"`
 	Capabilities    []string  `protobuf:"bytes,11,rep,name=capabilities" json:"capabilities,omitempty"`
 	ApparmorProfile string    `protobuf:"bytes,12,opt,name=apparmorProfile" json:"apparmorProfile,omitempty"`
+	SelinuxLabel    string    `protobuf:"bytes,13,opt,name=selinuxLabel" json:"selinuxLabel,omitempty"`
 	NoNewPrivileges bool      `protobuf:"varint,14,opt,name=noNewPrivileges" json:"noNewPrivileges,omitempty"`
 	Rlimits         []*Rlimit `protobuf:"bytes,15,rep,name=rlimits" json:"rlimits,omitempty"`
 }
@@ -436,6 +438,13 @@ func (m *AddProcessRequest) GetCapabilities() []string {
 func (m *AddProcessRequest) GetApparmorProfile() string {
 	if m != nil {
 		return m.ApparmorProfile
+	}
+	return ""
+}
+
+func (m *AddProcessRequest) GetSelinuxLabel() string {
+	if m != nil {
+		return m.SelinuxLabel
 	}
 	return ""
 }
@@ -755,6 +764,7 @@ type Process struct {
 	Stderr          string    `protobuf:"bytes,10,opt,name=stderr" json:"stderr,omitempty"`
 	Capabilities    []string  `protobuf:"bytes,11,rep,name=capabilities" json:"capabilities,omitempty"`
 	ApparmorProfile string    `protobuf:"bytes,12,opt,name=apparmorProfile" json:"apparmorProfile,omitempty"`
+	SelinuxLabel    string    `protobuf:"bytes,13,opt,name=selinuxLabel" json:"selinuxLabel,omitempty"`
 	NoNewPrivileges bool      `protobuf:"varint,14,opt,name=noNewPrivileges" json:"noNewPrivileges,omitempty"`
 	Rlimits         []*Rlimit `protobuf:"bytes,15,rep,name=rlimits" json:"rlimits,omitempty"`
 }
@@ -844,6 +854,13 @@ func (m *Process) GetCapabilities() []string {
 func (m *Process) GetApparmorProfile() string {
 	if m != nil {
 		return m.ApparmorProfile
+	}
+	return ""
+}
+
+func (m *Process) GetSelinuxLabel() string {
+	if m != nil {
+		return m.SelinuxLabel
 	}
 	return ""
 }
@@ -1786,8 +1803,57 @@ func (m *HugetlbStats) GetLimit() uint64 {
 	return 0
 }
 
+type CgroupStats struct {
+	CpuStats     *CpuStats                `protobuf:"bytes,1,opt,name=cpu_stats,json=cpuStats" json:"cpu_stats,omitempty"`
+	MemoryStats  *MemoryStats             `protobuf:"bytes,2,opt,name=memory_stats,json=memoryStats" json:"memory_stats,omitempty"`
+	BlkioStats   *BlkioStats              `protobuf:"bytes,3,opt,name=blkio_stats,json=blkioStats" json:"blkio_stats,omitempty"`
+	HugetlbStats map[string]*HugetlbStats `protobuf:"bytes,4,rep,name=hugetlb_stats,json=hugetlbStats" json:"hugetlb_stats,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	PidsStats    *PidsStats               `protobuf:"bytes,5,opt,name=pids_stats,json=pidsStats" json:"pids_stats,omitempty"`
+}
+
+func (m *CgroupStats) Reset()                    { *m = CgroupStats{} }
+func (m *CgroupStats) String() string            { return proto.CompactTextString(m) }
+func (*CgroupStats) ProtoMessage()               {}
+func (*CgroupStats) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{43} }
+
+func (m *CgroupStats) GetCpuStats() *CpuStats {
+	if m != nil {
+		return m.CpuStats
+	}
+	return nil
+}
+
+func (m *CgroupStats) GetMemoryStats() *MemoryStats {
+	if m != nil {
+		return m.MemoryStats
+	}
+	return nil
+}
+
+func (m *CgroupStats) GetBlkioStats() *BlkioStats {
+	if m != nil {
+		return m.BlkioStats
+	}
+	return nil
+}
+
+func (m *CgroupStats) GetHugetlbStats() map[string]*HugetlbStats {
+	if m != nil {
+		return m.HugetlbStats
+	}
+	return nil
+}
+
+func (m *CgroupStats) GetPidsStats() *PidsStats {
+	if m != nil {
+		return m.PidsStats
+	}
+	return nil
+}
+
 type StatsResponse struct {
 	NetworkStats []*NetworkStats `protobuf:"bytes,1,rep,name=network_stats,json=networkStats" json:"network_stats,omitempty"`
+	CgroupStats  *CgroupStats    `protobuf:"bytes,2,opt,name=cgroup_stats,json=cgroupStats" json:"cgroup_stats,omitempty"`
 	// Tag 3 is deprecated (old uint64 timestamp)
 	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,4,opt,name=timestamp" json:"timestamp,omitempty"`
 }
@@ -1800,6 +1866,13 @@ func (*StatsResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []i
 func (m *StatsResponse) GetNetworkStats() []*NetworkStats {
 	if m != nil {
 		return m.NetworkStats
+	}
+	return nil
+}
+
+func (m *StatsResponse) GetCgroupStats() *CgroupStats {
+	if m != nil {
+		return m.CgroupStats
 	}
 	return nil
 }
@@ -1871,6 +1944,7 @@ func init() {
 	proto.RegisterType((*BlkioStatsEntry)(nil), "types.BlkioStatsEntry")
 	proto.RegisterType((*BlkioStats)(nil), "types.BlkioStats")
 	proto.RegisterType((*HugetlbStats)(nil), "types.HugetlbStats")
+	proto.RegisterType((*CgroupStats)(nil), "types.CgroupStats")
 	proto.RegisterType((*StatsResponse)(nil), "types.StatsResponse")
 	proto.RegisterType((*StatsRequest)(nil), "types.StatsRequest")
 }

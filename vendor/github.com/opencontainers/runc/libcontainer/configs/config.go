@@ -100,7 +100,7 @@ type Config struct {
 	// rootfs and mount namespace if specified
 	Mounts []*Mount `json:"mounts"`
 
-	// The device nodes that should be automatically created within the container upon container start.  Note, make sure that the node is marked as allowed in the cgroup as well!
+	// The device nodes that should be automatically created within the container upon container start.
 	Devices []*Device `json:"devices"`
 
 	MountLabel string `json:"mount_label"`
@@ -122,15 +122,12 @@ type Config struct {
 	// Routes can be specified to create entries in the route table as the container is started
 	Routes []*Route `json:"routes"`
 
-	// Cgroups specifies specific cgroup settings for the various subsystems that the container is
-	// placed into to limit the resources the container has available
-	Cgroups *Cgroup `json:"cgroups"`
-
 	// AppArmorProfile specifies the profile to apply to the process running in the container and is
 	// change at the time the process is execed
 	AppArmorProfile string `json:"apparmor_profile,omitempty"`
 
-	// ProcessLabel specifies the label to apply to the process running in the container.
+	// ProcessLabel specifies the label to apply to the process running in the container.  It is
+	// commonly used by selinux
 	ProcessLabel string `json:"process_label,omitempty"`
 
 	// Rlimits specifies the resource limits, such as max open files, to set in the container

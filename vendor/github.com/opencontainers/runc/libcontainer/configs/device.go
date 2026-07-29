@@ -1,7 +1,6 @@
 package configs
 
 import (
-	"fmt"
 	"os"
 )
 
@@ -24,7 +23,7 @@ type Device struct {
 	// Minor is the device's minor number.
 	Minor int64 `json:"minor"`
 
-	// Cgroup permissions format, rwm.
+	// Access permissions format, rwm.
 	Permissions string `json:"permissions"`
 
 	// FileMode permission bits for the device.
@@ -35,23 +34,8 @@ type Device struct {
 
 	// Gid of the device.
 	Gid uint32 `json:"gid"`
-
-	// Write the file to the allowed list
-	Allow bool `json:"allow"`
-}
-
-func (d *Device) CgroupString() string {
-	return fmt.Sprintf("%c %s:%s %s", d.Type, deviceNumberString(d.Major), deviceNumberString(d.Minor), d.Permissions)
 }
 
 func (d *Device) Mkdev() int {
 	return int((d.Major << 8) | (d.Minor & 0xff) | ((d.Minor & 0xfff00) << 12))
-}
-
-// deviceNumberString converts the device number to a string return result.
-func deviceNumberString(number int64) string {
-	if number == Wildcard {
-		return "*"
-	}
-	return fmt.Sprint(number)
 }

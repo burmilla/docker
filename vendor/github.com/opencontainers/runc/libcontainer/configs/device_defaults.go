@@ -60,52 +60,5 @@ var (
 			FileMode:    0666,
 		},
 	}
-	DefaultAllowedDevices = append([]*Device{
-		// allow mknod for any device
-		{
-			Type:        'c',
-			Major:       Wildcard,
-			Minor:       Wildcard,
-			Permissions: "m",
-		},
-		{
-			Type:        'b',
-			Major:       Wildcard,
-			Minor:       Wildcard,
-			Permissions: "m",
-		},
-
-		{
-			Path:        "/dev/console",
-			Type:        'c',
-			Major:       5,
-			Minor:       1,
-			Permissions: "rwm",
-		},
-		// /dev/pts/ - pts namespaces are "coming soon"
-		{
-			Path:        "",
-			Type:        'c',
-			Major:       136,
-			Minor:       Wildcard,
-			Permissions: "rwm",
-		},
-		{
-			Path:        "",
-			Type:        'c',
-			Major:       5,
-			Minor:       2,
-			Permissions: "rwm",
-		},
-
-		// tuntap
-		{
-			Path:        "",
-			Type:        'c',
-			Major:       10,
-			Minor:       200,
-			Permissions: "rwm",
-		},
-	}, DefaultSimpleDevices...)
 	DefaultAutoCreatedDevices = append([]*Device{}, DefaultSimpleDevices...)
 )

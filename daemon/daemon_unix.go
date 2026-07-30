@@ -518,7 +518,7 @@ func driverOptions(config *config.Config) []nwconfig.Option {
 }
 
 func initBridgeDriver(controller libnetwork.NetworkController, config *config.Config) error {
-	bridgeName := bridge.DefaultBridgeName
+	bridgeName := "none"
 	if config.BridgeConfig.Iface != "" {
 		bridgeName = config.BridgeConfig.Iface
 	}

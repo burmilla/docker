@@ -25,13 +25,13 @@ func installConfigFlags(conf *config.Config, flags *pflag.FlagSet) {
 
 	// Then platform-specific install flags
 	flags.Var(opts.NewNamedUlimitOpt("default-ulimits", &conf.Ulimits), "default-ulimit", "Default ulimits for containers")
-	flags.BoolVar(&conf.BridgeConfig.EnableIPTables, "iptables", true, "Enable addition of iptables rules")
-	flags.BoolVar(&conf.BridgeConfig.EnableIPForward, "ip-forward", true, "Enable net.ipv4.ip_forward")
+	flags.BoolVar(&conf.BridgeConfig.EnableIPTables, "iptables", false, "Enable addition of iptables rules")
+	flags.BoolVar(&conf.BridgeConfig.EnableIPForward, "ip-forward", false, "Enable net.ipv4.ip_forward")
 	flags.BoolVar(&conf.BridgeConfig.EnableIPMasq, "ip-masq", true, "Enable IP masquerading")
 	flags.BoolVar(&conf.BridgeConfig.EnableIPv6, "ipv6", false, "Enable IPv6 networking")
 	flags.StringVar(&conf.ExecRoot, "exec-root", defaultExecRoot, "Root directory for execution state files")
 	flags.StringVar(&conf.BridgeConfig.FixedCIDRv6, "fixed-cidr-v6", "", "IPv6 subnet for fixed IPs")
-	flags.BoolVar(&conf.BridgeConfig.EnableUserlandProxy, "userland-proxy", true, "Use userland proxy for loopback traffic")
+	flags.BoolVar(&conf.BridgeConfig.EnableUserlandProxy, "userland-proxy", false, "Use userland proxy for loopback traffic")
 	flags.StringVar(&conf.BridgeConfig.UserlandProxyPath, "userland-proxy-path", "", "Path to the userland proxy binary")
 	flags.BoolVar(&conf.EnableCors, "api-enable-cors", false, "Enable CORS headers in the Engine API, this is deprecated by --api-cors-header")
 	flags.MarkDeprecated("api-enable-cors", "Please use --api-cors-header")

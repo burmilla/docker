@@ -178,10 +178,11 @@ func parseSecurityOpt(container *container.Container, config *containertypes.Hos
 		}
 
 		switch con[0] {
-		case "apparmor":
-			container.AppArmorProfile = con[1]
 		case "seccomp":
-			container.SeccompProfile = con[1]
+			// System Docker has no seccomp support; only accept the matching no-op
+			if con[1] != "unconfined" {
+				return fmt.Errorf("seccomp profiles are not supported: %q", opt)
+			}
 		case "no-new-privileges":
 			noNewPrivileges, err := strconv.ParseBool(con[1])
 			if err != nil {
@@ -901,16 +902,4 @@ func setupOOMScoreAdj(score int) error {
 	}
 
 	return err
-}
-
-func (daemon *Daemon) setupSeccompProfile() error {
-	if daemon.configStore.SeccompProfile != "" {
-		daemon.seccompProfilePath = daemon.configStore.SeccompProfile
-		b, err := ioutil.ReadFile(daemon.configStore.SeccompProfile)
-		if err != nil {
-			return fmt.Errorf("opening seccomp profile (%s) failed: %v", daemon.configStore.SeccompProfile, err)
-		}
-		daemon.seccompProfile = b
-	}
-	return nil
 }

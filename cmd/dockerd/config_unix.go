@@ -39,7 +39,6 @@ func installConfigFlags(conf *config.Config, flags *pflag.FlagSet) {
 	flags.IntVar(&conf.OOMScoreAdjust, "oom-score-adjust", -500, "Set the oom_score_adj for the daemon")
 	flags.BoolVar(&conf.Init, "init", false, "Run an init in the container to forward signals and reap processes")
 	flags.StringVar(&conf.InitPath, "init-path", "", "Path to the docker-init binary")
-	flags.StringVar(&conf.SeccompProfile, "seccomp-profile", "", "Path to seccomp profile")
 	flags.Var(&conf.ShmSize, "default-shm-size", "Default shm size for containers")
 	flags.BoolVar(&conf.NoNewPrivileges, "no-new-privileges", false, "Set no-new-privileges by default for new containers")
 

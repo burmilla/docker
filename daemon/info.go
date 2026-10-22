@@ -48,13 +48,6 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 	cRunning, cPaused, cStopped := stateCtr.get()
 
 	securityOptions := []string{}
-	if sysInfo.Seccomp && supportsSeccomp {
-		profile := daemon.seccompProfilePath
-		if profile == "" {
-			profile = "default"
-		}
-		securityOptions = append(securityOptions, fmt.Sprintf("name=seccomp,profile=%s", profile))
-	}
 	rootIDs := daemon.idMappings.RootPair()
 	if rootIDs.UID != 0 || rootIDs.GID != 0 {
 		securityOptions = append(securityOptions, "name=userns")

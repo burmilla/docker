@@ -12,7 +12,6 @@ import (
 
 // This sets platform-specific fields
 func setPlatformSpecificContainerFields(container *container.Container, contJSONBase *types.ContainerJSONBase) *types.ContainerJSONBase {
-	contJSONBase.AppArmorProfile = container.AppArmorProfile
 	contJSONBase.ResolvConfPath = container.ResolvConfPath
 	contJSONBase.HostnamePath = container.HostnamePath
 	contJSONBase.HostsPath = container.HostsPath

@@ -38,7 +38,6 @@ import (
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/registrar"
 	"github.com/docker/docker/pkg/signal"
-	"github.com/docker/docker/pkg/sysinfo"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/pkg/truncindex"
 	refstore "github.com/docker/docker/reference"
@@ -87,7 +86,6 @@ type Daemon struct {
 	netController     libnetwork.NetworkController
 	volumes           *store.VolumeStore
 	root              string
-	seccompEnabled    bool
 	shutdown          bool
 	idMappings        *idtools.IDMappings
 	stores            map[string]daemonStore // By container target platform
@@ -96,9 +94,6 @@ type Daemon struct {
 	containerd        libcontainerd.Client
 	containerdRemote  libcontainerd.Remote
 	defaultIsolation  containertypes.Isolation // Default isolation mode on Windows
-
-	seccompProfile     []byte
-	seccompProfilePath string
 
 	diskUsageRunning int32
 	pruneRunning     int32
@@ -443,10 +438,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	}
 	d.setupDumpStackTrap(stackDumpDir)
 
-	if err := d.setupSeccompProfile(); err != nil {
-		return nil, err
-	}
-
 	// Set the default isolation mode (only applicable on Windows)
 	if err := d.setDefaultIsolation(); err != nil {
 		return nil, fmt.Errorf("error setting default isolation mode: %v", err)
@@ -568,8 +559,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 		d.stores[platform] = ds
 	}
 
-	sysInfo := sysinfo.New(false)
-
 	d.ID = trustKey.PublicKey().KeyID()
 	d.repository = daemonRepo
 	d.containers = container.NewMemoryStore()
@@ -587,7 +576,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	d.volumes = volStore
 	d.root = config.Root
 	d.idMappings = idMappings
-	d.seccompEnabled = sysInfo.Seccomp
 
 	d.nameIndex = registrar.NewRegistrar()
 	d.linkIndex = newLinkIndex()

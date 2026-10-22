@@ -616,9 +616,6 @@ func (daemon *Daemon) createSpec(c *container.Container) (*specs.Spec, error) {
 	if err := setCapabilities(&s, c); err != nil {
 		return nil, fmt.Errorf("linux spec capabilities: %v", err)
 	}
-	if err := setSeccomp(daemon, &s, c); err != nil {
-		return nil, fmt.Errorf("linux seccomp: %v", err)
-	}
 
 	if err := daemon.setupIpcDirs(c); err != nil {
 		return nil, err

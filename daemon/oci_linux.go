@@ -537,10 +537,6 @@ func setMounts(daemon *Daemon, s *specs.Spec, c *container.Container, mounts []c
 }
 
 func (daemon *Daemon) populateCommonSpec(s *specs.Spec, c *container.Container) error {
-	linkedEnv, err := daemon.setupLinkedContainers(c)
-	if err != nil {
-		return err
-	}
 	s.Root = specs.Root{
 		Path:     c.BaseFS,
 		Readonly: c.HostConfig.ReadonlyRootfs,
@@ -558,7 +554,7 @@ func (daemon *Daemon) populateCommonSpec(s *specs.Spec, c *container.Container) 
 		return fmt.Errorf("--init is not supported by system-docker")
 	}
 	s.Process.Cwd = cwd
-	s.Process.Env = c.CreateDaemonEnvironment(c.Config.Tty, linkedEnv)
+	s.Process.Env = c.CreateDaemonEnvironment(c.Config.Tty)
 	s.Process.Terminal = c.Config.Tty
 	s.Hostname = c.FullHostname()
 

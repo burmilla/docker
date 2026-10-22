@@ -40,10 +40,6 @@ func validateNetMode(c *container.Config, hc *container.HostConfig) error {
 		return ErrConflictUTSHostname
 	}
 
-	if hc.NetworkMode.IsHost() && len(hc.Links) > 0 {
-		return ErrConflictHostNetworkAndLinks
-	}
-
 	return nil
 }
 

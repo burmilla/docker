@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -94,7 +93,6 @@ type Daemon struct {
 	idMappings        *idtools.IDMappings
 	stores            map[string]daemonStore // By container target platform
 	nameIndex         *registrar.Registrar
-	linkIndex         *linkIndex
 	containerd        libcontainerd.Client
 	containerdRemote  libcontainerd.Remote
 	defaultIsolation  containertypes.Isolation // Default isolation mode on Windows
@@ -267,13 +265,6 @@ func (daemon *Daemon) restore() error {
 		return fmt.Errorf("Error initializing network controller: %v", err)
 	}
 
-	// Now that all the containers are registered, register the links
-	for _, c := range containers {
-		if err := daemon.registerLinks(c, c.HostConfig); err != nil {
-			logrus.Errorf("failed to register link for container %s: %v", c.ID, err)
-		}
-	}
-
 	group := sync.WaitGroup{}
 	for c, notifier := range restartContainers {
 		group.Add(1)
@@ -282,19 +273,6 @@ func (daemon *Daemon) restore() error {
 			defer group.Done()
 
 			logrus.Debugf("Starting container %s", c.ID)
-
-			// ignore errors here as this is a best effort to wait for children to be
-			//   running before we try to start the container
-			children := daemon.children(c)
-			timeout := time.After(5 * time.Second)
-			for _, child := range children {
-				if notifier, exists := restartContainers[child]; exists {
-					select {
-					case <-notifier:
-					case <-timeout:
-					}
-				}
-			}
 
 			// Make sure networks are available before starting
 			if err := daemon.containerStart(c, true); err != nil {
@@ -346,29 +324,6 @@ func (daemon *Daemon) restore() error {
 
 	logrus.Info("Loading containers: done.")
 
-	return nil
-}
-
-func (daemon *Daemon) children(c *container.Container) map[string]*container.Container {
-	return daemon.linkIndex.children(c)
-}
-
-// parents returns the names of the parent containers of the container
-// with the given name.
-func (daemon *Daemon) parents(c *container.Container) map[string]*container.Container {
-	return daemon.linkIndex.parents(c)
-}
-
-func (daemon *Daemon) registerLink(parent, child *container.Container, alias string) error {
-	fullName := path.Join(parent.Name, alias)
-	if err := daemon.nameIndex.Reserve(fullName, child.ID); err != nil {
-		if err == registrar.ErrNameReserved {
-			logrus.Warnf("error registering link for %s, to %s, as alias %s, ignoring: %v", parent.ID, child.ID, alias, err)
-			return nil
-		}
-		return err
-	}
-	daemon.linkIndex.link(parent, child, fullName)
 	return nil
 }
 
@@ -582,7 +537,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	d.idMappings = idMappings
 
 	d.nameIndex = registrar.NewRegistrar()
-	d.linkIndex = newLinkIndex()
 	d.containerdRemote = containerdRemote
 
 	go d.execCommandGC()

@@ -13,46 +13,11 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/container"
-	"github.com/docker/docker/daemon/links"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/docker/runconfig"
 	"github.com/docker/libnetwork"
 	"github.com/pkg/errors"
 )
-
-func (daemon *Daemon) setupLinkedContainers(container *container.Container) ([]string, error) {
-	var env []string
-	children := daemon.children(container)
-
-	bridgeSettings := container.NetworkSettings.Networks[runconfig.DefaultDaemonNetworkMode().NetworkName()]
-	if bridgeSettings == nil || bridgeSettings.EndpointSettings == nil {
-		return nil, nil
-	}
-
-	for linkAlias, child := range children {
-		if !child.IsRunning() {
-			return nil, fmt.Errorf("Cannot link to a non running container: %s AS %s", child.Name, linkAlias)
-		}
-
-		childBridgeSettings := child.NetworkSettings.Networks[runconfig.DefaultDaemonNetworkMode().NetworkName()]
-		if childBridgeSettings == nil || childBridgeSettings.EndpointSettings == nil {
-			return nil, fmt.Errorf("container %s not attached to default bridge network", child.ID)
-		}
-
-		link := links.NewLink(
-			bridgeSettings.IPAddress,
-			childBridgeSettings.IPAddress,
-			linkAlias,
-			child.Config.Env,
-			child.Config.ExposedPorts,
-		)
-
-		env = append(env, link.ToEnv()...)
-	}
-
-	return env, nil
-}
 
 func (daemon *Daemon) getIpcContainer(container *container.Container) (*container.Container, error) {
 	containerID := container.HostConfig.IpcMode.Container()
@@ -160,12 +125,6 @@ func killProcessDirectly(cntr *container.Container) error {
 
 func detachMounted(path string) error {
 	return syscall.Unmount(path, syscall.MNT_DETACH)
-}
-
-func isLinkable(child *container.Container) bool {
-	// A container is linkable only if it belongs to the default network
-	_, ok := child.NetworkSettings.Networks[runconfig.DefaultDaemonNetworkMode().NetworkName()]
-	return ok
 }
 
 func enableIPOnPredefinedNetwork() bool {

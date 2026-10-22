@@ -24,11 +24,9 @@ import (
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/config"
 	"github.com/docker/docker/image"
-	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/parsers/kernel"
 	"github.com/docker/docker/pkg/sysinfo"
-	"github.com/docker/docker/runconfig"
 	"github.com/docker/docker/volume"
 	"github.com/docker/libnetwork"
 	nwconfig "github.com/docker/libnetwork/config"
@@ -810,42 +808,6 @@ func setupDaemonRoot(config *config.Config, rootDir string, rootIDs idtools.IDPa
 		}
 	}
 	return nil
-}
-
-// registerLinks writes the links to a file.
-func (daemon *Daemon) registerLinks(container *container.Container, hostConfig *containertypes.HostConfig) error {
-	if hostConfig == nil || hostConfig.NetworkMode.IsUserDefined() {
-		return nil
-	}
-
-	for _, l := range hostConfig.Links {
-		name, alias, err := opts.ParseLink(l)
-		if err != nil {
-			return err
-		}
-		child, err := daemon.GetContainer(name)
-		if err != nil {
-			return fmt.Errorf("Could not get container for %s", name)
-		}
-		for child.HostConfig.NetworkMode.IsContainer() {
-			parts := strings.SplitN(string(child.HostConfig.NetworkMode), ":", 2)
-			child, err = daemon.GetContainer(parts[1])
-			if err != nil {
-				return fmt.Errorf("Could not get container for %s", parts[1])
-			}
-		}
-		if child.HostConfig.NetworkMode.IsHost() {
-			return runconfig.ErrConflictHostNetworkAndLinks
-		}
-		if err := daemon.registerLink(container, child, alias); err != nil {
-			return err
-		}
-	}
-
-	// After we load all the links into the daemon
-	// set them to nil on the hostconfig
-	_, err := container.WriteHostConfig()
-	return err
 }
 
 // conditionalMountOnStart is a platform specific helper function during the

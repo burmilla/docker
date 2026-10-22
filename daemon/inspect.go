@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -125,12 +124,6 @@ func (daemon *Daemon) containerInspect120(name string) (*v1p20.ContainerJSON, er
 func (daemon *Daemon) getInspectData(container *container.Container) (*types.ContainerJSONBase, error) {
 	// make a copy to play with
 	hostConfig := *container.HostConfig
-
-	children := daemon.children(container)
-	hostConfig.Links = nil // do not expose the internal structure
-	for linkAlias, child := range children {
-		hostConfig.Links = append(hostConfig.Links, fmt.Sprintf("%s:%s", child.Name, linkAlias))
-	}
 
 	// We merge the Ulimits from hostConfig with daemon default
 	daemon.mergeUlimits(&hostConfig)

@@ -5,8 +5,6 @@ import (
 )
 
 var (
-	// ErrConflictContainerNetworkAndLinks conflict between --net=container and links
-	ErrConflictContainerNetworkAndLinks = fmt.Errorf("conflicting options: container type network can't be used with links. This would result in undefined behavior")
 	// ErrConflictSharedNetwork conflict between private and other networks
 	ErrConflictSharedNetwork = fmt.Errorf("container sharing network namespace with another container or host cannot be connected to any other network")
 	// ErrConflictHostNetwork conflict from being disconnected from host network or connected to host network.
@@ -17,8 +15,6 @@ var (
 	ErrConflictNetworkAndDNS = fmt.Errorf("conflicting options: dns and the network mode")
 	// ErrConflictNetworkHostname conflict between the hostname and the network mode
 	ErrConflictNetworkHostname = fmt.Errorf("conflicting options: hostname and the network mode")
-	// ErrConflictHostNetworkAndLinks conflict between --net=host and links
-	ErrConflictHostNetworkAndLinks = fmt.Errorf("conflicting options: host type networking can't be used with links. This would result in undefined behavior")
 	// ErrConflictContainerNetworkAndMac conflict between the mac address and the network mode
 	ErrConflictContainerNetworkAndMac = fmt.Errorf("conflicting options: mac-address and the network mode")
 	// ErrConflictNetworkHosts conflict between add-host and the network mode

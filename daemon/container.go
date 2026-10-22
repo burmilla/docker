@@ -210,9 +210,8 @@ func (daemon *Daemon) setHostConfig(container *container.Container, hostConfig *
 	container.Lock()
 	defer container.Unlock()
 
-	// Register any links from the host config before starting the container
-	if err := daemon.registerLinks(container, hostConfig); err != nil {
-		return err
+	if len(hostConfig.Links) > 0 {
+		return fmt.Errorf("legacy container links (--link) are not supported by system-docker")
 	}
 
 	runconfig.SetDefaultNetModeIfBlank(hostConfig)

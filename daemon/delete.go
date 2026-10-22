@@ -3,7 +3,6 @@ package daemon
 import (
 	"fmt"
 	"os"
-	"path"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
@@ -39,38 +38,12 @@ func (daemon *Daemon) ContainerRm(name string, config *types.ContainerRmConfig) 
 	}
 
 	if config.RemoveLink {
-		return daemon.rmLink(container, name)
+		return fmt.Errorf("legacy container links are not supported by system-docker")
 	}
 
 	err = daemon.cleanupContainer(container, config.ForceRemove, config.RemoveVolume)
 
 	return err
-}
-
-func (daemon *Daemon) rmLink(container *container.Container, name string) error {
-	if name[0] != '/' {
-		name = "/" + name
-	}
-	parent, n := path.Split(name)
-	if parent == "/" {
-		return fmt.Errorf("Conflict, cannot remove the default name of the container")
-	}
-
-	parent = strings.TrimSuffix(parent, "/")
-	pe, err := daemon.nameIndex.Get(parent)
-	if err != nil {
-		return fmt.Errorf("Cannot get parent %s for name %s", parent, name)
-	}
-
-	daemon.releaseName(name)
-	parentContainer, _ := daemon.GetContainer(pe)
-	if parentContainer != nil {
-		daemon.linkIndex.unlink(name, container, parentContainer)
-		if err := daemon.updateNetwork(parentContainer); err != nil {
-			logrus.Debugf("Could not update network to remove link %s: %v", n, err)
-		}
-	}
-	return nil
 }
 
 // cleanupContainer unregisters a container from the daemon, stops stats
@@ -122,7 +95,6 @@ func (daemon *Daemon) cleanupContainer(container *container.Container, forceRemo
 	}
 
 	daemon.nameIndex.Delete(container.ID)
-	daemon.linkIndex.delete(container)
 	daemon.idIndex.Delete(container.ID)
 	daemon.containers.Delete(container.ID)
 	daemon.containersReplica.Delete(container)

@@ -951,7 +951,7 @@ func (container *Container) InitializeStdio(iop libcontainerd.IOPipe) error {
 }
 
 // CreateDaemonEnvironment creates a new environment variable slice for this container.
-func (container *Container) CreateDaemonEnvironment(tty bool, linkedEnv []string) []string {
+func (container *Container) CreateDaemonEnvironment(tty bool) []string {
 	// Setup environment
 	// TODO @jhowardmsft LCOW Support. This will need revisiting later.
 	platform := container.Platform
@@ -967,7 +967,6 @@ func (container *Container) CreateDaemonEnvironment(tty bool, linkedEnv []string
 		if tty {
 			env = append(env, "TERM=xterm")
 		}
-		env = append(env, linkedEnv...)
 	}
 
 	// because the env on the container can override certain default values

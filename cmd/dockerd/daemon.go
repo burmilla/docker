@@ -105,8 +105,6 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 		Logging:     true,
 		SocketGroup: cli.Config.SocketGroup,
 		Version:     dockerversion.Version,
-		EnableCors:  cli.Config.EnableCors,
-		CorsHeaders: cli.Config.CorsHeaders,
 	}
 
 	if len(cli.Config.Hosts) == 0 {
@@ -333,17 +331,11 @@ func initRouter(api *apiserver.Server, d *daemon.Daemon) {
 	api.InitRouter(debug.IsEnabled(), routers...)
 }
 
-// TODO: remove this from cli and return the authzMiddleware
 func (cli *DaemonCli) initMiddlewares(s *apiserver.Server, cfg *apiserver.Config) error {
 	v := cfg.Version
 
 	vm := middleware.NewVersionMiddleware(v, api.DefaultVersion, api.MinVersion)
 	s.UseMiddleware(vm)
-
-	if cfg.EnableCors || cfg.CorsHeaders != "" {
-		c := middleware.NewCORSMiddleware(cfg.CorsHeaders)
-		s.UseMiddleware(c)
-	}
 
 	return nil
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/signal"
 	"golang.org/x/net/context"
-	"golang.org/x/net/websocket"
 )
 
 func (s *containerRouter) getContainersJSON(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
@@ -463,64 +462,6 @@ func (s *containerRouter) postContainersAttach(ctx context.Context, w http.Respo
 		}
 	}
 	return nil
-}
-
-func (s *containerRouter) wsContainersAttach(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	if err := httputils.ParseForm(r); err != nil {
-		return err
-	}
-	containerName := vars["name"]
-
-	var err error
-	detachKeys := r.FormValue("detachKeys")
-
-	done := make(chan struct{})
-	started := make(chan struct{})
-
-	version := httputils.VersionFromContext(ctx)
-
-	setupStreams := func() (io.ReadCloser, io.Writer, io.Writer, error) {
-		wsChan := make(chan *websocket.Conn)
-		h := func(conn *websocket.Conn) {
-			wsChan <- conn
-			<-done
-		}
-
-		srv := websocket.Server{Handler: h, Handshake: nil}
-		go func() {
-			close(started)
-			srv.ServeHTTP(w, r)
-		}()
-
-		conn := <-wsChan
-		// In case version 1.28 and above, a binary frame will be sent.
-		// See 28176 for details.
-		if versions.GreaterThanOrEqualTo(version, "1.28") {
-			conn.PayloadType = websocket.BinaryFrame
-		}
-		return conn, conn, conn, nil
-	}
-
-	attachConfig := &backend.ContainerAttachConfig{
-		GetStreams: setupStreams,
-		Logs:       httputils.BoolValue(r, "logs"),
-		Stream:     httputils.BoolValue(r, "stream"),
-		DetachKeys: detachKeys,
-		UseStdin:   true,
-		UseStdout:  true,
-		UseStderr:  true,
-		MuxStreams: false, // TODO: this should be true since it's a single stream for both stdout and stderr
-	}
-
-	err = s.backend.ContainerAttach(containerName, attachConfig)
-	close(done)
-	select {
-	case <-started:
-		logrus.Errorf("Error attaching websocket: %s", err)
-		return nil
-	default:
-	}
-	return err
 }
 
 func (s *containerRouter) postContainersPrune(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {

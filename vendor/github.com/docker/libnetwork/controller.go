@@ -191,7 +191,7 @@ func New(cfgOptions ...config.Option) (NetworkController, error) {
 		return nil, err
 	}
 
-	for _, i := range getInitializers(c.cfg.Daemon.Experimental) {
+	for _, i := range getInitializers() {
 		if err := drvRegistry.AddDriver(i.ntype, i.fn, c.makeDriverConfig(i.ntype)); err != nil {
 			return nil, err
 		}

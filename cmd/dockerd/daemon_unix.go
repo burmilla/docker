@@ -30,10 +30,6 @@ func setDefaultUmask() error {
 	return nil
 }
 
-func getDaemonConfDir(_ string) string {
-	return "/etc/docker"
-}
-
 // setupConfigReloadTrap configures the USR2 signal to reload the configuration.
 func (cli *DaemonCli) setupConfigReloadTrap() {
 	c := make(chan os.Signal, 1)

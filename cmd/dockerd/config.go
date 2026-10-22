@@ -11,8 +11,6 @@ import (
 const (
 	// defaultShutdownTimeout is the default shutdown timeout for the daemon
 	defaultShutdownTimeout = 15
-	// defaultTrustKeyFile is the default filename for the trust key
-	defaultTrustKeyFile = "key.json"
 )
 
 // installCommonConfigFlags adds flags to the pflag.FlagSet to configure the daemon
@@ -50,13 +48,6 @@ func installCommonConfigFlags(conf *config.Config, flags *pflag.FlagSet) {
 	flags.Var(opts.NewNamedMapOpts("log-opts", conf.LogConfig.Config, nil), "log-opt", "Default log driver options for containers")
 	flags.IntVar(&maxConcurrentDownloads, "max-concurrent-downloads", config.DefaultMaxConcurrentDownloads, "Set the max concurrent downloads for each pull")
 	flags.IntVar(&conf.ShutdownTimeout, "shutdown-timeout", defaultShutdownTimeout, "Set the default shutdown timeout")
-
-	// "--deprecated-key-path" is to allow configuration of the key used
-	// for the daemon ID and the deprecated image signing. It was never
-	// exposed as a command line option but is added here to allow
-	// overriding the default path in configuration.
-	flags.Var(opts.NewQuotedString(&conf.TrustKeyPath), "deprecated-key-path", "Path to key file for ID and image signing")
-	flags.MarkHidden("deprecated-key-path")
 
 	conf.MaxConcurrentDownloads = &maxConcurrentDownloads
 }

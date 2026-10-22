@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/docker/docker/api"
 	"github.com/docker/docker/api/types"
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/container"
@@ -47,7 +46,6 @@ import (
 	"github.com/docker/docker/volume/store"
 	"github.com/docker/libnetwork"
 	nwconfig "github.com/docker/libnetwork/config"
-	"github.com/docker/libtrust"
 	"github.com/pkg/errors"
 )
 
@@ -80,7 +78,6 @@ type Daemon struct {
 	containersReplica container.ViewDB
 	execCommands      *exec.Store
 	downloadManager   *xfer.LayerDownloadManager
-	trustKey          libtrust.PrivateKey
 	idIndex           *truncindex.TruncIndex
 	configStore       *config.Config
 	defaultLogConfig  containertypes.LogConfig
@@ -490,14 +487,7 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 		return nil, err
 	}
 
-	trustKey, err := api.LoadOrCreateTrustKey(config.TrustKeyPath)
-	if err != nil {
-		return nil, err
-	}
-
-	trustDir := filepath.Join(config.Root, "trust")
-
-	if err := system.MkdirAll(trustDir, 0700, ""); err != nil {
+	if d.ID, err = loadOrCreateID(filepath.Join(config.Root, "engine-id")); err != nil {
 		return nil, err
 	}
 
@@ -518,14 +508,12 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 		d.stores[platform] = ds
 	}
 
-	d.ID = trustKey.PublicKey().KeyID()
 	d.repository = daemonRepo
 	d.containers = container.NewMemoryStore()
 	if d.containersReplica, err = container.NewViewDB(); err != nil {
 		return nil, err
 	}
 	d.execCommands = exec.NewStore()
-	d.trustKey = trustKey
 	d.idIndex = truncindex.NewTruncIndex([]string{})
 	d.defaultLogConfig = containertypes.LogConfig{
 		Type:   config.LogConfig.Type,

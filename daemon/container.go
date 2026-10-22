@@ -240,25 +240,6 @@ func (daemon *Daemon) verifyContainerSettings(hostConfig *containertypes.HostCon
 				return nil, err
 			}
 		}
-
-		// Validate the healthcheck params of Config
-		if config.Healthcheck != nil {
-			if config.Healthcheck.Interval != 0 && config.Healthcheck.Interval < containertypes.MinimumDuration {
-				return nil, fmt.Errorf("Interval in Healthcheck cannot be less than %s", containertypes.MinimumDuration)
-			}
-
-			if config.Healthcheck.Timeout != 0 && config.Healthcheck.Timeout < containertypes.MinimumDuration {
-				return nil, fmt.Errorf("Timeout in Healthcheck cannot be less than %s", containertypes.MinimumDuration)
-			}
-
-			if config.Healthcheck.Retries < 0 {
-				return nil, fmt.Errorf("Retries in Healthcheck cannot be negative")
-			}
-
-			if config.Healthcheck.StartPeriod != 0 && config.Healthcheck.StartPeriod < containertypes.MinimumDuration {
-				return nil, fmt.Errorf("StartPeriod in Healthcheck cannot be less than %s", containertypes.MinimumDuration)
-			}
-		}
 	}
 
 	if hostConfig == nil {

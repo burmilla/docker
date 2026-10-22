@@ -87,15 +87,6 @@ func (daemon *Daemon) getInspectData(container *container.Container) (*types.Con
 	// We merge the Ulimits from hostConfig with daemon default
 	daemon.mergeUlimits(&hostConfig)
 
-	var containerHealth *types.Health
-	if container.State.Health != nil {
-		containerHealth = &types.Health{
-			Status:        container.State.Health.Status,
-			FailingStreak: container.State.Health.FailingStreak,
-			Log:           append([]*types.HealthcheckResult{}, container.State.Health.Log...),
-		}
-	}
-
 	containerState := &types.ContainerState{
 		Status:     container.State.StateString(),
 		Running:    container.State.Running,
@@ -108,7 +99,6 @@ func (daemon *Daemon) getInspectData(container *container.Container) (*types.Con
 		Error:      container.State.ErrorMsg,
 		StartedAt:  container.State.StartedAt.Format(time.RFC3339Nano),
 		FinishedAt: container.State.FinishedAt.Format(time.RFC3339Nano),
-		Health:     containerHealth,
 	}
 
 	contJSONBase := &types.ContainerJSONBase{

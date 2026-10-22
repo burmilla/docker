@@ -8,7 +8,6 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/go-units"
 )
 
@@ -28,7 +27,6 @@ type State struct {
 	ErrorMsg          string `json:"Error"` // contains last known error when starting the container
 	StartedAt         time.Time
 	FinishedAt        time.Time
-	Health            *Health
 
 	waitStop   chan struct{}
 	waitRemove chan struct{}
@@ -72,10 +70,6 @@ func (s *State) String() string {
 			return fmt.Sprintf("Restarting (%d) %s ago", s.ExitCodeValue, units.HumanDuration(time.Now().UTC().Sub(s.FinishedAt)))
 		}
 
-		if h := s.Health; h != nil {
-			return fmt.Sprintf("Up %s (%s)", units.HumanDuration(time.Now().UTC().Sub(s.StartedAt)), h.String())
-		}
-
 		return fmt.Sprintf("Up %s", units.HumanDuration(time.Now().UTC().Sub(s.StartedAt)))
 	}
 
@@ -96,23 +90,6 @@ func (s *State) String() string {
 	}
 
 	return fmt.Sprintf("Exited (%d) %s ago", s.ExitCodeValue, units.HumanDuration(time.Now().UTC().Sub(s.FinishedAt)))
-}
-
-// HealthString returns a single string to describe health status.
-func (s *State) HealthString() string {
-	if s.Health == nil {
-		return types.NoHealthcheck
-	}
-
-	return s.Health.String()
-}
-
-// IsValidHealthString checks if the provided string is a valid container health status or not.
-func IsValidHealthString(s string) bool {
-	return s == types.Starting ||
-		s == types.Healthy ||
-		s == types.Unhealthy ||
-		s == types.NoHealthcheck
 }
 
 // StateString returns a single string to describe state

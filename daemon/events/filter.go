@@ -31,9 +31,9 @@ func (ef *Filter) Include(ev events.Message) bool {
 }
 
 func (ef *Filter) matchEvent(ev events.Message) bool {
-	// #25798 if an event filter contains either health_status, exec_create or exec_start without a colon
+	// #25798 if an event filter contains either exec_create or exec_start without a colon
 	// Let's to a FuzzyMatch instead of an ExactMatch.
-	if ef.filterContains("event", map[string]struct{}{"health_status": {}, "exec_create": {}, "exec_start": {}}) {
+	if ef.filterContains("event", map[string]struct{}{"exec_create": {}, "exec_start": {}}) {
 		return ef.filter.FuzzyMatch("event", ev.Action)
 	}
 	return ef.filter.ExactMatch("event", ev.Action)

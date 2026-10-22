@@ -34,7 +34,6 @@ type Snapshot struct {
 	Paused       bool
 	ExposedPorts nat.PortSet
 	PortBindings nat.PortSet
-	Health       string
 }
 
 // ViewDB provides an in-memory transactional (ACID) container Store
@@ -167,7 +166,6 @@ func (v *memdbView) transform(container *Container) *Snapshot {
 		Pid:          container.Pid,
 		ExposedPorts: make(nat.PortSet),
 		PortBindings: make(nat.PortSet),
-		Health:       container.HealthString(),
 		Running:      container.Running,
 		Paused:       container.Paused,
 		ExitCode:     container.ExitCode(),

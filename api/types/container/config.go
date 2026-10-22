@@ -1,38 +1,9 @@
 package container
 
 import (
-	"time"
-
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/go-connections/nat"
 )
-
-// MinimumDuration puts a minimum on user configured duration.
-// This is to prevent API error on time unit. For example, API may
-// set 3 as healthcheck interval with intention of 3 seconds, but
-// Docker interprets it as 3 nanoseconds.
-const MinimumDuration = 1 * time.Millisecond
-
-// HealthConfig holds configuration settings for the HEALTHCHECK feature.
-type HealthConfig struct {
-	// Test is the test to perform to check that the container is healthy.
-	// An empty slice means to inherit the default.
-	// The options are:
-	// {} : inherit healthcheck
-	// {"NONE"} : disable healthcheck
-	// {"CMD", args...} : exec arguments directly
-	// {"CMD-SHELL", command} : run command with system's default shell
-	Test []string `json:",omitempty"`
-
-	// Zero means to inherit. Durations are expressed as integer nanoseconds.
-	Interval    time.Duration `json:",omitempty"` // Interval is the time to wait between checks.
-	Timeout     time.Duration `json:",omitempty"` // Timeout is the time to wait before considering the check to have hung.
-	StartPeriod time.Duration `json:",omitempty"` // The start period for the container to initialize before the retries starts to count down.
-
-	// Retries is the number of consecutive failures needed to consider a container as unhealthy.
-	// Zero means inherit.
-	Retries int `json:",omitempty"`
-}
 
 // Config contains the configuration data about a container.
 // It should hold only portable information about the container.
@@ -53,7 +24,6 @@ type Config struct {
 	StdinOnce       bool                // If true, close stdin after the 1 attached client disconnects.
 	Env             []string            // List of environment variable to set in the container
 	Cmd             strslice.StrSlice   // Command to run when starting the container
-	Healthcheck     *HealthConfig       `json:",omitempty"` // Healthcheck describes how to check the container is healthy
 	ArgsEscaped     bool                `json:",omitempty"` // True if command is already escaped (Windows specific)
 	Image           string              // Name of the image as it was passed by the operator (e.g. could be symbolic)
 	Volumes         map[string]struct{} // List of volumes (mounts) used for the container

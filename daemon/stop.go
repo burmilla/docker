@@ -46,8 +46,6 @@ func (daemon *Daemon) containerStop(container *containerpkg.Container, seconds i
 		return nil
 	}
 
-	daemon.stopHealthchecks(container)
-
 	stopSignal := container.StopSignal()
 	// 1. Send a stop signal
 	if err := daemon.killPossiblyDeadProcess(container, stopSignal); err != nil {

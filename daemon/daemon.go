@@ -83,7 +83,6 @@ type Daemon struct {
 	containersReplica container.ViewDB
 	execCommands      *exec.Store
 	downloadManager   *xfer.LayerDownloadManager
-	uploadManager     *xfer.LayerUploadManager
 	trustKey          libtrust.PrivateKey
 	idIndex           *truncindex.TruncIndex
 	configStore       *config.Config
@@ -568,8 +567,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 		lsMap[platform] = ds.layerStore
 	}
 	d.downloadManager = xfer.NewLayerDownloadManager(lsMap, *config.MaxConcurrentDownloads)
-	logrus.Debugf("Max Concurrent Uploads: %d", *config.MaxConcurrentUploads)
-	d.uploadManager = xfer.NewLayerUploadManager(*config.MaxConcurrentUploads)
 
 	for platform, ds := range d.stores {
 		imageRoot := filepath.Join(config.Root, "image", ds.graphDriver)

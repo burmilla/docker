@@ -11,21 +11,15 @@ import (
 	"github.com/docker/distribution/uuid"
 	"github.com/docker/docker/api"
 	apiserver "github.com/docker/docker/api/server"
-	buildbackend "github.com/docker/docker/api/server/backend/build"
 	"github.com/docker/docker/api/server/middleware"
 	"github.com/docker/docker/api/server/router"
-	"github.com/docker/docker/api/server/router/build"
 	"github.com/docker/docker/api/server/router/container"
 	distributionrouter "github.com/docker/docker/api/server/router/distribution"
 	"github.com/docker/docker/api/server/router/image"
 	"github.com/docker/docker/api/server/router/network"
-	sessionrouter "github.com/docker/docker/api/server/router/session"
 	systemrouter "github.com/docker/docker/api/server/router/system"
 	"github.com/docker/docker/api/server/router/volume"
-	"github.com/docker/docker/builder/dockerfile"
-	"github.com/docker/docker/builder/fscache"
 	"github.com/docker/docker/cli/debug"
-	"github.com/docker/docker/client/session"
 	"github.com/docker/docker/daemon"
 	"github.com/docker/docker/daemon/config"
 	"github.com/docker/docker/daemon/logger"
@@ -39,7 +33,6 @@ import (
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/registry"
 	"github.com/docker/docker/runconfig"
-	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 )
 
@@ -186,13 +179,7 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 
 	cli.d = d
 
-	routerOptions, err := newRouterOptions(cli.Config, d)
-	if err != nil {
-		return err
-	}
-	routerOptions.api = cli.api
-
-	initRouter(routerOptions)
+	initRouter(cli.api, d)
 
 	cli.setupConfigReloadTrap()
 
@@ -212,53 +199,6 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 	}
 
 	return nil
-}
-
-type routerOptions struct {
-	sessionManager *session.Manager
-	buildBackend   *buildbackend.Backend
-	buildCache     *fscache.FSCache
-	daemon         *daemon.Daemon
-	api            *apiserver.Server
-}
-
-func newRouterOptions(config *config.Config, daemon *daemon.Daemon) (routerOptions, error) {
-	opts := routerOptions{}
-	sm, err := session.NewManager()
-	if err != nil {
-		return opts, errors.Wrap(err, "failed to create sessionmanager")
-	}
-
-	builderStateDir := filepath.Join(config.Root, "builder")
-
-	buildCache, err := fscache.NewFSCache(fscache.Opt{
-		Backend: fscache.NewNaiveCacheBackend(builderStateDir),
-		Root:    builderStateDir,
-		GCPolicy: fscache.GCPolicy{ // TODO: expose this in config
-			MaxSize:         1024 * 1024 * 512,  // 512MB
-			MaxKeepDuration: 7 * 24 * time.Hour, // 1 week
-		},
-	})
-	if err != nil {
-		return opts, errors.Wrap(err, "failed to create fscache")
-	}
-
-	manager, err := dockerfile.NewBuildManager(daemon, sm, buildCache, daemon.IDMappings())
-	if err != nil {
-		return opts, err
-	}
-
-	bb, err := buildbackend.NewBackend(daemon, manager, buildCache)
-	if err != nil {
-		return opts, errors.Wrap(err, "failed to create buildmanager")
-	}
-
-	return routerOptions{
-		sessionManager: sm,
-		buildBackend:   bb,
-		buildCache:     buildCache,
-		daemon:         daemon,
-	}, nil
 }
 
 func (cli *DaemonCli) reloadConfig() {
@@ -381,25 +321,23 @@ func loadDaemonCliConfig(opts *daemonOptions) (*config.Config, error) {
 	return conf, nil
 }
 
-func initRouter(opts routerOptions) {
+func initRouter(api *apiserver.Server, d *daemon.Daemon) {
 	decoder := runconfig.ContainerDecoder{}
 
 	routers := []router.Router{
 		// we need to add the checkpoint router before the container router or the DELETE gets masked
-		container.NewRouter(opts.daemon, decoder),
-		image.NewRouter(opts.daemon, decoder),
-		systemrouter.NewRouter(opts.daemon, opts.buildCache),
-		volume.NewRouter(opts.daemon),
-		build.NewRouter(opts.buildBackend, opts.daemon),
-		sessionrouter.NewRouter(opts.sessionManager),
-		distributionrouter.NewRouter(opts.daemon),
+		container.NewRouter(d, decoder),
+		image.NewRouter(d, decoder),
+		systemrouter.NewRouter(d),
+		volume.NewRouter(d),
+		distributionrouter.NewRouter(d),
 	}
 
-	if opts.daemon.NetworkControllerEnabled() {
-		routers = append(routers, network.NewRouter(opts.daemon))
+	if d.NetworkControllerEnabled() {
+		routers = append(routers, network.NewRouter(d))
 	}
 
-	if opts.daemon.HasExperimental() {
+	if d.HasExperimental() {
 		for _, r := range routers {
 			for _, route := range r.Routes() {
 				if experimental, ok := route.(router.ExperimentalRoute); ok {
@@ -409,7 +347,7 @@ func initRouter(opts routerOptions) {
 		}
 	}
 
-	opts.api.InitRouter(debug.IsEnabled(), routers...)
+	api.InitRouter(debug.IsEnabled(), routers...)
 }
 
 // TODO: remove this from cli and return the authzMiddleware

@@ -17,5 +17,4 @@ type Backend interface {
 	SystemDiskUsage(ctx context.Context) (*types.DiskUsage, error)
 	SubscribeToEvents(since, until time.Time, ef filters.Args) ([]events.Message, chan interface{})
 	UnsubscribeFromEvents(chan interface{})
-	AuthenticateToRegistry(ctx context.Context, authConfig *types.AuthConfig) (string, string, error)
 }

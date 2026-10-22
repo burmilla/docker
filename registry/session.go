@@ -1,13 +1,11 @@
 package registry
 
 import (
-	"bytes"
-	"crypto/sha256"
 	"errors"
 	"sync"
+
 	// this is required for some certificates
 	_ "crypto/sha512"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,11 +20,9 @@ import (
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
 	"github.com/docker/docker/api/types"
-	registrytypes "github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/docker/pkg/tarsum"
 	"github.com/docker/docker/registry/resumable"
 )
 
@@ -482,279 +478,8 @@ func (r *Session) GetRepositoryData(name reference.Named) (*RepositoryData, erro
 	}, nil
 }
 
-// PushImageChecksumRegistry uploads checksums for an image
-func (r *Session) PushImageChecksumRegistry(imgData *ImgData, registry string) error {
-	u := registry + "images/" + imgData.ID + "/checksum"
-
-	logrus.Debugf("[registry] Calling PUT %s", u)
-
-	req, err := http.NewRequest("PUT", u, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("X-Docker-Checksum", imgData.Checksum)
-	req.Header.Set("X-Docker-Checksum-Payload", imgData.ChecksumPayload)
-
-	res, err := r.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("Failed to upload metadata: %v", err)
-	}
-	defer res.Body.Close()
-	if len(res.Cookies()) > 0 {
-		r.client.Jar.SetCookies(req.URL, res.Cookies())
-	}
-	if res.StatusCode != 200 {
-		errBody, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return fmt.Errorf("HTTP code %d while uploading metadata and error when trying to parse response body: %s", res.StatusCode, err)
-		}
-		var jsonBody map[string]string
-		if err := json.Unmarshal(errBody, &jsonBody); err != nil {
-			errBody = []byte(err.Error())
-		} else if jsonBody["error"] == "Image already exists" {
-			return ErrAlreadyExists
-		}
-		return fmt.Errorf("HTTP code %d while uploading metadata: %q", res.StatusCode, errBody)
-	}
-	return nil
-}
-
-// PushImageJSONRegistry pushes JSON metadata for a local image to the registry
-func (r *Session) PushImageJSONRegistry(imgData *ImgData, jsonRaw []byte, registry string) error {
-
-	u := registry + "images/" + imgData.ID + "/json"
-
-	logrus.Debugf("[registry] Calling PUT %s", u)
-
-	req, err := http.NewRequest("PUT", u, bytes.NewReader(jsonRaw))
-	if err != nil {
-		return err
-	}
-	req.Header.Add("Content-type", "application/json")
-
-	res, err := r.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("Failed to upload metadata: %s", err)
-	}
-	defer res.Body.Close()
-	if res.StatusCode == 401 && strings.HasPrefix(registry, "http://") {
-		return newJSONError("HTTP code 401, Docker will not send auth headers over HTTP.", res)
-	}
-	if res.StatusCode != 200 {
-		errBody, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return newJSONError(fmt.Sprintf("HTTP code %d while uploading metadata and error when trying to parse response body: %s", res.StatusCode, err), res)
-		}
-		var jsonBody map[string]string
-		if err := json.Unmarshal(errBody, &jsonBody); err != nil {
-			errBody = []byte(err.Error())
-		} else if jsonBody["error"] == "Image already exists" {
-			return ErrAlreadyExists
-		}
-		return newJSONError(fmt.Sprintf("HTTP code %d while uploading metadata: %q", res.StatusCode, errBody), res)
-	}
-	return nil
-}
-
-// PushImageLayerRegistry sends the checksum of an image layer to the registry
-func (r *Session) PushImageLayerRegistry(imgID string, layer io.Reader, registry string, jsonRaw []byte) (checksum string, checksumPayload string, err error) {
-	u := registry + "images/" + imgID + "/layer"
-
-	logrus.Debugf("[registry] Calling PUT %s", u)
-
-	tarsumLayer, err := tarsum.NewTarSum(layer, false, tarsum.Version0)
-	if err != nil {
-		return "", "", err
-	}
-	h := sha256.New()
-	h.Write(jsonRaw)
-	h.Write([]byte{'\n'})
-	checksumLayer := io.TeeReader(tarsumLayer, h)
-
-	req, err := http.NewRequest("PUT", u, checksumLayer)
-	if err != nil {
-		return "", "", err
-	}
-	req.Header.Add("Content-Type", "application/octet-stream")
-	req.ContentLength = -1
-	req.TransferEncoding = []string{"chunked"}
-	res, err := r.client.Do(req)
-	if err != nil {
-		return "", "", fmt.Errorf("Failed to upload layer: %v", err)
-	}
-	if rc, ok := layer.(io.Closer); ok {
-		if err := rc.Close(); err != nil {
-			return "", "", err
-		}
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != 200 {
-		errBody, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return "", "", newJSONError(fmt.Sprintf("HTTP code %d while uploading metadata and error when trying to parse response body: %s", res.StatusCode, err), res)
-		}
-		return "", "", newJSONError(fmt.Sprintf("Received HTTP code %d while uploading layer: %q", res.StatusCode, errBody), res)
-	}
-
-	checksumPayload = "sha256:" + hex.EncodeToString(h.Sum(nil))
-	return tarsumLayer.Sum(jsonRaw), checksumPayload, nil
-}
-
-// PushRegistryTag pushes a tag on the registry.
-// Remote has the format '<user>/<repo>
-func (r *Session) PushRegistryTag(remote reference.Named, revision, tag, registry string) error {
-	// "jsonify" the string
-	revision = "\"" + revision + "\""
-	path := fmt.Sprintf("repositories/%s/tags/%s", reference.Path(remote), tag)
-
-	req, err := http.NewRequest("PUT", registry+path, strings.NewReader(revision))
-	if err != nil {
-		return err
-	}
-	req.Header.Add("Content-type", "application/json")
-	req.ContentLength = int64(len(revision))
-	res, err := r.client.Do(req)
-	if err != nil {
-		return err
-	}
-	res.Body.Close()
-	if res.StatusCode != 200 && res.StatusCode != 201 {
-		return newJSONError(fmt.Sprintf("Internal server error: %d trying to push tag %s on %s", res.StatusCode, tag, reference.Path(remote)), res)
-	}
-	return nil
-}
-
-// PushImageJSONIndex uploads an image list to the repository
-func (r *Session) PushImageJSONIndex(remote reference.Named, imgList []*ImgData, validate bool, regs []string) (*RepositoryData, error) {
-	cleanImgList := []*ImgData{}
-	if validate {
-		for _, elem := range imgList {
-			if elem.Checksum != "" {
-				cleanImgList = append(cleanImgList, elem)
-			}
-		}
-	} else {
-		cleanImgList = imgList
-	}
-
-	imgListJSON, err := json.Marshal(cleanImgList)
-	if err != nil {
-		return nil, err
-	}
-	var suffix string
-	if validate {
-		suffix = "images"
-	}
-	u := fmt.Sprintf("%srepositories/%s/%s", r.indexEndpoint.String(), reference.Path(remote), suffix)
-	logrus.Debugf("[registry] PUT %s", u)
-	logrus.Debugf("Image list pushed to index:\n%s", imgListJSON)
-	headers := map[string][]string{
-		"Content-type": {"application/json"},
-		// this will set basic auth in r.client.Transport and send cached X-Docker-Token headers for all subsequent requests
-		"X-Docker-Token": {"true"},
-	}
-	if validate {
-		headers["X-Docker-Endpoints"] = regs
-	}
-
-	// Redirect if necessary
-	var res *http.Response
-	for {
-		if res, err = r.putImageRequest(u, headers, imgListJSON); err != nil {
-			return nil, err
-		}
-		if !shouldRedirect(res) {
-			break
-		}
-		res.Body.Close()
-		u = res.Header.Get("Location")
-		logrus.Debugf("Redirected to %s", u)
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode == 401 {
-		return nil, errcode.ErrorCodeUnauthorized.WithArgs()
-	}
-
-	var tokens, endpoints []string
-	if !validate {
-		if res.StatusCode != 200 && res.StatusCode != 201 {
-			errBody, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				logrus.Debugf("Error reading response body: %s", err)
-			}
-			return nil, newJSONError(fmt.Sprintf("Error: Status %d trying to push repository %s: %q", res.StatusCode, reference.Path(remote), errBody), res)
-		}
-		tokens = res.Header["X-Docker-Token"]
-		logrus.Debugf("Auth token: %v", tokens)
-
-		if res.Header.Get("X-Docker-Endpoints") == "" {
-			return nil, fmt.Errorf("Index response didn't contain any endpoints")
-		}
-		endpoints, err = buildEndpointsList(res.Header["X-Docker-Endpoints"], r.indexEndpoint.String())
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		if res.StatusCode != 204 {
-			errBody, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				logrus.Debugf("Error reading response body: %s", err)
-			}
-			return nil, newJSONError(fmt.Sprintf("Error: Status %d trying to push checksums %s: %q", res.StatusCode, reference.Path(remote), errBody), res)
-		}
-	}
-
-	return &RepositoryData{
-		Endpoints: endpoints,
-	}, nil
-}
-
-func (r *Session) putImageRequest(u string, headers map[string][]string, body []byte) (*http.Response, error) {
-	req, err := http.NewRequest("PUT", u, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.ContentLength = int64(len(body))
-	for k, v := range headers {
-		req.Header[k] = v
-	}
-	response, err := r.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	return response, nil
-}
-
 func shouldRedirect(response *http.Response) bool {
 	return response.StatusCode >= 300 && response.StatusCode < 400
-}
-
-// SearchRepositories performs a search against the remote repository
-func (r *Session) SearchRepositories(term string, limit int) (*registrytypes.SearchResults, error) {
-	if limit < 1 || limit > 100 {
-		return nil, fmt.Errorf("Limit %d is outside the range of [1, 100]", limit)
-	}
-	logrus.Debugf("Index server: %s", r.indexEndpoint)
-	u := r.indexEndpoint.String() + "search?q=" + url.QueryEscape(term) + "&n=" + url.QueryEscape(fmt.Sprintf("%d", limit))
-
-	req, err := http.NewRequest("GET", u, nil)
-	if err != nil {
-		return nil, fmt.Errorf("Error while getting from the server: %v", err)
-	}
-	// Have the AuthTransport send authentication, when logged in.
-	req.Header.Set("X-Docker-Token", "true")
-	res, err := r.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-	if res.StatusCode != 200 {
-		return nil, newJSONError(fmt.Sprintf("Unexpected status code %d", res.StatusCode), res)
-	}
-	result := new(registrytypes.SearchResults)
-	return result, json.NewDecoder(res.Body).Decode(result)
 }
 
 func isTimeout(err error) bool {

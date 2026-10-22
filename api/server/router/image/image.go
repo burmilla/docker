@@ -32,16 +32,13 @@ func (r *imageRouter) initRoutes() {
 	r.routes = []router.Route{
 		// GET
 		router.NewGetRoute("/images/json", r.getImagesJSON),
-		router.NewGetRoute("/images/search", r.getImagesSearch),
 		router.NewGetRoute("/images/get", r.getImagesGet),
 		router.NewGetRoute("/images/{name:.*}/get", r.getImagesGet),
 		router.NewGetRoute("/images/{name:.*}/history", r.getImagesHistory),
 		router.NewGetRoute("/images/{name:.*}/json", r.getImagesByName),
 		// POST
-		router.NewPostRoute("/commit", r.postCommit),
 		router.NewPostRoute("/images/load", r.postImagesLoad),
 		router.NewPostRoute("/images/create", r.postImagesCreate, router.WithCancel),
-		router.NewPostRoute("/images/{name:.*}/push", r.postImagesPush, router.WithCancel),
 		router.NewPostRoute("/images/{name:.*}/tag", r.postImagesTag),
 		router.NewPostRoute("/images/prune", r.postImagesPrune, router.WithCancel),
 		// DELETE

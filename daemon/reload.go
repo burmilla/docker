@@ -92,22 +92,6 @@ func (daemon *Daemon) reloadMaxConcurrentDowloadsAndUploads(conf *config.Config,
 
 	// prepare reload event attributes with updatable configurations
 	attributes["max-concurrent-downloads"] = fmt.Sprintf("%d", *daemon.configStore.MaxConcurrentDownloads)
-
-	// If no value is set for max-concurrent-upload we assume it is the default value
-	// We always "reset" as the cost is lightweight and easy to maintain.
-	if conf.IsValueSet("max-concurrent-uploads") && conf.MaxConcurrentUploads != nil {
-		*daemon.configStore.MaxConcurrentUploads = *conf.MaxConcurrentUploads
-	} else {
-		maxConcurrentUploads := config.DefaultMaxConcurrentUploads
-		daemon.configStore.MaxConcurrentUploads = &maxConcurrentUploads
-	}
-	logrus.Debugf("Reset Max Concurrent Uploads: %d", *daemon.configStore.MaxConcurrentUploads)
-	if daemon.uploadManager != nil {
-		daemon.uploadManager.SetConcurrency(*daemon.configStore.MaxConcurrentUploads)
-	}
-
-	// prepare reload event attributes with updatable configurations
-	attributes["max-concurrent-uploads"] = fmt.Sprintf("%d", *daemon.configStore.MaxConcurrentUploads)
 }
 
 // reloadShutdownTimeout updates configuration with daemon shutdown timeout option

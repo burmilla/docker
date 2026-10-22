@@ -443,14 +443,3 @@ func newRepositoryInfo(config *serviceConfig, name reference.Named) (*Repository
 func ParseRepositoryInfo(reposName reference.Named) (*RepositoryInfo, error) {
 	return newRepositoryInfo(emptyServiceConfig, reposName)
 }
-
-// ParseSearchIndexInfo will use repository name to get back an indexInfo.
-func ParseSearchIndexInfo(reposName string) (*registrytypes.IndexInfo, error) {
-	indexName, _ := splitReposSearchTerm(reposName)
-
-	indexInfo, err := newIndexInfo(emptyServiceConfig, indexName)
-	if err != nil {
-		return nil, err
-	}
-	return indexInfo, nil
-}

@@ -17,7 +17,7 @@ const (
 
 // installCommonConfigFlags adds flags to the pflag.FlagSet to configure the daemon
 func installCommonConfigFlags(conf *config.Config, flags *pflag.FlagSet) {
-	var maxConcurrentDownloads, maxConcurrentUploads int
+	var maxConcurrentDownloads int
 
 	conf.ServiceOptions.InstallCliFlags(flags)
 
@@ -53,7 +53,6 @@ func installCommonConfigFlags(conf *config.Config, flags *pflag.FlagSet) {
 	flags.Var(opts.NewNamedMapOpts("cluster-store-opts", conf.ClusterOpts, nil), "cluster-store-opt", "Set cluster store options")
 	flags.StringVar(&conf.CorsHeaders, "api-cors-header", "", "Set CORS headers in the Engine API")
 	flags.IntVar(&maxConcurrentDownloads, "max-concurrent-downloads", config.DefaultMaxConcurrentDownloads, "Set the max concurrent downloads for each pull")
-	flags.IntVar(&maxConcurrentUploads, "max-concurrent-uploads", config.DefaultMaxConcurrentUploads, "Set the max concurrent uploads for each push")
 	flags.IntVar(&conf.ShutdownTimeout, "shutdown-timeout", defaultShutdownTimeout, "Set the default shutdown timeout")
 
 	flags.BoolVar(&conf.Experimental, "experimental", false, "Enable experimental features")
@@ -66,5 +65,4 @@ func installCommonConfigFlags(conf *config.Config, flags *pflag.FlagSet) {
 	flags.MarkHidden("deprecated-key-path")
 
 	conf.MaxConcurrentDownloads = &maxConcurrentDownloads
-	conf.MaxConcurrentUploads = &maxConcurrentUploads
 }

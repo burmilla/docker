@@ -126,10 +126,6 @@ func (s *containerRouter) getContainersLogs(ctx context.Context, w http.Response
 	return nil
 }
 
-func (s *containerRouter) getContainersExport(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	return s.backend.ContainerExport(vars["name"], w)
-}
-
 func (s *containerRouter) postContainersStart(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	// If contentLength is -1, we can assumed chunked encoding
 	// or more technically that the length is unknown

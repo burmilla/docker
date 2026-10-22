@@ -151,12 +151,7 @@ type CommonConfig struct {
 	// deserialization without the full struct.
 	CommonTLSOptions
 
-	// SwarmDefaultAdvertiseAddr is the default host/IP or network interface
-	// to use if a wildcard address is specified in the ListenAddr value
-	// given to the /swarm/init endpoint and no advertise address is
-	// specified.
-	SwarmDefaultAdvertiseAddr string `json:"swarm-default-advertise-addr"`
-	MetricsAddress            string `json:"metrics-addr"`
+	MetricsAddress string `json:"metrics-addr"`
 
 	LogConfig
 	BridgeConfig // bridgeConfig holds bridge network specific configuration.

@@ -339,88 +339,6 @@ func (daemon *Daemon) updateNetwork(container *container.Container) error {
 	return nil
 }
 
-func (daemon *Daemon) findAndAttachNetwork(container *container.Container, idOrName string, epConfig *networktypes.EndpointSettings) (libnetwork.Network, *networktypes.NetworkingConfig, error) {
-	n, err := daemon.FindNetwork(idOrName)
-	if err != nil {
-		// We should always be able to find the network for a
-		// managed container.
-		if container.Managed {
-			return nil, nil, err
-		}
-	}
-
-	// If we found a network and if it is not dynamically created
-	// we should never attempt to attach to that network here.
-	if n != nil {
-		if container.Managed || !n.Info().Dynamic() {
-			return n, nil, nil
-		}
-	}
-
-	var addresses []string
-	if epConfig != nil && epConfig.IPAMConfig != nil {
-		if epConfig.IPAMConfig.IPv4Address != "" {
-			addresses = append(addresses, epConfig.IPAMConfig.IPv4Address)
-		}
-
-		if epConfig.IPAMConfig.IPv6Address != "" {
-			addresses = append(addresses, epConfig.IPAMConfig.IPv6Address)
-		}
-	}
-
-	var (
-		config     *networktypes.NetworkingConfig
-		retryCount int
-	)
-
-	for {
-		// In all other cases, attempt to attach to the network to
-		// trigger attachment in the swarm cluster manager.
-		if daemon.clusterProvider != nil {
-			var err error
-			config, err = daemon.clusterProvider.AttachNetwork(idOrName, container.ID, addresses)
-			if err != nil {
-				return nil, nil, err
-			}
-		}
-
-		n, err = daemon.FindNetwork(idOrName)
-		if err != nil {
-			if daemon.clusterProvider != nil {
-				if err := daemon.clusterProvider.DetachNetwork(idOrName, container.ID); err != nil {
-					logrus.Warnf("Could not rollback attachment for container %s to network %s: %v", container.ID, idOrName, err)
-				}
-			}
-
-			// Retry network attach again if we failed to
-			// find the network after successful
-			// attachment because the only reason that
-			// would happen is if some other container
-			// attached to the swarm scope network went down
-			// and removed the network while we were in
-			// the process of attaching.
-			if config != nil {
-				if _, ok := err.(libnetwork.ErrNoSuchNetwork); ok {
-					if retryCount >= 5 {
-						return nil, nil, fmt.Errorf("could not find network %s after successful attachment", idOrName)
-					}
-					retryCount++
-					continue
-				}
-			}
-
-			return nil, nil, err
-		}
-
-		break
-	}
-
-	// This container has attachment to a swarm scope
-	// network. Update the container network settings accordingly.
-	container.NetworkSettings.HasSwarmEndpoint = true
-	return n, config, nil
-}
-
 // updateContainerNetworkSettings updates the network settings
 func (daemon *Daemon) updateContainerNetworkSettings(container *container.Container, endpointsConfig map[string]*networktypes.EndpointSettings) {
 	var n libnetwork.Network
@@ -696,28 +614,9 @@ func (daemon *Daemon) connectToNetwork(container *container.Container, idOrName 
 		endpointConfig = &networktypes.EndpointSettings{}
 	}
 
-	n, config, err := daemon.findAndAttachNetwork(container, idOrName, endpointConfig)
+	n, err := daemon.FindNetwork(idOrName)
 	if err != nil {
 		return err
-	}
-	if n == nil {
-		return nil
-	}
-
-	var operIPAM bool
-	if config != nil {
-		if epConfig, ok := config.EndpointsConfig[n.Name()]; ok {
-			if endpointConfig.IPAMConfig == nil ||
-				(endpointConfig.IPAMConfig.IPv4Address == "" &&
-					endpointConfig.IPAMConfig.IPv6Address == "" &&
-					len(endpointConfig.IPAMConfig.LinkLocalIPs) == 0) {
-				operIPAM = true
-			}
-
-			// copy IPAMConfig and NetworkID from epConfig via AttachNetwork
-			endpointConfig.IPAMConfig = epConfig.IPAMConfig
-			endpointConfig.NetworkID = epConfig.NetworkID
-		}
 	}
 
 	err = daemon.updateNetworkConfig(container, n, endpointConfig, updateSettings)
@@ -746,7 +645,6 @@ func (daemon *Daemon) connectToNetwork(container *container.Container, idOrName 
 	}()
 	container.NetworkSettings.Networks[n.Name()] = &network.EndpointSettings{
 		EndpointSettings: endpointConfig,
-		IPAMOperational:  operIPAM,
 	}
 	if _, ok := container.NetworkSettings.Networks[n.ID()]; ok {
 		delete(container.NetworkSettings.Networks, n.ID())
@@ -778,11 +676,9 @@ func (daemon *Daemon) connectToNetwork(container *container.Container, idOrName 
 		return err
 	}
 
-	if !container.Managed {
-		// add container name/alias to DNS
-		if err := daemon.ActivateContainerServiceBinding(container.Name); err != nil {
-			return fmt.Errorf("Activate container service binding for %s failed: %v", container.Name, err)
-		}
+	// add container name/alias to DNS
+	if err := daemon.ActivateContainerServiceBinding(container.Name); err != nil {
+		return fmt.Errorf("Activate container service binding for %s failed: %v", container.Name, err)
 	}
 
 	if err := container.UpdateJoinInfo(n, ep); err != nil {
@@ -857,24 +753,9 @@ func (daemon *Daemon) disconnectFromNetwork(container *container.Container, n li
 
 	delete(container.NetworkSettings.Networks, n.Name())
 
-	daemon.tryDetachContainerFromClusterNetwork(n, container)
+	daemon.LogNetworkEventWithAttributes(n, "disconnect", map[string]string{"container": container.ID})
 
 	return nil
-}
-
-func (daemon *Daemon) tryDetachContainerFromClusterNetwork(network libnetwork.Network, container *container.Container) {
-	if daemon.clusterProvider != nil && network.Info().Dynamic() && !container.Managed {
-		if err := daemon.clusterProvider.DetachNetwork(network.Name(), container.ID); err != nil {
-			logrus.Warnf("error detaching from network %s: %v", network.Name(), err)
-			if err := daemon.clusterProvider.DetachNetwork(network.ID(), container.ID); err != nil {
-				logrus.Warnf("error detaching from network %s: %v", network.ID(), err)
-			}
-		}
-	}
-	attributes := map[string]string{
-		"container": container.ID,
-	}
-	daemon.LogNetworkEventWithAttributes(network, "disconnect", attributes)
 }
 
 func (daemon *Daemon) initializeNetworking(container *container.Container) error {
@@ -967,7 +848,7 @@ func (daemon *Daemon) releaseNetwork(container *container.Container) {
 	}
 
 	for _, nw := range networks {
-		daemon.tryDetachContainerFromClusterNetwork(nw, container)
+		daemon.LogNetworkEventWithAttributes(nw, "disconnect", map[string]string{"container": container.ID})
 	}
 	networkActions.WithValues("release").UpdateSince(start)
 }

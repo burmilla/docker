@@ -32,7 +32,6 @@ type Snapshot struct {
 	ExitCode     int
 	Running      bool
 	Paused       bool
-	Managed      bool
 	ExposedPorts nat.PortSet
 	PortBindings nat.PortSet
 	Health       string
@@ -169,7 +168,6 @@ func (v *memdbView) transform(container *Container) *Snapshot {
 		StartedAt:    container.StartedAt,
 		Name:         container.Name,
 		Pid:          container.Pid,
-		Managed:      container.Managed,
 		ExposedPorts: make(nat.PortSet),
 		PortBindings: make(nat.PortSet),
 		Health:       container.HealthString(),

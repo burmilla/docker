@@ -117,7 +117,7 @@ func (daemon *Daemon) Register(c *container.Container) error {
 	return c.CheckpointTo(daemon.containersReplica)
 }
 
-func (daemon *Daemon) newContainer(name string, platform string, config *containertypes.Config, hostConfig *containertypes.HostConfig, imgID image.ID, managed bool) (*container.Container, error) {
+func (daemon *Daemon) newContainer(name string, platform string, config *containertypes.Config, hostConfig *containertypes.HostConfig, imgID image.ID) (*container.Container, error) {
 	var (
 		id             string
 		err            error
@@ -142,7 +142,6 @@ func (daemon *Daemon) newContainer(name string, platform string, config *contain
 
 	base := daemon.newBaseContainer(id)
 	base.Created = time.Now().UTC()
-	base.Managed = managed
 	base.Path = entrypoint
 	base.Args = args //FIXME: de-duplicate from config
 	base.Config = config

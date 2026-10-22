@@ -36,7 +36,6 @@ var acceptedPsFilterTags = map[string]bool{
 	"since":     true,
 	"volume":    true,
 	"network":   true,
-	"is-task":   true,
 	"publish":   true,
 	"expose":    true,
 }
@@ -85,11 +84,6 @@ type listContext struct {
 	beforeFilter *container.Snapshot
 	// sinceFilter is a filter to stop the filtering when the iterator arrive to the given container
 	sinceFilter *container.Snapshot
-
-	// taskFilter tells if we should filter based on wether a container is part of a task
-	taskFilter bool
-	// isTask tells us if the we should filter container that are a task (true) or not (false)
-	isTask bool
 
 	// publish is a list of published ports to filter with
 	publish map[nat.Port]bool
@@ -273,19 +267,6 @@ func (daemon *Daemon) foldFilter(view container.View, config *types.ContainerLis
 		return nil, err
 	}
 
-	var taskFilter, isTask bool
-	if psFilters.Include("is-task") {
-		if psFilters.ExactMatch("is-task", "true") {
-			taskFilter = true
-			isTask = true
-		} else if psFilters.ExactMatch("is-task", "false") {
-			taskFilter = true
-			isTask = false
-		} else {
-			return nil, fmt.Errorf("Invalid filter 'is-task=%s'", psFilters.Get("is-task"))
-		}
-	}
-
 	err = psFilters.WalkValues("health", func(value string) error {
 		if !container.IsValidHealthString(value) {
 			return fmt.Errorf("Unrecognised filter value for health: %s", value)
@@ -354,8 +335,6 @@ func (daemon *Daemon) foldFilter(view container.View, config *types.ContainerLis
 		exitAllowed:          filtExited,
 		beforeFilter:         beforeContFilter,
 		sinceFilter:          sinceContFilter,
-		taskFilter:           taskFilter,
-		isTask:               isTask,
 		publish:              publishFilter,
 		expose:               exposeFilter,
 		ContainerListOptions: config,
@@ -416,12 +395,6 @@ func includeContainerInList(container *container.Snapshot, ctx *listContext) ite
 	// Do not include container if the id doesn't match
 	if !ctx.filters.Match("id", container.ID) {
 		return excludeContainer
-	}
-
-	if ctx.taskFilter {
-		if ctx.isTask != container.Managed {
-			return excludeContainer
-		}
 	}
 
 	// Do not include container if any of the labels don't match

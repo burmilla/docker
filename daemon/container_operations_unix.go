@@ -15,7 +15,6 @@ import (
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/links"
 	"github.com/docker/docker/pkg/idtools"
-	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/libnetwork"
@@ -134,66 +133,6 @@ func (daemon *Daemon) setupIpcDirs(c *container.Container) error {
 	}
 
 	return nil
-}
-
-func (daemon *Daemon) setupSecretDir(c *container.Container) (setupErr error) {
-	if len(c.SecretReferences) == 0 {
-		return nil
-	}
-
-	localMountPath := c.SecretMountPath()
-	logrus.Debugf("secrets: setting up secret dir: %s", localMountPath)
-
-	// retrieve possible remapped range start for root UID, GID
-	rootIDs := daemon.idMappings.RootPair()
-	// create tmpfs
-	if err := idtools.MkdirAllAndChown(localMountPath, 0700, rootIDs); err != nil {
-		return errors.Wrap(err, "error creating secret local mount path")
-	}
-
-	defer func() {
-		if setupErr != nil {
-			// cleanup
-			_ = detachMounted(localMountPath)
-
-			if err := os.RemoveAll(localMountPath); err != nil {
-				logrus.Errorf("error cleaning up secret mount: %s", err)
-			}
-		}
-	}()
-
-	tmpfsOwnership := fmt.Sprintf("uid=%d,gid=%d", rootIDs.UID, rootIDs.GID)
-	if err := mount.Mount("tmpfs", localMountPath, "tmpfs", "nodev,nosuid,noexec,"+tmpfsOwnership); err != nil {
-		return errors.Wrap(err, "unable to setup secret mount")
-	}
-
-	return fmt.Errorf("secret store is not initialized")
-}
-
-func (daemon *Daemon) setupConfigDir(c *container.Container) (setupErr error) {
-	if len(c.ConfigReferences) == 0 {
-		return nil
-	}
-
-	localPath := c.ConfigsDirPath()
-	logrus.Debugf("configs: setting up config dir: %s", localPath)
-
-	// retrieve possible remapped range start for root UID, GID
-	rootIDs := daemon.idMappings.RootPair()
-	// create tmpfs
-	if err := idtools.MkdirAllAndChown(localPath, 0700, rootIDs); err != nil {
-		return errors.Wrap(err, "error creating config dir")
-	}
-
-	defer func() {
-		if setupErr != nil {
-			if err := os.RemoveAll(localPath); err != nil {
-				logrus.Errorf("error cleaning up config dir: %s", err)
-			}
-		}
-	}()
-
-	return fmt.Errorf("config store is not initialized")
 }
 
 func killProcessDirectly(cntr *container.Container) error {

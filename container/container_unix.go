@@ -22,10 +22,6 @@ import (
 	"github.com/docker/docker/volume"
 )
 
-const (
-	containerSecretMountPath = "/run/secrets"
-)
-
 // ExitStatus provides exit reasons for a container.
 type ExitStatus struct {
 	// The exit code with which the container exited.
@@ -195,52 +191,6 @@ func (container *Container) IpcMounts() []Mount {
 			Destination: "/dev/shm",
 			Writable:    true,
 			Propagation: string(volume.DefaultPropagationMode),
-		})
-	}
-
-	return mounts
-}
-
-// SecretMounts returns the mounts for the secret path.
-func (container *Container) SecretMounts() []Mount {
-	var mounts []Mount
-	for _, r := range container.SecretReferences {
-		if r.File == nil {
-			continue
-		}
-		mounts = append(mounts, Mount{
-			Source:      container.SecretFilePath(*r),
-			Destination: getSecretTargetPath(r),
-			Writable:    false,
-		})
-	}
-
-	return mounts
-}
-
-// UnmountSecrets unmounts the local tmpfs for secrets
-func (container *Container) UnmountSecrets() error {
-	if _, err := os.Stat(container.SecretMountPath()); err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-
-	return detachMounted(container.SecretMountPath())
-}
-
-// ConfigMounts returns the mounts for configs.
-func (container *Container) ConfigMounts() []Mount {
-	var mounts []Mount
-	for _, configRef := range container.ConfigReferences {
-		if configRef.File == nil {
-			continue
-		}
-		mounts = append(mounts, Mount{
-			Source:      container.ConfigFilePath(*configRef),
-			Destination: configRef.File.Name,
-			Writable:    false,
 		})
 	}
 

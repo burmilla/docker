@@ -625,14 +625,6 @@ func (daemon *Daemon) createSpec(c *container.Container) (*specs.Spec, error) {
 		return nil, err
 	}
 
-	if err := daemon.setupSecretDir(c); err != nil {
-		return nil, err
-	}
-
-	if err := daemon.setupConfigDir(c); err != nil {
-		return nil, err
-	}
-
 	ms, err := daemon.setupMounts(c)
 	if err != nil {
 		return nil, err
@@ -645,12 +637,6 @@ func (daemon *Daemon) createSpec(c *container.Container) (*specs.Spec, error) {
 		return nil, err
 	}
 	ms = append(ms, tmpfsMounts...)
-
-	if m := c.SecretMounts(); m != nil {
-		ms = append(ms, m...)
-	}
-
-	ms = append(ms, c.ConfigMounts()...)
 
 	sort.Sort(mounts(ms))
 	if err := setMounts(daemon, &s, c, ms); err != nil {

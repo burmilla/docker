@@ -23,17 +23,8 @@ import (
 	"github.com/docker/docker/runconfig"
 )
 
-// CreateManagedContainer creates a container that is managed by a Service
-func (daemon *Daemon) CreateManagedContainer(params types.ContainerCreateConfig) (containertypes.ContainerCreateCreatedBody, error) {
-	return daemon.containerCreate(params, true)
-}
-
 // ContainerCreate creates a regular container
 func (daemon *Daemon) ContainerCreate(params types.ContainerCreateConfig) (containertypes.ContainerCreateCreatedBody, error) {
-	return daemon.containerCreate(params, false)
-}
-
-func (daemon *Daemon) containerCreate(params types.ContainerCreateConfig, managed bool) (containertypes.ContainerCreateCreatedBody, error) {
 	start := time.Now()
 	if params.Config == nil {
 		return containertypes.ContainerCreateCreatedBody{}, fmt.Errorf("Config cannot be empty in order to create a container")
@@ -57,7 +48,7 @@ func (daemon *Daemon) containerCreate(params types.ContainerCreateConfig, manage
 		return containertypes.ContainerCreateCreatedBody{Warnings: warnings}, err
 	}
 
-	container, err := daemon.create(params, managed)
+	container, err := daemon.create(params)
 	if err != nil {
 		return containertypes.ContainerCreateCreatedBody{Warnings: warnings}, daemon.imageNotExistToErrcode(err)
 	}
@@ -67,7 +58,7 @@ func (daemon *Daemon) containerCreate(params types.ContainerCreateConfig, manage
 }
 
 // Create creates a new container from the given configuration with a given name.
-func (daemon *Daemon) create(params types.ContainerCreateConfig, managed bool) (retC *container.Container, retErr error) {
+func (daemon *Daemon) create(params types.ContainerCreateConfig) (retC *container.Container, retErr error) {
 	var (
 		container *container.Container
 		img       *image.Image
@@ -119,7 +110,7 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig, managed bool) (
 		return nil, err
 	}
 
-	if container, err = daemon.newContainer(params.Name, params.Platform, params.Config, params.HostConfig, imgID, managed); err != nil {
+	if container, err = daemon.newContainer(params.Name, params.Platform, params.Config, params.HostConfig, imgID); err != nil {
 		return nil, err
 	}
 	defer func() {

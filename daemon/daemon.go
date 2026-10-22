@@ -56,7 +56,6 @@ import (
 	"github.com/docker/docker/volume/local"
 	"github.com/docker/docker/volume/store"
 	"github.com/docker/libnetwork"
-	"github.com/docker/libnetwork/cluster"
 	nwconfig "github.com/docker/libnetwork/config"
 	"github.com/docker/libtrust"
 	"github.com/pkg/errors"
@@ -111,8 +110,6 @@ type Daemon struct {
 	containerd            libcontainerd.Client
 	containerdRemote      libcontainerd.Remote
 	defaultIsolation      containertypes.Isolation // Default isolation mode on Windows
-	clusterProvider       cluster.Provider
-	cluster               Cluster
 	metricsPluginListener net.Listener
 
 	machineMemory uint64
@@ -223,7 +220,7 @@ func (daemon *Daemon) restore() error {
 
 			daemon.setStateCounter(c)
 			if c.IsRunning() || c.IsPaused() {
-				c.RestartManager().Cancel() // manually start containers because some need to wait for swarm networking
+				c.RestartManager().Cancel()
 				if err := daemon.containerd.Restore(c.ID, c.InitializeStdio); err != nil {
 					logrus.Errorf("Failed to restore %s with containerd: %s", c.ID, err)
 					return
@@ -259,13 +256,7 @@ func (daemon *Daemon) restore() error {
 			// fixme: only if not running
 			// get list of containers we need to restart
 			if !c.IsRunning() && !c.IsPaused() {
-				// Do not autostart containers which
-				// has endpoints in a swarm scope
-				// network yet since the cluster is
-				// not initialized yet. We will start
-				// it after the cluster is
-				// initialized.
-				if daemon.configStore.AutoRestart && c.ShouldRestart() && !c.NetworkSettings.HasSwarmEndpoint {
+				if daemon.configStore.AutoRestart && c.ShouldRestart() {
 					mapLock.Lock()
 					restartContainers[c] = make(chan struct{})
 					mapLock.Unlock()
@@ -387,30 +378,6 @@ func (daemon *Daemon) restore() error {
 	return nil
 }
 
-// RestartSwarmContainers restarts any autostart container which has a
-// swarm endpoint.
-func (daemon *Daemon) RestartSwarmContainers() {
-	group := sync.WaitGroup{}
-	for _, c := range daemon.List() {
-		if !c.IsRunning() && !c.IsPaused() {
-			// Autostart all the containers which has a
-			// swarm endpoint now that the cluster is
-			// initialized.
-			if daemon.configStore.AutoRestart && c.ShouldRestart() && c.NetworkSettings.HasSwarmEndpoint {
-				group.Add(1)
-				go func(c *container.Container) {
-					defer group.Done()
-					if err := daemon.containerStart(c, "", "", true); err != nil {
-						logrus.Error(err)
-					}
-				}(c)
-			}
-		}
-
-	}
-	group.Wait()
-}
-
 // waitForNetworks is used during daemon initialization when starting up containers
 // It ensures that all of a container's networks are available before the daemon tries to start the container.
 // In practice it just makes sure the discovery service is available for containers which use a network that require discovery.
@@ -459,53 +426,6 @@ func (daemon *Daemon) registerLink(parent, child *container.Container, alias str
 	}
 	daemon.linkIndex.link(parent, child, fullName)
 	return nil
-}
-
-// DaemonJoinsCluster informs the daemon has joined the cluster and provides
-// the handler to query the cluster component
-func (daemon *Daemon) DaemonJoinsCluster(clusterProvider cluster.Provider) {
-	daemon.setClusterProvider(clusterProvider)
-}
-
-// DaemonLeavesCluster informs the daemon has left the cluster
-func (daemon *Daemon) DaemonLeavesCluster() {
-	// Daemon is in charge of removing the attachable networks with
-	// connected containers when the node leaves the swarm
-	daemon.clearAttachableNetworks()
-	// We no longer need the cluster provider, stop it now so that
-	// the network agent will stop listening to cluster events.
-	daemon.setClusterProvider(nil)
-	// Wait for the networking cluster agent to stop
-	daemon.netController.AgentStopWait()
-	// Daemon is in charge of removing the ingress network when the
-	// node leaves the swarm. Wait for job to be done or timeout.
-	// This is called also on graceful daemon shutdown. We need to
-	// wait, because the ingress release has to happen before the
-	// network controller is stopped.
-	if done, err := daemon.ReleaseIngress(); err == nil {
-		select {
-		case <-done:
-		case <-time.After(5 * time.Second):
-			logrus.Warnf("timeout while waiting for ingress network removal")
-		}
-	} else {
-		logrus.Warnf("failed to initiate ingress network removal: %v", err)
-	}
-}
-
-// setClusterProvider sets a component for querying the current cluster state.
-func (daemon *Daemon) setClusterProvider(clusterProvider cluster.Provider) {
-	daemon.clusterProvider = clusterProvider
-	daemon.netController.SetClusterProvider(clusterProvider)
-}
-
-// IsSwarmCompatible verifies if the current daemon
-// configuration is compatible with the swarm mode
-func (daemon *Daemon) IsSwarmCompatible() error {
-	if daemon.configStore == nil {
-		return nil
-	}
-	return daemon.configStore.IsSwarmCompatible()
 }
 
 // NewDaemon sets up everything for the daemon to be able to service
@@ -947,12 +867,6 @@ func (daemon *Daemon) Shutdown() error {
 		}
 	}
 
-	// If we are part of a cluster, clean up cluster's stuff
-	if daemon.clusterProvider != nil {
-		logrus.Debugf("start clean shutdown of cluster resources...")
-		daemon.DaemonLeavesCluster()
-	}
-
 	daemon.cleanupMetricsPlugins()
 
 	// Shutdown plugins after containers and layerstore. Don't change the order.
@@ -1174,16 +1088,6 @@ func copyBlkioEntry(entries []*containerd.BlkioStatsEntry) []types.BlkioStatEntr
 		}
 	}
 	return out
-}
-
-// GetCluster returns the cluster
-func (daemon *Daemon) GetCluster() Cluster {
-	return daemon.cluster
-}
-
-// SetCluster sets the cluster
-func (daemon *Daemon) SetCluster(cluster Cluster) {
-	daemon.cluster = cluster
 }
 
 func (daemon *Daemon) pluginShutdown() {

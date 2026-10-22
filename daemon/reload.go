@@ -153,12 +153,6 @@ func (daemon *Daemon) reloadClusterDiscovery(conf *config.Config, attributes map
 		}
 	}
 
-	if daemon.clusterProvider != nil {
-		if err := conf.IsSwarmCompatible(); err != nil {
-			return err
-		}
-	}
-
 	// check discovery modifications
 	if !config.ModifiedDiscoverySettings(daemon.configStore, newClusterStore, newAdvertise, conf.ClusterOpts) {
 		return nil

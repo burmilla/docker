@@ -19,7 +19,6 @@ import (
 	containertypes "github.com/docker/docker/api/types/container"
 	mounttypes "github.com/docker/docker/api/types/mount"
 	networktypes "github.com/docker/docker/api/types/network"
-	swarmtypes "github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/container/stream"
 	"github.com/docker/docker/daemon/exec"
 	"github.com/docker/docker/daemon/logger"
@@ -68,7 +67,6 @@ type Container struct {
 	RWLayer         layer.RWLayer  `json:"-"`
 	ID              string
 	Created         time.Time
-	Managed         bool
 	Path            string
 	Args            []string
 	Config          *containertypes.Config
@@ -87,9 +85,6 @@ type Container struct {
 	MountPoints            map[string]*volume.MountPoint
 	HostConfig             *containertypes.HostConfig `json:"-"` // do not serialize the host config in the json, otherwise we'll make the container unportable
 	ExecCommands           *exec.Store                `json:"-"`
-	DependencyStore        interface{}                `json:"-"`
-	SecretReferences       []*swarmtypes.SecretReference
-	ConfigReferences       []*swarmtypes.ConfigReference
 	// logDriver for closing
 	LogDriver      logger.Logger  `json:"-"`
 	LogCopier      *logger.Copier `json:"-"`
@@ -291,9 +286,10 @@ func (container *Container) SetupWorkingDirectory(rootIDs idtools.IDPair) error 
 // container.
 //
 // NOTE: The returned path is *only* safely scoped inside the container's BaseFS
-//       if no component of the returned path changes (such as a component
-//       symlinking to a different path) between using this method and using the
-//       path. See symlink.FollowSymlinkInScope for more details.
+//
+//	if no component of the returned path changes (such as a component
+//	symlinking to a different path) between using this method and using the
+//	path. See symlink.FollowSymlinkInScope for more details.
 func (container *Container) GetResourcePath(path string) (string, error) {
 	// IMPORTANT - These are paths on the OS where the daemon is running, hence
 	// any filepath operations must be done in an OS agnostic way.
@@ -319,9 +315,10 @@ func (container *Container) GetResourcePath(path string) (string, error) {
 // other metadata files. If in doubt, use container.GetResourcePath.
 //
 // NOTE: The returned path is *only* safely scoped inside the container's root
-//       if no component of the returned path changes (such as a component
-//       symlinking to a different path) between using this method and using the
-//       path. See symlink.FollowSymlinkInScope for more details.
+//
+//	if no component of the returned path changes (such as a component
+//	symlinking to a different path) between using this method and using the
+//	path. See symlink.FollowSymlinkInScope for more details.
 func (container *Container) GetRootResourcePath(path string) (string, error) {
 	// IMPORTANT - These are paths on the OS where the daemon is running, hence
 	// any filepath operations must be done in an OS agnostic way.
@@ -745,27 +742,6 @@ func (container *Container) BuildCreateEndpointOptions(n libnetwork.Network, epC
 		}
 	}
 
-	if container.NetworkSettings.Service != nil {
-		svcCfg := container.NetworkSettings.Service
-
-		var vip string
-		if svcCfg.VirtualAddresses[n.ID()] != nil {
-			vip = svcCfg.VirtualAddresses[n.ID()].IPv4
-		}
-
-		var portConfigs []*libnetwork.PortConfig
-		for _, portConfig := range svcCfg.ExposedPorts {
-			portConfigs = append(portConfigs, &libnetwork.PortConfig{
-				Name:          portConfig.Name,
-				Protocol:      libnetwork.PortConfig_Protocol(portConfig.Protocol),
-				TargetPort:    portConfig.TargetPort,
-				PublishedPort: portConfig.PublishedPort,
-			})
-		}
-
-		createOptions = append(createOptions, libnetwork.CreateOptionService(svcCfg.Name, svcCfg.ID, net.ParseIP(vip), portConfigs, svcCfg.Aliases[n.ID()]))
-	}
-
 	if !containertypes.NetworkMode(n.Name()).IsUserDefined() {
 		createOptions = append(createOptions, libnetwork.CreateOptionDisableResolution())
 	}
@@ -997,35 +973,6 @@ func (container *Container) InitializeStdio(iop libcontainerd.IOPipe) error {
 	}
 
 	return nil
-}
-
-// SecretMountPath returns the path of the secret mount for the container
-func (container *Container) SecretMountPath() string {
-	return filepath.Join(container.Root, "secrets")
-}
-
-// SecretFilePath returns the path to the location of a secret on the host.
-func (container *Container) SecretFilePath(secretRef swarmtypes.SecretReference) string {
-	return filepath.Join(container.SecretMountPath(), secretRef.SecretID)
-}
-
-func getSecretTargetPath(r *swarmtypes.SecretReference) string {
-	if filepath.IsAbs(r.File.Name) {
-		return r.File.Name
-	}
-
-	return filepath.Join(containerSecretMountPath, r.File.Name)
-}
-
-// ConfigsDirPath returns the path to the directory where configs are stored on
-// disk.
-func (container *Container) ConfigsDirPath() string {
-	return filepath.Join(container.Root, "configs")
-}
-
-// ConfigFilePath returns the path to the on-disk location of a config.
-func (container *Container) ConfigFilePath(configRef swarmtypes.ConfigReference) string {
-	return filepath.Join(container.ConfigsDirPath(), configRef.ConfigID)
 }
 
 // CreateDaemonEnvironment creates a new environment variable slice for this container.

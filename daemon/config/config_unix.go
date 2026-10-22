@@ -4,8 +4,6 @@
 package config
 
 import (
-	"fmt"
-
 	"github.com/docker/docker/opts"
 	units "github.com/docker/go-units"
 )
@@ -48,15 +46,4 @@ type BridgeConfig struct {
 	EnableUserlandProxy bool   `json:"userland-proxy,omitempty"`
 	UserlandProxyPath   string `json:"userland-proxy-path,omitempty"`
 	FixedCIDRv6         string `json:"fixed-cidr-v6,omitempty"`
-}
-
-// IsSwarmCompatible defines if swarm mode can be enabled in this config
-func (conf *Config) IsSwarmCompatible() error {
-	if conf.ClusterStore != "" || conf.ClusterAdvertise != "" {
-		return fmt.Errorf("--cluster-store and --cluster-advertise daemon configurations are incompatible with swarm mode")
-	}
-	if conf.LiveRestoreEnabled {
-		return fmt.Errorf("--live-restore daemon configuration is incompatible with swarm mode")
-	}
-	return nil
 }

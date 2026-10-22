@@ -207,10 +207,8 @@ func (cli *DaemonCli) reloadConfig() {
 			switch {
 			case debugEnabled && !config.Debug: // disable debug
 				debug.Disable()
-				cli.api.DisableProfiler()
 			case config.Debug && !debugEnabled: // enable debug
 				debug.Enable()
-				cli.api.EnableProfiler()
 			}
 
 		}
@@ -324,7 +322,7 @@ func initRouter(api *apiserver.Server, d *daemon.Daemon) {
 		routers = append(routers, network.NewRouter(d))
 	}
 
-	api.InitRouter(debug.IsEnabled(), routers...)
+	api.InitRouter(routers...)
 }
 
 func (cli *DaemonCli) initMiddlewares(s *apiserver.Server, cfg *apiserver.Config) error {

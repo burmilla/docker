@@ -29,11 +29,11 @@ type Config struct {
 
 // Server contains instance details for the server
 type Server struct {
-	cfg           *Config
-	servers       []*HTTPServer
-	routers       []router.Router
-	routerSwapper *routerSwapper
-	middlewares   []middleware.Middleware
+	cfg         *Config
+	servers     []*HTTPServer
+	routers     []router.Router
+	handler     http.Handler
+	middlewares []middleware.Middleware
 }
 
 // New returns a new instance of the server based on the specified configuration.
@@ -77,7 +77,7 @@ func (s *Server) Close() {
 func (s *Server) serveAPI() error {
 	var chErrors = make(chan error, len(s.servers))
 	for _, srv := range s.servers {
-		srv.srv.Handler = s.routerSwapper
+		srv.srv.Handler = s.handler
 		go func(srv *HTTPServer) {
 			var err error
 			logrus.Infof("API listen on %s", srv.l.Addr())
@@ -143,17 +143,9 @@ func (s *Server) makeHTTPHandler(handler httputils.APIFunc) http.HandlerFunc {
 }
 
 // InitRouter initializes the list of routers for the server.
-// This method also enables the Go profiler if enableProfiler is true.
-func (s *Server) InitRouter(enableProfiler bool, routers ...router.Router) {
+func (s *Server) InitRouter(routers ...router.Router) {
 	s.routers = append(s.routers, routers...)
-
-	m := s.createMux()
-	if enableProfiler {
-		profilerSetup(m)
-	}
-	s.routerSwapper = &routerSwapper{
-		router: m,
-	}
+	s.handler = s.createMux()
 }
 
 // createMux initializes the main router the server uses.
@@ -189,16 +181,4 @@ func (s *Server) Wait(waitChan chan error) {
 		return
 	}
 	waitChan <- nil
-}
-
-// DisableProfiler reloads the server mux without adding the profiler routes.
-func (s *Server) DisableProfiler() {
-	s.routerSwapper.Swap(s.createMux())
-}
-
-// EnableProfiler reloads the server mux adding the profiler routes.
-func (s *Server) EnableProfiler() {
-	m := s.createMux()
-	profilerSetup(m)
-	s.routerSwapper.Swap(m)
 }

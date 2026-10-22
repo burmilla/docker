@@ -9,25 +9,22 @@
 # docker run -v `pwd`:/go/src/github.com/docker/docker --privileged -i -t docker bash
 #
 
-FROM debian:jessie
-COPY /sources.list /etc/apt/
+FROM debian:trixie
 
 # Packaged dependencies
-RUN apt-get update && apt-get install -y --force-yes \
-	--allow-unauthenticated \
+RUN apt-get update && apt-get install -y \
 	--no-install-recommends \
-	apt-utils \
+	autoconf \
 	automake \
 	build-essential \
-	cmake \
+	ca-certificates \
 	curl \
 	git \
-	iptables \
 	libcap-dev \
+	libjson-c-dev \
 	libtool \
-	net-tools \
 	pkg-config \
-	tar
+	python3
 
 # Install Go
 ENV GO_VERSION 1.27.3
@@ -43,11 +40,11 @@ ENV GOTOOLCHAIN local
 VOLUME /var/lib/docker
 WORKDIR /go/src/github.com/docker/docker
 
-# Install vndr, runc, containerd, tini, docker-proxy
+# Install crun and containerd
 # Please edit hack/dockerfile/install-binaries.sh to update them.
 COPY hack/dockerfile/binaries-commits /tmp/binaries-commits
 COPY hack/dockerfile/install-binaries.sh /tmp/install-binaries.sh
-RUN /tmp/install-binaries.sh vndr runc containerd tini proxy
+RUN /tmp/install-binaries.sh crun containerd
 
 # Wrap all commands in the "docker-in-docker" script to allow nested containers
 ENTRYPOINT ["hack/dind"]

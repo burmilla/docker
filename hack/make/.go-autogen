@@ -32,7 +32,7 @@ package dockerversion
 // This file is overridden on build with build-time informations.
 const (
 	ContainerdCommitID string = "${CONTAINERD_COMMIT}"
-	RuncCommitID       string = "${RUNC_COMMIT}"
+	RuncCommitID       string = "${CRUN_COMMIT}"
 	InitCommitID       string = "${TINI_COMMIT}"
 )
 

@@ -57,6 +57,10 @@ var (
 	// containerd if none is specified
 	DefaultRuntimeBinary = "system-docker-runc"
 
+	// defaultRuntimeArgs makes crun run containers without cgroups, which
+	// System Docker does not use
+	defaultRuntimeArgs = []string{"--cgroup-manager=disabled"}
+
 	errSystemNotSupported = errors.New("The Docker daemon is not supported on this platform.")
 )
 

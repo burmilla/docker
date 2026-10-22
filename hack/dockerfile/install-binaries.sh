@@ -15,13 +15,18 @@ else
 	export GOPATH="$TMP_GOPATH"
 fi
 
-install_runc() {
-	echo "Install runc version $RUNC_COMMIT"
-	git clone https://github.com/burmilla/runc.git "$GOPATH/src/github.com/opencontainers/runc"
-	cd "$GOPATH/src/github.com/opencontainers/runc"
-	git checkout -q "$RUNC_COMMIT"
-	make $1
-	cp runc /usr/local/bin/docker-runc
+# Upstream crun, without cgroups (dockerd passes --cgroup-manager=disabled), seccomp, systemd, CRIU or eBPF
+install_crun() {
+	echo "Install crun version $CRUN_COMMIT"
+	git clone https://github.com/containers/crun.git "$GOPATH/crun"
+	cd "$GOPATH/crun"
+	git checkout -q "$CRUN_COMMIT"
+	git submodule update --init --recursive
+	./autogen.sh
+	./configure --disable-systemd --disable-criu --disable-seccomp --disable-dl --disable-bpf
+	make LDFLAGS="-all-static"
+	strip crun
+	cp crun /usr/local/bin/docker-runc
 }
 
 install_containerd() {
@@ -29,89 +34,24 @@ install_containerd() {
 	git clone https://github.com/containerd/containerd.git "$GOPATH/src/github.com/containerd/containerd" -b v0.2.9
 	cd "$GOPATH/src/github.com/containerd/containerd"
 	git checkout -q "$CONTAINERD_COMMIT"
-	make $1
+	make static
 	cp bin/containerd /usr/local/bin/docker-containerd
 	cp bin/containerd-shim /usr/local/bin/docker-containerd-shim
-	cp bin/ctr /usr/local/bin/docker-containerd-ctr
-}
-
-install_proxy() {
-	echo "Install docker-proxy version $LIBNETWORK_COMMIT"
-	git clone https://github.com/docker/libnetwork.git "$GOPATH/src/github.com/docker/libnetwork"
-	cd "$GOPATH/src/github.com/docker/libnetwork"
-	git checkout -q "$LIBNETWORK_COMMIT"
-	go build -ldflags="$PROXY_LDFLAGS" -o /usr/local/bin/docker-proxy github.com/docker/libnetwork/cmd/proxy
-}
-
-install_dockercli() {
-	echo "Install docker/cli version $DOCKERCLI_COMMIT"
-	git clone "$DOCKERCLI_REPO" "$GOPATH/src/github.com/docker/cli"
-	cd "$GOPATH/src/github.com/docker/cli"
-	git checkout -q "$DOCKERCLI_COMMIT"
-	go build -o /usr/local/bin/docker github.com/docker/cli/cmd/docker
 }
 
 for prog in "$@"
 do
 	case $prog in
-		tomlv)
-			echo "Install tomlv version $TOMLV_COMMIT"
-			git clone https://github.com/BurntSushi/toml.git "$GOPATH/src/github.com/BurntSushi/toml"
-			cd "$GOPATH/src/github.com/BurntSushi/toml" && git checkout -q "$TOMLV_COMMIT"
-			go build -v -o /usr/local/bin/tomlv github.com/BurntSushi/toml/cmd/tomlv
-			;;
-
-		runc)
-			install_runc static
-			;;
-
-		runc-dynamic)
-			install_runc
+		crun)
+			install_crun
 			;;
 
 		containerd)
-			install_containerd static
-			;;
-
-		containerd-dynamic)
 			install_containerd
 			;;
 
-		tini)
-			echo "Install tini version $TINI_COMMIT"
-			git clone https://github.com/krallin/tini.git "$GOPATH/tini"
-			cd "$GOPATH/tini"
-			git checkout -q "$TINI_COMMIT"
-			cmake .
-			make tini-static
-			cp tini-static /usr/local/bin/docker-init
-			;;
-
-		proxy)
-			(
-				export CGO_ENABLED=0
-				install_proxy
-			)
-			;;
-
-		proxy-dynamic)
-			PROXY_LDFLAGS="-linkmode=external" install_proxy
-			;;
-
-		vndr)
-			echo "Install vndr version $VNDR_COMMIT"
-			git clone https://github.com/LK4D4/vndr.git "$GOPATH/src/github.com/LK4D4/vndr"
-			cd "$GOPATH/src/github.com/LK4D4/vndr"
-			git checkout -q "$VNDR_COMMIT"
-			go build -v -o /usr/local/bin/vndr .
-			;;
-
-		dockercli)
-			install_dockercli
-			;;
-
 		*)
-			echo echo "Usage: $0 [tomlv|runc|runc-dynamic|containerd|containerd-dynamic|tini|proxy|proxy-dynamic|vndr|dockercli]"
+			echo "Usage: $0 [crun|containerd]"
 			exit 1
 
 	esac

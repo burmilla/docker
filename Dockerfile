@@ -45,12 +45,15 @@ RUN set -x \
 	&& rm -rf "$SECCOMP_PATH"
 
 # Install Go
-ENV GO_VERSION 1.8.3
-RUN curl --insecure -fsSL "https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
+ENV GO_VERSION 1.27.3
+RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-$(dpkg --print-architecture).tar.gz" \
 	| tar -xzC /usr/local
 
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 ENV GOPATH /go
+# The tree is GOPATH/vendor based, not Go modules
+ENV GO111MODULE off
+ENV GOTOOLCHAIN local
 
 VOLUME /var/lib/docker
 WORKDIR /go/src/github.com/docker/docker

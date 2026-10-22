@@ -55,8 +55,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/discovery"
 	"github.com/docker/docker/pkg/locker"
-	"github.com/docker/docker/pkg/plugingetter"
-	"github.com/docker/docker/pkg/plugins"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/libnetwork/cluster"
 	"github.com/docker/libnetwork/config"
@@ -191,21 +189,13 @@ func New(cfgOptions ...config.Option) (NetworkController, error) {
 		return nil, err
 	}
 
-	drvRegistry, err := drvregistry.New(c.getStore(datastore.LocalScope), c.getStore(datastore.GlobalScope), c.RegisterDriver, nil, c.cfg.PluginGetter)
+	drvRegistry, err := drvregistry.New(c.getStore(datastore.LocalScope), c.getStore(datastore.GlobalScope), c.RegisterDriver, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, i := range getInitializers(c.cfg.Daemon.Experimental) {
-		var dcfg map[string]interface{}
-
-		// External plugins don't need config passed through daemon. They can
-		// bootstrap themselves
-		if i.ntype != "remote" {
-			dcfg = c.makeDriverConfig(i.ntype)
-		}
-
-		if err := drvRegistry.AddDriver(i.ntype, i.fn, dcfg); err != nil {
+		if err := drvRegistry.AddDriver(i.ntype, i.fn, c.makeDriverConfig(i.ntype)); err != nil {
 			return nil, err
 		}
 	}
@@ -668,10 +658,6 @@ func (c *controller) isAgent() bool {
 
 func (c *controller) isDistributedControl() bool {
 	return !c.isManager() && !c.isAgent()
-}
-
-func (c *controller) GetPluginGetter() plugingetter.PluginGetter {
-	return c.drvRegistry.GetPluginGetter()
 }
 
 func (c *controller) RegisterDriver(networkType string, driver driverapi.Driver, capability driverapi.Capability) error {
@@ -1206,57 +1192,10 @@ func SandboxKeyWalker(out *Sandbox, key string) SandboxWalker {
 	}
 }
 
-func (c *controller) loadDriver(networkType string) error {
-	var err error
-
-	if pg := c.GetPluginGetter(); pg != nil {
-		_, err = pg.Get(networkType, driverapi.NetworkPluginEndpointType, plugingetter.Lookup)
-	} else {
-		_, err = plugins.Get(networkType, driverapi.NetworkPluginEndpointType)
-	}
-
-	if err != nil {
-		if err == plugins.ErrNotFound {
-			return types.NotFoundErrorf(err.Error())
-		}
-		return err
-	}
-
-	return nil
-}
-
-func (c *controller) loadIPAMDriver(name string) error {
-	var err error
-
-	if pg := c.GetPluginGetter(); pg != nil {
-		_, err = pg.Get(name, ipamapi.PluginEndpointType, plugingetter.Lookup)
-	} else {
-		_, err = plugins.Get(name, ipamapi.PluginEndpointType)
-	}
-
-	if err != nil {
-		if err == plugins.ErrNotFound {
-			return types.NotFoundErrorf(err.Error())
-		}
-		return err
-	}
-
-	return nil
-}
-
 func (c *controller) getIPAMDriver(name string) (ipamapi.Ipam, *ipamapi.Capability, error) {
 	id, cap := c.drvRegistry.IPAM(name)
 	if id == nil {
-		// Might be a plugin name. Try loading it
-		if err := c.loadIPAMDriver(name); err != nil {
-			return nil, nil, err
-		}
-
-		// Now that we resolved the plugin, try again looking up the registry
-		id, cap = c.drvRegistry.IPAM(name)
-		if id == nil {
-			return nil, nil, types.BadRequestErrorf("invalid ipam driver: %q", name)
-		}
+		return nil, nil, types.BadRequestErrorf("invalid ipam driver: %q", name)
 	}
 
 	return id, cap, nil

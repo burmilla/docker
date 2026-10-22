@@ -28,7 +28,6 @@ import (
 	"github.com/docker/docker/daemon/discovery"
 	"github.com/docker/docker/daemon/events"
 	"github.com/docker/docker/daemon/exec"
-	"github.com/docker/docker/daemon/logger"
 
 	// register graph drivers
 	_ "github.com/docker/docker/daemon/graphdriver/register"
@@ -42,13 +41,11 @@ import (
 	"github.com/docker/docker/libcontainerd"
 	v1 "github.com/docker/docker/migrate/v1"
 	"github.com/docker/docker/pkg/idtools"
-	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/docker/pkg/registrar"
 	"github.com/docker/docker/pkg/signal"
 	"github.com/docker/docker/pkg/sysinfo"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/pkg/truncindex"
-	"github.com/docker/docker/plugin"
 	refstore "github.com/docker/docker/reference"
 	"github.com/docker/docker/registry"
 	"github.com/docker/docker/runconfig"
@@ -80,37 +77,34 @@ type daemonStore struct {
 
 // Daemon holds information about the Docker daemon.
 type Daemon struct {
-	ID                    string
-	repository            string
-	containers            container.Store
-	containersReplica     container.ViewDB
-	execCommands          *exec.Store
-	downloadManager       *xfer.LayerDownloadManager
-	uploadManager         *xfer.LayerUploadManager
-	trustKey              libtrust.PrivateKey
-	idIndex               *truncindex.TruncIndex
-	configStore           *config.Config
-	statsCollector        *stats.Collector
-	defaultLogConfig      containertypes.LogConfig
-	RegistryService       registry.Service
-	EventsService         *events.Events
-	netController         libnetwork.NetworkController
-	volumes               *store.VolumeStore
-	discoveryWatcher      discovery.Reloader
-	root                  string
-	seccompEnabled        bool
-	apparmorEnabled       bool
-	shutdown              bool
-	idMappings            *idtools.IDMappings
-	stores                map[string]daemonStore // By container target platform
-	PluginStore           *plugin.Store          // todo: remove
-	pluginManager         *plugin.Manager
-	nameIndex             *registrar.Registrar
-	linkIndex             *linkIndex
-	containerd            libcontainerd.Client
-	containerdRemote      libcontainerd.Remote
-	defaultIsolation      containertypes.Isolation // Default isolation mode on Windows
-	metricsPluginListener net.Listener
+	ID                string
+	repository        string
+	containers        container.Store
+	containersReplica container.ViewDB
+	execCommands      *exec.Store
+	downloadManager   *xfer.LayerDownloadManager
+	uploadManager     *xfer.LayerUploadManager
+	trustKey          libtrust.PrivateKey
+	idIndex           *truncindex.TruncIndex
+	configStore       *config.Config
+	statsCollector    *stats.Collector
+	defaultLogConfig  containertypes.LogConfig
+	RegistryService   registry.Service
+	EventsService     *events.Events
+	netController     libnetwork.NetworkController
+	volumes           *store.VolumeStore
+	discoveryWatcher  discovery.Reloader
+	root              string
+	seccompEnabled    bool
+	apparmorEnabled   bool
+	shutdown          bool
+	idMappings        *idtools.IDMappings
+	stores            map[string]daemonStore // By container target platform
+	nameIndex         *registrar.Registrar
+	linkIndex         *linkIndex
+	containerd        libcontainerd.Client
+	containerdRemote  libcontainerd.Remote
+	defaultIsolation  containertypes.Isolation // Default isolation mode on Windows
 
 	machineMemory uint64
 
@@ -348,8 +342,6 @@ func (daemon *Daemon) restore() error {
 	// any containers that were started above would already have had this done,
 	// however we need to now prepare the mountpoints for the rest of the containers as well.
 	// This shouldn't cause any issue running on the containers that already had this run.
-	// This must be run after any containers with a restart policy so that containerized plugins
-	// can have a chance to be running before we try to initialize them.
 	for _, c := range containers {
 		// if the container has restart policy, do not
 		// prepare the mountpoints since it has been done on restarting.
@@ -430,7 +422,7 @@ func (daemon *Daemon) registerLink(parent, child *container.Container, alias str
 
 // NewDaemon sets up everything for the daemon to be able to service
 // requests from the webserver.
-func NewDaemon(config *config.Config, registryService registry.Service, containerdRemote libcontainerd.Remote, pluginStore *plugin.Store) (daemon *Daemon, err error) {
+func NewDaemon(config *config.Config, registryService registry.Service, containerdRemote libcontainerd.Remote) (daemon *Daemon, err error) {
 	setDefaultMtu(config)
 
 	// Ensure that we have a correct root key limit for launching containers.
@@ -549,29 +541,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	}
 
 	d.RegistryService = registryService
-	d.PluginStore = pluginStore
-	logger.RegisterPluginGetter(d.PluginStore)
-
-	metricsSockPath, err := d.listenMetricsSock()
-	if err != nil {
-		return nil, err
-	}
-	registerMetricsPluginCallback(d.PluginStore, metricsSockPath)
-
-	// Plugin system initialization should happen before restore. Do not change order.
-	d.pluginManager, err = plugin.NewManager(plugin.ManagerConfig{
-		Root:               filepath.Join(config.Root, "plugins"),
-		ExecRoot:           getPluginExecRoot(config.Root),
-		Store:              d.PluginStore,
-		Executor:           containerdRemote,
-		RegistryService:    registryService,
-		LiveRestoreEnabled: config.LiveRestoreEnabled,
-		LogPluginEvent:     d.LogPluginEvent, // todo: make private
-		AuthzMiddleware:    config.AuthzMiddleware,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "couldn't create plugin manager")
-	}
 
 	var graphDrivers []string
 	for platform, ds := range d.stores {
@@ -581,7 +550,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 			GraphDriver:               ds.graphDriver,
 			GraphDriverOptions:        config.GraphOptions,
 			IDMappings:                idMappings,
-			PluginGetter:              d.PluginStore,
 			ExperimentalEnabled:       config.Experimental,
 			Platform:                  platform,
 		})
@@ -829,8 +797,6 @@ func (daemon *Daemon) Shutdown() error {
 	if daemon.configStore.LiveRestoreEnabled && daemon.containers != nil {
 		// check if there are any running containers, if none we should do some cleanup
 		if ls, err := daemon.Containers(&types.ContainerListOptions{}); len(ls) != 0 || err != nil {
-			// metrics plugins still need some cleanup
-			daemon.cleanupMetricsPlugins()
 			return nil
 		}
 	}
@@ -866,11 +832,6 @@ func (daemon *Daemon) Shutdown() error {
 			}
 		}
 	}
-
-	daemon.cleanupMetricsPlugins()
-
-	// Shutdown plugins after containers and layerstore. Don't change the order.
-	daemon.pluginShutdown()
 
 	// trigger libnetwork Stop only if it's initialized
 	if daemon.netController != nil {
@@ -991,8 +952,6 @@ func (daemon *Daemon) configureVolumes(rootIDs idtools.IDPair) (*store.VolumeSto
 		return nil, err
 	}
 
-	volumedrivers.RegisterPluginGetter(daemon.PluginStore)
-
 	if !volumedrivers.Register(volumesDriver, volumesDriver.Name()) {
 		return nil, errors.New("local volume driver could not be registered")
 	}
@@ -1028,7 +987,7 @@ func isBridgeNetworkDisabled(conf *config.Config) bool {
 	return conf.BridgeConfig.Iface == config.DisableNetworkBridge
 }
 
-func (daemon *Daemon) networkOptions(dconfig *config.Config, pg plugingetter.PluginGetter, activeSandboxes map[string]interface{}) ([]nwconfig.Option, error) {
+func (daemon *Daemon) networkOptions(dconfig *config.Config, activeSandboxes map[string]interface{}) ([]nwconfig.Option, error) {
 	options := []nwconfig.Option{}
 	if dconfig == nil {
 		return options, nil
@@ -1070,10 +1029,6 @@ func (daemon *Daemon) networkOptions(dconfig *config.Config, pg plugingetter.Plu
 		options = append(options, nwconfig.OptionActiveSandboxes(activeSandboxes))
 	}
 
-	if pg != nil {
-		options = append(options, nwconfig.OptionPluginGetter(pg))
-	}
-
 	return options, nil
 }
 
@@ -1088,25 +1043,6 @@ func copyBlkioEntry(entries []*containerd.BlkioStatsEntry) []types.BlkioStatEntr
 		}
 	}
 	return out
-}
-
-func (daemon *Daemon) pluginShutdown() {
-	manager := daemon.pluginManager
-	// Check for a valid manager object. In error conditions, daemon init can fail
-	// and shutdown called, before plugin manager is initialized.
-	if manager != nil {
-		manager.Shutdown()
-	}
-}
-
-// PluginManager returns current pluginManager associated with the daemon
-func (daemon *Daemon) PluginManager() *plugin.Manager { // set up before daemon to avoid this method
-	return daemon.pluginManager
-}
-
-// PluginGetter returns current pluginStore associated with the daemon
-func (daemon *Daemon) PluginGetter() *plugin.Store {
-	return daemon.PluginStore
 }
 
 // CreateDaemonRoot creates the root for the daemon

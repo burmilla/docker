@@ -873,20 +873,10 @@ func (n *network) resolveDriver(name string, load bool) (driverapi.Driver, *driv
 	d, cap := c.drvRegistry.Driver(name)
 	if d == nil {
 		if load {
-			var err error
-			err = c.loadDriver(name)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			d, cap = c.drvRegistry.Driver(name)
-			if d == nil {
-				return nil, nil, fmt.Errorf("could not resolve driver %s in registry", name)
-			}
-		} else {
-			// don't fail if driver loading is not required
-			return nil, nil, nil
+			return nil, nil, types.NotFoundErrorf("network driver %q not found", name)
 		}
+		// don't fail if driver loading is not required
+		return nil, nil, nil
 	}
 
 	return d, cap, nil

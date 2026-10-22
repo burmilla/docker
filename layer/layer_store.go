@@ -12,7 +12,6 @@ import (
 	"github.com/docker/distribution"
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/pkg/idtools"
-	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/system"
 	"github.com/opencontainers/go-digest"
@@ -49,14 +48,13 @@ type StoreOptions struct {
 	GraphDriver               string
 	GraphDriverOptions        []string
 	IDMappings                *idtools.IDMappings
-	PluginGetter              plugingetter.PluginGetter
 	ExperimentalEnabled       bool
 	Platform                  string
 }
 
 // NewStoreFromOptions creates a new Store instance
 func NewStoreFromOptions(options StoreOptions) (Store, error) {
-	driver, err := graphdriver.New(options.GraphDriver, options.PluginGetter, graphdriver.Options{
+	driver, err := graphdriver.New(options.GraphDriver, graphdriver.Options{
 		Root:                options.StorePath,
 		DriverOptions:       options.GraphDriverOptions,
 		UIDMaps:             options.IDMappings.UIDs(),

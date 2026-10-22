@@ -33,14 +33,11 @@ import (
 	"github.com/docker/docker/dockerversion"
 	"github.com/docker/docker/libcontainerd"
 	dopts "github.com/docker/docker/opts"
-	"github.com/docker/docker/pkg/authorization"
 	"github.com/docker/docker/pkg/jsonlog"
 	"github.com/docker/docker/pkg/listeners"
 	"github.com/docker/docker/pkg/pidfile"
-	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/docker/pkg/signal"
 	"github.com/docker/docker/pkg/system"
-	"github.com/docker/docker/plugin"
 	"github.com/docker/docker/registry"
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/go-connections/tlsconfig"
@@ -54,9 +51,8 @@ type DaemonCli struct {
 	configFile *string
 	flags      *pflag.FlagSet
 
-	api             *apiserver.Server
-	d               *daemon.Daemon
-	authzMiddleware *authorization.Middleware // authzMiddleware enables to dynamically reload the authorization plugins
+	api *apiserver.Server
+	d   *daemon.Daemon
 }
 
 // NewDaemonCli returns a daemon CLI
@@ -204,9 +200,7 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 	// Notify that the API is active, but before daemon is set up.
 	preNotifySystem()
 
-	pluginStore := plugin.NewStore()
-
-	if err := cli.initMiddlewares(cli.api, serverConfig, pluginStore); err != nil {
+	if err := cli.initMiddlewares(cli.api, serverConfig); err != nil {
 		logrus.Fatalf("Error creating middlewares: %v", err)
 	}
 
@@ -214,17 +208,12 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 		logrus.Warnln("LCOW support is enabled - this feature is incomplete")
 	}
 
-	d, err := daemon.NewDaemon(cli.Config, registryService, containerdRemote, pluginStore)
+	d, err := daemon.NewDaemon(cli.Config, registryService, containerdRemote)
 	if err != nil {
 		return fmt.Errorf("Error starting daemon: %v", err)
 	}
 
 	d.StoreHosts(hosts)
-
-	// validate after NewDaemon has restored enabled plugins. Dont change order.
-	if err := validateAuthzPlugins(cli.Config.AuthorizationPlugins, pluginStore); err != nil {
-		return fmt.Errorf("Error validating authorization plugin: %v", err)
-	}
 
 	// TODO: move into startMetricsServer()
 	if cli.Config.MetricsAddress != "" {
@@ -320,13 +309,6 @@ func newRouterOptions(config *config.Config, daemon *daemon.Daemon) (routerOptio
 
 func (cli *DaemonCli) reloadConfig() {
 	reload := func(config *config.Config) {
-
-		// Revalidate and reload the authorization plugins
-		if err := validateAuthzPlugins(config.AuthorizationPlugins, cli.d.PluginStore); err != nil {
-			logrus.Fatalf("Error validating authorization plugin: %v", err)
-			return
-		}
-		cli.authzMiddleware.SetPlugins(config.AuthorizationPlugins)
 
 		if err := cli.d.Reload(config); err != nil {
 			logrus.Errorf("Error reconfiguring the daemon: %v", err)
@@ -492,7 +474,7 @@ func initRouter(opts routerOptions) {
 }
 
 // TODO: remove this from cli and return the authzMiddleware
-func (cli *DaemonCli) initMiddlewares(s *apiserver.Server, cfg *apiserver.Config, pluginStore *plugin.Store) error {
+func (cli *DaemonCli) initMiddlewares(s *apiserver.Server, cfg *apiserver.Config) error {
 	v := cfg.Version
 
 	exp := middleware.NewExperimentalMiddleware(cli.Config.Experimental)
@@ -506,19 +488,5 @@ func (cli *DaemonCli) initMiddlewares(s *apiserver.Server, cfg *apiserver.Config
 		s.UseMiddleware(c)
 	}
 
-	cli.authzMiddleware = authorization.NewMiddleware(cli.Config.AuthorizationPlugins, pluginStore)
-	cli.Config.AuthzMiddleware = cli.authzMiddleware
-	s.UseMiddleware(cli.authzMiddleware)
-	return nil
-}
-
-// validates that the plugins requested with the --authorization-plugin flag are valid AuthzDriver
-// plugins present on the host and available to the daemon
-func validateAuthzPlugins(requestedPlugins []string, pg plugingetter.PluginGetter) error {
-	for _, reqPlugin := range requestedPlugins {
-		if _, err := pg.Get(reqPlugin, authorization.AuthZApiImplements, plugingetter.Lookup); err != nil {
-			return err
-		}
-	}
 	return nil
 }

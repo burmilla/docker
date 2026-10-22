@@ -7,15 +7,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
 	apierrors "github.com/docker/docker/api/errors"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/libnetwork"
-	"github.com/docker/libnetwork/driverapi"
-	"github.com/docker/libnetwork/ipamapi"
 	"github.com/pkg/errors"
 )
 
@@ -160,39 +156,12 @@ func (daemon *Daemon) CreateNetwork(create types.NetworkCreateRequest) (*types.N
 		return nil, err
 	}
 
-	daemon.pluginRefCount(driver, driverapi.NetworkPluginEndpointType, plugingetter.Acquire)
-	if create.IPAM != nil {
-		daemon.pluginRefCount(create.IPAM.Driver, ipamapi.PluginEndpointType, plugingetter.Acquire)
-	}
 	daemon.LogNetworkEvent(n, "create")
 
 	return &types.NetworkCreateResponse{
 		ID:      n.ID(),
 		Warning: warning,
 	}, nil
-}
-
-func (daemon *Daemon) pluginRefCount(driver, capability string, mode int) {
-	var builtinDrivers []string
-
-	if capability == driverapi.NetworkPluginEndpointType {
-		builtinDrivers = daemon.netController.BuiltinDrivers()
-	} else if capability == ipamapi.PluginEndpointType {
-		builtinDrivers = daemon.netController.BuiltinIPAMDrivers()
-	}
-
-	for _, d := range builtinDrivers {
-		if d == driver {
-			return
-		}
-	}
-
-	if daemon.PluginStore != nil {
-		_, err := daemon.PluginStore.Get(driver, capability, mode)
-		if err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{"mode": mode, "driver": driver}).Error("Error handling plugin refcount operation")
-		}
-	}
 }
 
 func getIpamConfig(data []network.IPAMConfig) ([]*libnetwork.IpamConf, []*libnetwork.IpamConf, error) {
@@ -256,12 +225,6 @@ func (daemon *Daemon) GetNetworkDriverList() []string {
 
 	pluginList := daemon.netController.BuiltinDrivers()
 
-	managedPlugins := daemon.PluginStore.GetAllManagedPluginsByCap(driverapi.NetworkPluginEndpointType)
-
-	for _, plugin := range managedPlugins {
-		pluginList = append(pluginList, plugin.Name())
-	}
-
 	pluginMap := make(map[string]bool)
 	for _, plugin := range pluginList {
 		pluginMap[plugin] = true
@@ -297,12 +260,7 @@ func (daemon *Daemon) DeleteNetwork(networkID string) error {
 		return err
 	}
 
-	// If this is not a configuration only network, we need to
-	// update the corresponding remote drivers' reference counts
 	if !nw.Info().ConfigOnly() {
-		daemon.pluginRefCount(nw.Type(), driverapi.NetworkPluginEndpointType, plugingetter.Release)
-		ipamType, _, _, _ := nw.Info().IpamConfig()
-		daemon.pluginRefCount(ipamType, ipamapi.PluginEndpointType, plugingetter.Release)
 		daemon.LogNetworkEvent(nw, "destroy")
 	}
 

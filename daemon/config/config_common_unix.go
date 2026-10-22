@@ -11,11 +11,10 @@ import (
 // CommonUnixConfig defines configuration of a docker daemon that is
 // common across Unix platforms.
 type CommonUnixConfig struct {
-	ExecRoot          string                   `json:"exec-root,omitempty"`
-	ContainerdAddr    string                   `json:"containerd,omitempty"`
-	Runtimes          map[string]types.Runtime `json:"runtimes,omitempty"`
-	DefaultRuntime    string                   `json:"default-runtime,omitempty"`
-	DefaultInitBinary string                   `json:"default-init,omitempty"`
+	ExecRoot       string                   `json:"exec-root,omitempty"`
+	ContainerdAddr string                   `json:"containerd,omitempty"`
+	Runtimes       map[string]types.Runtime `json:"runtimes,omitempty"`
+	DefaultRuntime string                   `json:"default-runtime,omitempty"`
 }
 
 type commonUnixBridgeConfig struct {
@@ -57,17 +56,4 @@ func (conf *Config) GetAllRuntimes() map[string]types.Runtime {
 // GetExecRoot returns the user configured Exec-root
 func (conf *Config) GetExecRoot() string {
 	return conf.ExecRoot
-}
-
-// GetInitPath returns the configured docker-init path
-func (conf *Config) GetInitPath() string {
-	conf.Lock()
-	defer conf.Unlock()
-	if conf.InitPath != "" {
-		return conf.InitPath
-	}
-	if conf.DefaultInitBinary != "" {
-		return conf.DefaultInitBinary
-	}
-	return DefaultInitBinary
 }

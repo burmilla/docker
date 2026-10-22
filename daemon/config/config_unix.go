@@ -21,8 +21,6 @@ type Config struct {
 	RemappedRoot    string                   `json:"userns-remap,omitempty"`
 	Ulimits         map[string]*units.Ulimit `json:"default-ulimits,omitempty"`
 	OOMScoreAdjust  int                      `json:"oom-score-adjust,omitempty"`
-	Init            bool                     `json:"init,omitempty"`
-	InitPath        string                   `json:"init-path,omitempty"`
 	ShmSize         opts.MemBytes            `json:"default-shm-size,omitempty"`
 	NoNewPrivileges bool                     `json:"no-new-privileges,omitempty"`
 }

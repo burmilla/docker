@@ -195,10 +195,8 @@ func monitor(d *Daemon, c *container.Container, stop chan struct{}, probe probe)
 			ctx, cancelProbe := context.WithTimeout(context.Background(), probeTimeout)
 			results := make(chan *types.HealthcheckResult, 1)
 			go func() {
-				healthChecksCounter.Inc()
 				result, err := probe.run(ctx, d, c)
 				if err != nil {
-					healthChecksFailedCounter.Inc()
 					logrus.Warnf("Health check for container %s error: %v", c.ID, err)
 					results <- &types.HealthcheckResult{
 						ExitCode: -1,

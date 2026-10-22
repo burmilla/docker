@@ -5,7 +5,6 @@ import (
 	"net"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -25,7 +24,6 @@ import (
 
 // ContainerCreate creates a regular container
 func (daemon *Daemon) ContainerCreate(params types.ContainerCreateConfig) (containertypes.ContainerCreateCreatedBody, error) {
-	start := time.Now()
 	if params.Config == nil {
 		return containertypes.ContainerCreateCreatedBody{}, fmt.Errorf("Config cannot be empty in order to create a container")
 	}
@@ -52,7 +50,6 @@ func (daemon *Daemon) ContainerCreate(params types.ContainerCreateConfig) (conta
 	if err != nil {
 		return containertypes.ContainerCreateCreatedBody{Warnings: warnings}, daemon.imageNotExistToErrcode(err)
 	}
-	containerActions.WithValues("create").UpdateSince(start)
 
 	return containertypes.ContainerCreateCreatedBody{ID: container.ID, Warnings: warnings}, nil
 }

@@ -3,7 +3,6 @@ package daemon
 import (
 	"fmt"
 	"runtime"
-	"time"
 
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types/image"
@@ -13,7 +12,6 @@ import (
 // ImageHistory returns a slice of ImageHistory structures for the specified image
 // name by walking the image lineage.
 func (daemon *Daemon) ImageHistory(name string) ([]*image.HistoryResponseItem, error) {
-	start := time.Now()
 	img, err := daemon.GetImage(name)
 	if err != nil {
 		return nil, err
@@ -86,6 +84,5 @@ func (daemon *Daemon) ImageHistory(name string) ([]*image.HistoryResponseItem, e
 			break
 		}
 	}
-	imageActions.WithValues("history").UpdateSince(start)
 	return history, nil
 }

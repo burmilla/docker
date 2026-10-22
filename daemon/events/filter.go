@@ -82,18 +82,6 @@ func (ef *Filter) matchNetwork(ev events.Message) bool {
 	return ef.fuzzyMatchName(ev, events.NetworkEventType)
 }
 
-func (ef *Filter) matchService(ev events.Message) bool {
-	return ef.fuzzyMatchName(ev, events.ServiceEventType)
-}
-
-func (ef *Filter) matchNode(ev events.Message) bool {
-	return ef.fuzzyMatchName(ev, events.NodeEventType)
-}
-
-func (ef *Filter) matchSecret(ev events.Message) bool {
-	return ef.fuzzyMatchName(ev, events.SecretEventType)
-}
-
 func (ef *Filter) fuzzyMatchName(ev events.Message, eventType string) bool {
 	return ef.filter.FuzzyMatch(eventType, ev.Actor.ID) ||
 		ef.filter.FuzzyMatch(eventType, ev.Actor.Attributes["name"])

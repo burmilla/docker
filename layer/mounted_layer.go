@@ -11,7 +11,6 @@ type mountedLayer struct {
 	mountID    string
 	initID     string
 	parent     *roLayer
-	path       string
 	layerStore *layerStore
 
 	references map[RWLayer]*referencedRWLayer

@@ -744,3 +744,16 @@ func (n *naiveDiffPathDriver) DiffGetter(id string) (graphdriver.FileGetCloser, 
 	}
 	return &fileGetPutter{storage.NewPathFileGetter(p), n.Driver, id}, nil
 }
+
+type unpackSizeCounter struct {
+	unpacker storage.Unpacker
+	size     *int64
+}
+
+func (u *unpackSizeCounter) Next() (*storage.Entry, error) {
+	e, err := u.unpacker.Next()
+	if err == nil && u.size != nil {
+		*u.size += e.Size
+	}
+	return e, err
+}

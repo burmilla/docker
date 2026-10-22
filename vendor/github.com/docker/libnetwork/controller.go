@@ -129,21 +129,20 @@ type SandboxWalker func(sb Sandbox) bool
 type sandboxTable map[string]*sandbox
 
 type controller struct {
-	id              string
-	drvRegistry     *drvregistry.DrvRegistry
-	sandboxes       sandboxTable
-	cfg             *config.Config
-	stores          []datastore.DataStore
-	extKeyListener  net.Listener
-	watchCh         chan *endpoint
-	unWatchCh       chan *endpoint
-	svcRecords      map[string]svcInfo
-	nmap            map[string]*netWatch
-	serviceBindings map[serviceKey]*service
-	defOsSbox       osl.Sandbox
-	ingressSandbox  *sandbox
-	sboxOnce        sync.Once
-	networkLocker   *locker.Locker
+	id             string
+	drvRegistry    *drvregistry.DrvRegistry
+	sandboxes      sandboxTable
+	cfg            *config.Config
+	stores         []datastore.DataStore
+	extKeyListener net.Listener
+	watchCh        chan *endpoint
+	unWatchCh      chan *endpoint
+	svcRecords     map[string]svcInfo
+	nmap           map[string]*netWatch
+	defOsSbox      osl.Sandbox
+	ingressSandbox *sandbox
+	sboxOnce       sync.Once
+	networkLocker  *locker.Locker
 	sync.Mutex
 }
 
@@ -155,12 +154,11 @@ type initializer struct {
 // New creates a new instance of network controller.
 func New(cfgOptions ...config.Option) (NetworkController, error) {
 	c := &controller{
-		id:              stringid.GenerateRandomID(),
-		cfg:             config.ParseConfigOptions(cfgOptions...),
-		sandboxes:       sandboxTable{},
-		svcRecords:      make(map[string]svcInfo),
-		serviceBindings: make(map[serviceKey]*service),
-		networkLocker:   locker.New(),
+		id:            stringid.GenerateRandomID(),
+		cfg:           config.ParseConfigOptions(cfgOptions...),
+		sandboxes:     sandboxTable{},
+		svcRecords:    make(map[string]svcInfo),
+		networkLocker: locker.New(),
 	}
 
 	if err := c.initStores(); err != nil {
@@ -529,11 +527,6 @@ addToStore:
 	}
 
 	joinCluster(network)
-	if !c.isDistributedControl() {
-		c.Lock()
-		arrangeIngressFilterRule()
-		c.Unlock()
-	}
 
 	c.Lock()
 	arrangeUserFilterRule()

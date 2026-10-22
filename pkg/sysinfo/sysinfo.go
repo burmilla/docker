@@ -1,7 +1,5 @@
 package sysinfo
 
-import "github.com/docker/docker/pkg/parsers"
-
 // SysInfo stores information about which features a kernel supports.
 // TODO Windows: Factor out platform specific capabilities.
 type SysInfo struct {
@@ -16,23 +14,6 @@ type SysInfo struct {
 
 	// Whether bridge-nf-call-ip6tables is supported or not
 	BridgeNFCallIP6TablesDisabled bool
-}
-
-func isCpusetListAvailable(provided, available string) (bool, error) {
-	parsedProvided, err := parsers.ParseUintList(provided)
-	if err != nil {
-		return false, err
-	}
-	parsedAvailable, err := parsers.ParseUintList(available)
-	if err != nil {
-		return false, err
-	}
-	for k := range parsedProvided {
-		if !parsedAvailable[k] {
-			return false, nil
-		}
-	}
-	return true, nil
 }
 
 // Returns bit count of 1, used by NumCPU

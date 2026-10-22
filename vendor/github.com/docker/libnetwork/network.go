@@ -984,8 +984,6 @@ func (n *network) delete(force bool) error {
 		logrus.Errorf("Failed leaving network %s from the agent cluster: %v", n.Name(), err)
 	}
 
-	c.cleanupServiceBindings(n.ID())
-
 removeFromStore:
 	// deleteFromStore performs an atomic delete operation and the
 	// network.epCnt will help prevent any possible

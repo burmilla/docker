@@ -46,8 +46,6 @@ const (
 	linuxMinCPUShares = 2
 	linuxMaxCPUShares = 262144
 	platformSupported = true
-	// It's not kernel limit, we want this 4M limit to supply a reasonable functional container
-	linuxMinMemory = 4194304
 	// constants for remapped root settings
 	defaultIDSpecifier string = "default"
 	defaultRemappedID  string = "dockremap"

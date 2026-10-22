@@ -8,7 +8,6 @@ import (
 
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
-	"github.com/docker/distribution/registry/client/transport"
 	"github.com/docker/docker/api/types"
 	registrytypes "github.com/docker/docker/api/types/registry"
 )
@@ -45,42 +44,6 @@ func (scs staticCredentialStore) RefreshToken(*url.URL, string) string {
 }
 
 func (scs staticCredentialStore) SetRefreshToken(*url.URL, string, string) {
-}
-
-type fallbackError struct {
-	err error
-}
-
-func (err fallbackError) Error() string {
-	return err.err.Error()
-}
-
-func v2AuthHTTPClient(endpoint *url.URL, authTransport http.RoundTripper, modifiers []transport.RequestModifier, creds auth.CredentialStore, scopes []auth.Scope) (*http.Client, bool, error) {
-	challengeManager, foundV2, err := PingV2Registry(endpoint, authTransport)
-	if err != nil {
-		if !foundV2 {
-			err = fallbackError{err: err}
-		}
-		return nil, foundV2, err
-	}
-
-	tokenHandlerOptions := auth.TokenHandlerOptions{
-		Transport:     authTransport,
-		Credentials:   creds,
-		OfflineAccess: true,
-		ClientID:      AuthClientID,
-		Scopes:        scopes,
-	}
-	tokenHandler := auth.NewTokenHandlerWithOptions(tokenHandlerOptions)
-	basicHandler := auth.NewBasicHandler(creds)
-	modifiers = append(modifiers, auth.NewAuthorizer(challengeManager, tokenHandler, basicHandler))
-	tr := transport.NewTransport(authTransport, modifiers...)
-
-	return &http.Client{
-		Transport: tr,
-		Timeout:   15 * time.Second,
-	}, foundV2, nil
-
 }
 
 // ConvertToHostname converts a registry url which has http|https prepended

@@ -14,7 +14,6 @@ import (
 	"github.com/docker/docker/api/server/middleware"
 	"github.com/docker/docker/api/server/router"
 	"github.com/docker/docker/api/server/router/container"
-	distributionrouter "github.com/docker/docker/api/server/router/distribution"
 	"github.com/docker/docker/api/server/router/image"
 	"github.com/docker/docker/api/server/router/network"
 	systemrouter "github.com/docker/docker/api/server/router/system"
@@ -66,10 +65,6 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 
 	if cli.Config.Debug {
 		debug.Enable()
-	}
-
-	if cli.Config.Experimental {
-		logrus.Warn("Running experimental build")
 	}
 
 	logrus.SetFormatter(&logrus.TextFormatter{
@@ -325,26 +320,14 @@ func initRouter(api *apiserver.Server, d *daemon.Daemon) {
 	decoder := runconfig.ContainerDecoder{}
 
 	routers := []router.Router{
-		// we need to add the checkpoint router before the container router or the DELETE gets masked
 		container.NewRouter(d, decoder),
 		image.NewRouter(d, decoder),
 		systemrouter.NewRouter(d),
 		volume.NewRouter(d),
-		distributionrouter.NewRouter(d),
 	}
 
 	if d.NetworkControllerEnabled() {
 		routers = append(routers, network.NewRouter(d))
-	}
-
-	if d.HasExperimental() {
-		for _, r := range routers {
-			for _, route := range r.Routes() {
-				if experimental, ok := route.(router.ExperimentalRoute); ok {
-					experimental.Enable()
-				}
-			}
-		}
 	}
 
 	api.InitRouter(debug.IsEnabled(), routers...)
@@ -353,9 +336,6 @@ func initRouter(api *apiserver.Server, d *daemon.Daemon) {
 // TODO: remove this from cli and return the authzMiddleware
 func (cli *DaemonCli) initMiddlewares(s *apiserver.Server, cfg *apiserver.Config) error {
 	v := cfg.Version
-
-	exp := middleware.NewExperimentalMiddleware(cli.Config.Experimental)
-	s.UseMiddleware(exp)
 
 	vm := middleware.NewVersionMiddleware(v, api.DefaultVersion, api.MinVersion)
 	s.UseMiddleware(vm)

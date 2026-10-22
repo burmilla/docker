@@ -1,3 +1,4 @@
+//go:build linux || solaris
 // +build linux solaris
 
 package libcontainerd
@@ -42,7 +43,7 @@ func (clnt *client) prepareBundleDir(uid, gid int) (string, error) {
 	return p, nil
 }
 
-func (clnt *client) Create(containerID string, checkpoint string, checkpointDir string, spec specs.Spec, attachStdio StdioCallback, options ...CreateOption) (err error) {
+func (clnt *client) Create(containerID string, spec specs.Spec, attachStdio StdioCallback, options ...CreateOption) (err error) {
 	clnt.lock(containerID)
 	defer clnt.unlock(containerID)
 
@@ -83,7 +84,7 @@ func (clnt *client) Create(containerID string, checkpoint string, checkpointDir 
 	if err := json.NewEncoder(f).Encode(spec); err != nil {
 		return err
 	}
-	return container.start(&spec, checkpoint, checkpointDir, attachStdio)
+	return container.start(&spec, attachStdio)
 }
 
 func (clnt *client) Signal(containerID string, sig int) error {

@@ -35,7 +35,7 @@ type Backend interface {
 // Client provides access to containerd features.
 type Client interface {
 	GetServerVersion(ctx context.Context) (*ServerVersion, error)
-	Create(containerID string, checkpoint string, checkpointDir string, spec specs.Spec, attachStdio StdioCallback, options ...CreateOption) error
+	Create(containerID string, spec specs.Spec, attachStdio StdioCallback, options ...CreateOption) error
 	Signal(containerID string, sig int) error
 	SignalProcess(containerID string, processFriendlyName string, sig int) error
 	AddProcess(ctx context.Context, containerID, processFriendlyName string, process Process, attachStdio StdioCallback) (int, error)
@@ -43,9 +43,6 @@ type Client interface {
 	Pause(containerID string) error
 	Resume(containerID string) error
 	Restore(containerID string, attachStdio StdioCallback, options ...CreateOption) error
-	CreateCheckpoint(containerID string, checkpointID string, checkpointDir string, exit bool) error
-	DeleteCheckpoint(containerID string, checkpointID string, checkpointDir string) error
-	ListCheckpoints(containerID string, checkpointDir string) (*Checkpoints, error)
 }
 
 // CreateOption allows to configure parameters of container creation.

@@ -48,18 +48,16 @@ type StoreOptions struct {
 	GraphDriver               string
 	GraphDriverOptions        []string
 	IDMappings                *idtools.IDMappings
-	ExperimentalEnabled       bool
 	Platform                  string
 }
 
 // NewStoreFromOptions creates a new Store instance
 func NewStoreFromOptions(options StoreOptions) (Store, error) {
 	driver, err := graphdriver.New(options.GraphDriver, graphdriver.Options{
-		Root:                options.StorePath,
-		DriverOptions:       options.GraphDriverOptions,
-		UIDMaps:             options.IDMappings.UIDs(),
-		GIDMaps:             options.IDMappings.GIDs(),
-		ExperimentalEnabled: options.ExperimentalEnabled,
+		Root:          options.StorePath,
+		DriverOptions: options.GraphDriverOptions,
+		UIDMaps:       options.IDMappings.UIDs(),
+		GIDMaps:       options.IDMappings.GIDs(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error initializing graphdriver: %v", err)

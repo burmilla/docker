@@ -47,5 +47,4 @@ func installConfigFlags(conf *config.Config, flags *pflag.FlagSet) {
 	flags.Var(&conf.ShmSize, "default-shm-size", "Default shm size for containers")
 	flags.BoolVar(&conf.NoNewPrivileges, "no-new-privileges", false, "Set no-new-privileges by default for new containers")
 
-	attachExperimentalFlags(conf, flags)
 }

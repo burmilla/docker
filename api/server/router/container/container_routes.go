@@ -138,9 +138,7 @@ func (s *containerRouter) postContainersStart(ctx context.Context, w http.Respon
 		return err
 	}
 
-	checkpoint := r.Form.Get("checkpoint")
-	checkpointDir := r.Form.Get("checkpoint-dir")
-	if err := s.backend.ContainerStart(vars["name"], hostConfig, checkpoint, checkpointDir); err != nil {
+	if err := s.backend.ContainerStart(vars["name"], hostConfig); err != nil {
 		return err
 	}
 

@@ -121,14 +121,6 @@ func (daemon *Daemon) StoreHosts(hosts []string) {
 	}
 }
 
-// HasExperimental returns whether the experimental features of the daemon are enabled or not
-func (daemon *Daemon) HasExperimental() bool {
-	if daemon.configStore != nil && daemon.configStore.Experimental {
-		return true
-	}
-	return false
-}
-
 func (daemon *Daemon) restore() error {
 	containers := make(map[string]*container.Container)
 
@@ -312,7 +304,7 @@ func (daemon *Daemon) restore() error {
 
 			// Make sure networks are available before starting
 			daemon.waitForNetworks(c)
-			if err := daemon.containerStart(c, "", "", true); err != nil {
+			if err := daemon.containerStart(c, true); err != nil {
 				logrus.Errorf("Failed to start container %s: %s", c.ID, err)
 			}
 			close(chNotify)
@@ -544,7 +536,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 			GraphDriver:               ds.graphDriver,
 			GraphDriverOptions:        config.GraphOptions,
 			IDMappings:                idMappings,
-			ExperimentalEnabled:       config.Experimental,
 			Platform:                  platform,
 		})
 		if err != nil {
@@ -984,7 +975,6 @@ func (daemon *Daemon) networkOptions(dconfig *config.Config, activeSandboxes map
 		return options, nil
 	}
 
-	options = append(options, nwconfig.OptionExperimental(dconfig.Experimental))
 	options = append(options, nwconfig.OptionDataDir(dconfig.Root))
 	options = append(options, nwconfig.OptionExecRoot(dconfig.GetExecRoot()))
 

@@ -342,11 +342,6 @@ func (container *Container) ConfigPath() (string, error) {
 	return container.GetRootResourcePath(configFileName)
 }
 
-// CheckpointDir returns the directory checkpoints are stored in
-func (container *Container) CheckpointDir() string {
-	return filepath.Join(container.Root, "checkpoints")
-}
-
 // StartLogger starts a new logger driver for the container.
 func (container *Container) StartLogger() (logger.Logger, error) {
 	cfg := container.HostConfig.LogConfig

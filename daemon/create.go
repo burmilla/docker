@@ -136,9 +136,6 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig) (retC *containe
 	if err := idtools.MkdirAndChown(container.Root, 0700, rootIDs); err != nil {
 		return nil, err
 	}
-	if err := idtools.MkdirAndChown(container.CheckpointDir(), 0700, rootIDs); err != nil {
-		return nil, err
-	}
 
 	if err := daemon.setHostConfig(container, params.HostConfig); err != nil {
 		return nil, err

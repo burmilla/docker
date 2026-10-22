@@ -55,8 +55,6 @@ func installCommonConfigFlags(conf *config.Config, flags *pflag.FlagSet) {
 	flags.IntVar(&maxConcurrentDownloads, "max-concurrent-downloads", config.DefaultMaxConcurrentDownloads, "Set the max concurrent downloads for each pull")
 	flags.IntVar(&conf.ShutdownTimeout, "shutdown-timeout", defaultShutdownTimeout, "Set the default shutdown timeout")
 
-	flags.BoolVar(&conf.Experimental, "experimental", false, "Enable experimental features")
-
 	// "--deprecated-key-path" is to allow configuration of the key used
 	// for the daemon ID and the deprecated image signing. It was never
 	// exposed as a command line option but is added here to allow

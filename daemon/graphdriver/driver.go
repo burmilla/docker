@@ -186,11 +186,10 @@ func getBuiltinDriver(name, home string, options []string, uidMaps, gidMaps []id
 
 // Options is used to initialize a graphdriver
 type Options struct {
-	Root                string
-	DriverOptions       []string
-	UIDMaps             []idtools.IDMap
-	GIDMaps             []idtools.IDMap
-	ExperimentalEnabled bool
+	Root          string
+	DriverOptions []string
+	UIDMaps       []idtools.IDMap
+	GIDMaps       []idtools.IDMap
 }
 
 // New creates the driver and initializes it at the specified root.

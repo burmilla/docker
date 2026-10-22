@@ -53,13 +53,7 @@ const (
 var (
 	// Slice of drivers that should be used in an order
 	priority = []string{
-		"aufs",
-		"btrfs",
-		"zfs",
 		"overlay2",
-		"overlay",
-		"devicemapper",
-		"vfs",
 	}
 
 	// FsNames maps filesystem id to name of the filesystem.

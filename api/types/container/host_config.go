@@ -22,11 +22,6 @@ func (i Isolation) IsDefault() bool {
 // IpcMode represents the container ipc stack.
 type IpcMode string
 
-// IsPrivate indicates whether the container uses its private ipc stack.
-func (n IpcMode) IsPrivate() bool {
-	return !(n.IsHost() || n.IsContainer())
-}
-
 // IsHost indicates whether the container uses the host's ipc stack.
 func (n IpcMode) IsHost() bool {
 	return n == "host"
@@ -130,11 +125,6 @@ func (n UsernsMode) Valid() bool {
 // UTSMode represents the UTS namespace of the container.
 type UTSMode string
 
-// IsPrivate indicates whether the container uses its private UTS namespace.
-func (n UTSMode) IsPrivate() bool {
-	return !(n.IsHost())
-}
-
 // IsHost indicates whether the container uses the host's UTS namespace.
 func (n UTSMode) IsHost() bool {
 	return n == "host"
@@ -153,11 +143,6 @@ func (n UTSMode) Valid() bool {
 
 // PidMode represents the pid namespace of the container.
 type PidMode string
-
-// IsPrivate indicates whether the container uses its own new pid namespace.
-func (n PidMode) IsPrivate() bool {
-	return !(n.IsHost() || n.IsContainer())
-}
 
 // IsHost indicates whether the container uses the host's pid namespace.
 func (n PidMode) IsHost() bool {
@@ -231,11 +216,6 @@ func (rp *RestartPolicy) IsUnlessStopped() bool {
 	return rp.Name == "unless-stopped"
 }
 
-// IsSame compares two RestartPolicy to see if they are the same
-func (rp *RestartPolicy) IsSame(tp *RestartPolicy) bool {
-	return rp.Name == tp.Name && rp.MaximumRetryCount == tp.MaximumRetryCount
-}
-
 // LogMode is a type to define the available modes for logging
 // These modes affect how logs are handled when log messages start piling up.
 type LogMode string
@@ -257,14 +237,6 @@ type LogConfig struct {
 type Resources struct {
 	Devices []DeviceMapping // List of devices to map inside the container
 	Ulimits []*units.Ulimit // List of ulimits to be set in the container
-}
-
-// UpdateConfig holds the mutable attributes of a Container.
-// Those attributes can be updated at runtime.
-type UpdateConfig struct {
-	// Contains container's resources (ulimits)
-	Resources
-	RestartPolicy RestartPolicy
 }
 
 // HostConfig the non-portable Config structure of a container.

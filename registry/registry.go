@@ -5,16 +5,13 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/distribution/registry/client/transport"
-	"github.com/docker/go-connections/sockets"
 	"github.com/docker/go-connections/tlsconfig"
 )
 
@@ -107,78 +104,4 @@ func DockerHeaders(userAgent string, metaHeaders http.Header) []transport.Reques
 		modifiers = append(modifiers, transport.NewHeaderRequestModifier(metaHeaders))
 	}
 	return modifiers
-}
-
-// HTTPClient returns an HTTP client structure which uses the given transport
-// and contains the necessary headers for redirected requests
-func HTTPClient(transport http.RoundTripper) *http.Client {
-	return &http.Client{
-		Transport:     transport,
-		CheckRedirect: addRequiredHeadersToRedirectedRequests,
-	}
-}
-
-func trustedLocation(req *http.Request) bool {
-	var (
-		trusteds = []string{"docker.com", "docker.io"}
-		hostname = strings.SplitN(req.Host, ":", 2)[0]
-	)
-	if req.URL.Scheme != "https" {
-		return false
-	}
-
-	for _, trusted := range trusteds {
-		if hostname == trusted || strings.HasSuffix(hostname, "."+trusted) {
-			return true
-		}
-	}
-	return false
-}
-
-// addRequiredHeadersToRedirectedRequests adds the necessary redirection headers
-// for redirected requests
-func addRequiredHeadersToRedirectedRequests(req *http.Request, via []*http.Request) error {
-	if via != nil && via[0] != nil {
-		if trustedLocation(req) && trustedLocation(via[0]) {
-			req.Header = via[0].Header
-			return nil
-		}
-		for k, v := range via[0].Header {
-			if k != "Authorization" {
-				for _, vv := range v {
-					req.Header.Add(k, vv)
-				}
-			}
-		}
-	}
-	return nil
-}
-
-// NewTransport returns a new HTTP transport. If tlsConfig is nil, it uses the
-// default TLS configuration.
-func NewTransport(tlsConfig *tls.Config) *http.Transport {
-	if tlsConfig == nil {
-		tlsConfig = tlsconfig.ServerDefault()
-	}
-
-	direct := &net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-		DualStack: true,
-	}
-
-	base := &http.Transport{
-		Proxy:               http.ProxyFromEnvironment,
-		Dial:                direct.Dial,
-		TLSHandshakeTimeout: 10 * time.Second,
-		TLSClientConfig:     tlsConfig,
-		// TODO(dmcgowan): Call close idle connections when complete and use keep alive
-		DisableKeepAlives: true,
-	}
-
-	proxyDialer, err := sockets.DialerFromEnvironment(direct)
-	if err == nil {
-		base.Dial = proxyDialer.Dial
-	}
-	return base
 }

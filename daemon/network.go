@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"runtime"
-	"sort"
 	"strings"
 
 	apierrors "github.com/docker/docker/api/errors"
@@ -214,34 +213,6 @@ func (daemon *Daemon) DisconnectContainerFromNetwork(containerName string, netwo
 		return err
 	}
 	return daemon.DisconnectFromNetwork(container, networkName, force)
-}
-
-// GetNetworkDriverList returns the list of plugins drivers
-// registered for network.
-func (daemon *Daemon) GetNetworkDriverList() []string {
-	if !daemon.NetworkControllerEnabled() {
-		return nil
-	}
-
-	pluginList := daemon.netController.BuiltinDrivers()
-
-	pluginMap := make(map[string]bool)
-	for _, plugin := range pluginList {
-		pluginMap[plugin] = true
-	}
-
-	networks := daemon.netController.Networks()
-
-	for _, network := range networks {
-		if !pluginMap[network.Type()] {
-			pluginList = append(pluginList, network.Type())
-			pluginMap[network.Type()] = true
-		}
-	}
-
-	sort.Strings(pluginList)
-
-	return pluginList
 }
 
 // DeleteNetwork destroys a network unless it's one of docker's predefined networks.

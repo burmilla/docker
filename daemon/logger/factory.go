@@ -34,11 +34,6 @@ func (lf *logdriverFactory) list() []string {
 	return ls
 }
 
-// ListDrivers gets the list of registered log driver names
-func ListDrivers() []string {
-	return factory.list()
-}
-
 func (lf *logdriverFactory) register(name string, c Creator) error {
 	if lf.driverRegistered(name) {
 		return fmt.Errorf("logger: log driver named '%s' is already registered", name)

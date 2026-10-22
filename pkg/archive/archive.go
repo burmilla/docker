@@ -8,7 +8,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -76,11 +75,6 @@ type Archiver struct {
 	IDMappings *idtools.IDMappings
 }
 
-// NewDefaultArchiver returns a new Archiver without any IDMappings
-func NewDefaultArchiver() *Archiver {
-	return &Archiver{Untar: Untar, IDMappings: &idtools.IDMappings{}}
-}
-
 // breakoutError is used to differentiate errors related to breaking out
 // When testing archive breakout in the unit tests, this error is expected
 // in order for the test to pass.
@@ -104,23 +98,6 @@ const (
 	// standard.
 	OverlayWhiteoutFormat
 )
-
-// IsArchivePath checks if the (possibly compressed) file at the given path
-// starts with a tar file header.
-func IsArchivePath(path string) bool {
-	file, err := os.Open(path)
-	if err != nil {
-		return false
-	}
-	defer file.Close()
-	rdr, err := DecompressStream(file)
-	if err != nil {
-		return false
-	}
-	r := tar.NewReader(rdr)
-	_, err = r.Next()
-	return err == nil
-}
 
 // DetectCompression detects the compression algorithm of the source.
 func DetectCompression(source []byte) Compression {
@@ -211,93 +188,6 @@ func CompressStream(dest io.Writer, compression Compression) (io.WriteCloser, er
 	default:
 		return nil, fmt.Errorf("Unsupported compression format %s", (&compression).Extension())
 	}
-}
-
-// TarModifierFunc is a function that can be passed to ReplaceFileTarWrapper to
-// modify the contents or header of an entry in the archive. If the file already
-// exists in the archive the TarModifierFunc will be called with the Header and
-// a reader which will return the files content. If the file does not exist both
-// header and content will be nil.
-type TarModifierFunc func(path string, header *tar.Header, content io.Reader) (*tar.Header, []byte, error)
-
-// ReplaceFileTarWrapper converts inputTarStream to a new tar stream. Files in the
-// tar stream are modified if they match any of the keys in mods.
-func ReplaceFileTarWrapper(inputTarStream io.ReadCloser, mods map[string]TarModifierFunc) io.ReadCloser {
-	pipeReader, pipeWriter := io.Pipe()
-
-	go func() {
-		tarReader := tar.NewReader(inputTarStream)
-		tarWriter := tar.NewWriter(pipeWriter)
-		defer inputTarStream.Close()
-		defer tarWriter.Close()
-
-		modify := func(name string, original *tar.Header, modifier TarModifierFunc, tarReader io.Reader) error {
-			header, data, err := modifier(name, original, tarReader)
-			switch {
-			case err != nil:
-				return err
-			case header == nil:
-				return nil
-			}
-
-			header.Name = name
-			header.Size = int64(len(data))
-			if err := tarWriter.WriteHeader(header); err != nil {
-				return err
-			}
-			if len(data) != 0 {
-				if _, err := tarWriter.Write(data); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-
-		var err error
-		var originalHeader *tar.Header
-		for {
-			originalHeader, err = tarReader.Next()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				pipeWriter.CloseWithError(err)
-				return
-			}
-
-			modifier, ok := mods[originalHeader.Name]
-			if !ok {
-				// No modifiers for this file, copy the header and data
-				if err := tarWriter.WriteHeader(originalHeader); err != nil {
-					pipeWriter.CloseWithError(err)
-					return
-				}
-				if _, err := pools.Copy(tarWriter, tarReader); err != nil {
-					pipeWriter.CloseWithError(err)
-					return
-				}
-				continue
-			}
-			delete(mods, originalHeader.Name)
-
-			if err := modify(originalHeader.Name, originalHeader, modifier, tarReader); err != nil {
-				pipeWriter.CloseWithError(err)
-				return
-			}
-		}
-
-		// Apply the modifiers that haven't matched any files in the archive
-		for name, modifier := range mods {
-			if err := modify(name, nil, modifier, nil); err != nil {
-				pipeWriter.CloseWithError(err)
-				return
-			}
-		}
-
-		pipeWriter.Close()
-
-	}()
-	return pipeReader
 }
 
 // Extension returns the extension of a file that uses the specified compression algorithm.
@@ -950,13 +840,6 @@ func Untar(tarArchive io.Reader, dest string, options *TarOptions) error {
 	return untarHandler(tarArchive, dest, options, true)
 }
 
-// UntarUncompressed reads a stream of bytes from `archive`, parses it as a tar archive,
-// and unpacks it into the directory at `dest`.
-// The archive must be an uncompressed stream.
-func UntarUncompressed(tarArchive io.Reader, dest string, options *TarOptions) error {
-	return untarHandler(tarArchive, dest, options, false)
-}
-
 // Handler for teasing out the automatic decompression
 func untarHandler(tarArchive io.Reader, dest string, options *TarOptions, decompress bool) error {
 	if tarArchive == nil {
@@ -988,20 +871,6 @@ func untarHandler(tarArchive io.Reader, dest string, options *TarOptions, decomp
 func (archiver *Archiver) TarUntar(src, dst string) error {
 	logrus.Debugf("TarUntar(%s %s)", src, dst)
 	archive, err := TarWithOptions(src, &TarOptions{Compression: Uncompressed})
-	if err != nil {
-		return err
-	}
-	defer archive.Close()
-	options := &TarOptions{
-		UIDMaps: archiver.IDMappings.UIDs(),
-		GIDMaps: archiver.IDMappings.GIDs(),
-	}
-	return archiver.Untar(archive, dst, options)
-}
-
-// UntarPath untar a file from path to a destination, src is the source tar file path.
-func (archiver *Archiver) UntarPath(src, dst string) error {
-	archive, err := os.Open(src)
 	if err != nil {
 		return err
 	}
@@ -1111,57 +980,4 @@ func remapIDs(idMappings *idtools.IDMappings, hdr *tar.Header) error {
 	ids, err := idMappings.ToHost(idtools.IDPair{UID: hdr.Uid, GID: hdr.Gid})
 	hdr.Uid, hdr.Gid = ids.UID, ids.GID
 	return err
-}
-
-// NewTempArchive reads the content of src into a temporary file, and returns the contents
-// of that file as an archive. The archive can only be read once - as soon as reading completes,
-// the file will be deleted.
-func NewTempArchive(src io.Reader, dir string) (*TempArchive, error) {
-	f, err := ioutil.TempFile(dir, "")
-	if err != nil {
-		return nil, err
-	}
-	if _, err := io.Copy(f, src); err != nil {
-		return nil, err
-	}
-	if _, err := f.Seek(0, 0); err != nil {
-		return nil, err
-	}
-	st, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	size := st.Size()
-	return &TempArchive{File: f, Size: size}, nil
-}
-
-// TempArchive is a temporary archive. The archive can only be read once - as soon as reading completes,
-// the file will be deleted.
-type TempArchive struct {
-	*os.File
-	Size   int64 // Pre-computed from Stat().Size() as a convenience
-	read   int64
-	closed bool
-}
-
-// Close closes the underlying file if it's still open, or does a no-op
-// to allow callers to try to close the TempArchive multiple times safely.
-func (archive *TempArchive) Close() error {
-	if archive.closed {
-		return nil
-	}
-
-	archive.closed = true
-
-	return archive.File.Close()
-}
-
-func (archive *TempArchive) Read(data []byte) (int, error) {
-	n, err := archive.File.Read(data)
-	archive.read += int64(n)
-	if err != nil || archive.read == archive.Size {
-		archive.Close()
-		os.Remove(archive.File.Name())
-	}
-	return n, err
 }

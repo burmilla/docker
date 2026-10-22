@@ -3,7 +3,6 @@ package types
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"time"
@@ -82,13 +81,6 @@ type ContainerPathStat struct {
 	Mode       os.FileMode `json:"mode"`
 	Mtime      time.Time   `json:"mtime"`
 	LinkTarget string      `json:"linkTarget"`
-}
-
-// ContainerStats contains response of Engine API:
-// GET "/stats"
-type ContainerStats struct {
-	Body   io.ReadCloser `json:"body"`
-	OSType string        `json:"ostype"`
 }
 
 // Ping contains response of Engine API:

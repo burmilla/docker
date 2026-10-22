@@ -485,12 +485,6 @@ func (container *Container) InitDNSHostConfig() {
 	}
 }
 
-// GetEndpointInNetwork returns the container's endpoint to the provided network.
-func (container *Container) GetEndpointInNetwork(n libnetwork.Network) (libnetwork.Endpoint, error) {
-	endpointName := strings.TrimPrefix(container.Name, "/")
-	return n.EndpointByName(endpointName)
-}
-
 func (container *Container) buildPortMapInfo(ep libnetwork.Endpoint) error {
 	if ep == nil {
 		return errInvalidEndpoint
@@ -820,17 +814,6 @@ func (container *Container) BuildCreateEndpointOptions(n libnetwork.Network, epC
 	return createOptions, nil
 }
 
-// UpdateMonitor updates monitor configure for running container
-func (container *Container) UpdateMonitor(restartPolicy containertypes.RestartPolicy) {
-	type policySetter interface {
-		SetPolicy(containertypes.RestartPolicy)
-	}
-
-	if rm, ok := container.RestartManager().(policySetter); ok {
-		rm.SetPolicy(restartPolicy)
-	}
-}
-
 // FullHostname returns hostname and optional domain appended to it.
 func (container *Container) FullHostname() string {
 	fullHostname := container.Config.Hostname
@@ -908,11 +891,6 @@ func (container *Container) startLogging() error {
 	}
 
 	return nil
-}
-
-// StdinPipe gets the stdin stream of the container
-func (container *Container) StdinPipe() io.WriteCloser {
-	return container.StreamConfig.StdinPipe()
 }
 
 // StdoutPipe gets the stdout stream of the container

@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package graphdriver
@@ -5,8 +6,6 @@ package graphdriver
 import (
 	"path/filepath"
 	"syscall"
-
-	"github.com/docker/docker/pkg/mount"
 )
 
 const (
@@ -102,20 +101,6 @@ type fsChecker struct {
 
 func (c *fsChecker) IsMounted(path string) bool {
 	m, _ := Mounted(c.t, path)
-	return m
-}
-
-// NewDefaultChecker returns a check that parses /proc/mountinfo to check
-// if the specified path is mounted.
-func NewDefaultChecker() Checker {
-	return &defaultChecker{}
-}
-
-type defaultChecker struct {
-}
-
-func (c *defaultChecker) IsMounted(path string) bool {
-	m, _ := mount.Mounted(path)
 	return m
 }
 

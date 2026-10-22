@@ -41,12 +41,6 @@ func New(policy container.RestartPolicy, restartCount int) RestartManager {
 	return &restartManager{policy: policy, restartCount: restartCount, cancel: make(chan struct{})}
 }
 
-func (rm *restartManager) SetPolicy(policy container.RestartPolicy) {
-	rm.Lock()
-	rm.policy = policy
-	rm.Unlock()
-}
-
 func (rm *restartManager) ShouldRestart(exitCode uint32, hasBeenManuallyStopped bool, executionDuration time.Duration) (bool, chan error, error) {
 	if rm.policy.IsNone() {
 		return false, nil, nil

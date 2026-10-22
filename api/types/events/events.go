@@ -13,12 +13,6 @@ const (
 	PluginEventType = "plugin"
 	// VolumeEventType is the event type that volumes generate
 	VolumeEventType = "volume"
-	// ServiceEventType is the event type that services generate
-	ServiceEventType = "service"
-	// NodeEventType is the event type that nodes generate
-	NodeEventType = "node"
-	// SecretEventType is the event type that secrets generate
-	SecretEventType = "secret"
 )
 
 // Actor describes something that generates events,

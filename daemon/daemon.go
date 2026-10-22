@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -723,30 +722,6 @@ func (daemon *Daemon) Unmount(container *container.Container) error {
 	}
 
 	return nil
-}
-
-// Subnets return the IPv4 and IPv6 subnets of networks that are manager by Docker.
-func (daemon *Daemon) Subnets() ([]net.IPNet, []net.IPNet) {
-	var v4Subnets []net.IPNet
-	var v6Subnets []net.IPNet
-
-	managedNetworks := daemon.netController.Networks()
-
-	for _, managedNetwork := range managedNetworks {
-		v4infos, v6infos := managedNetwork.Info().IpamInfo()
-		for _, info := range v4infos {
-			if info.IPAMData.Pool != nil {
-				v4Subnets = append(v4Subnets, *info.IPAMData.Pool)
-			}
-		}
-		for _, info := range v6infos {
-			if info.IPAMData.Pool != nil {
-				v6Subnets = append(v6Subnets, *info.IPAMData.Pool)
-			}
-		}
-	}
-
-	return v4Subnets, v6Subnets
 }
 
 // GraphDriverName returns the name of the graph driver used by the layer.Store

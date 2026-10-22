@@ -2,7 +2,6 @@ package volumedrivers
 
 import (
 	"fmt"
-	"sort"
 	"sync"
 
 	"github.com/docker/docker/volume"
@@ -38,19 +37,6 @@ func Register(extension volume.Driver, name string) bool {
 
 	drivers.extensions[name] = extension
 
-	return true
-}
-
-// Unregister dissociates the name from its driver, if the association exists.
-func Unregister(name string) bool {
-	drivers.Lock()
-	defer drivers.Unlock()
-
-	_, exists := drivers.extensions[name]
-	if !exists {
-		return false
-	}
-	delete(drivers.extensions, name)
 	return true
 }
 
@@ -92,19 +78,6 @@ func CreateDriver(name string) (volume.Driver, error) {
 // If the driver is empty, it looks for the local driver.
 func RemoveDriver(name string) (volume.Driver, error) {
 	return GetDriver(name)
-}
-
-// GetDriverList returns list of volume drivers registered.
-// If no driver is registered, empty string list will be returned.
-func GetDriverList() []string {
-	var driverList []string
-	drivers.Lock()
-	for driverName := range drivers.extensions {
-		driverList = append(driverList, driverName)
-	}
-	drivers.Unlock()
-	sort.Strings(driverList)
-	return driverList
 }
 
 // GetAllDrivers lists all the registered drivers

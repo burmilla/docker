@@ -1,3 +1,4 @@
+//go:build linux || solaris
 // +build linux solaris
 
 package libcontainerd
@@ -484,11 +485,6 @@ func (rt runtimePath) Apply(r Remote) error {
 		return nil
 	}
 	return fmt.Errorf("WithRuntime option not supported for this remote")
-}
-
-// WithRuntimeArgs sets the list of runtime args passed to containerd
-func WithRuntimeArgs(args []string) RemoteOption {
-	return runtimeArgs(args)
 }
 
 type runtimeArgs []string

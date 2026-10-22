@@ -15,10 +15,9 @@ import (
 
 // Errors used or returned by this file.
 var (
-	ErrNotDirectory      = errors.New("not a directory")
-	ErrDirNotExists      = errors.New("no such directory")
-	ErrCannotCopyDir     = errors.New("cannot copy directory")
-	ErrInvalidCopySource = errors.New("invalid copy source content")
+	ErrNotDirectory  = errors.New("not a directory")
+	ErrDirNotExists  = errors.New("no such directory")
+	ErrCannotCopyDir = errors.New("cannot copy directory")
 )
 
 // PreserveTrailingDotOrSeparator returns the given cleaned path (after
@@ -346,36 +345,6 @@ func RebaseArchiveEntries(srcContent io.Reader, oldBase, newBase string) io.Read
 	}()
 
 	return rebased
-}
-
-// CopyResource performs an archive copy from the given source path to the
-// given destination path. The source path MUST exist and the destination
-// path's parent directory must exist.
-func CopyResource(srcPath, dstPath string, followLink bool) error {
-	var (
-		srcInfo CopyInfo
-		err     error
-	)
-
-	// Ensure in platform semantics
-	srcPath = normalizePath(srcPath)
-	dstPath = normalizePath(dstPath)
-
-	// Clean the source and destination paths.
-	srcPath = PreserveTrailingDotOrSeparator(filepath.Clean(srcPath), srcPath)
-	dstPath = PreserveTrailingDotOrSeparator(filepath.Clean(dstPath), dstPath)
-
-	if srcInfo, err = CopyInfoSourcePath(srcPath, followLink); err != nil {
-		return err
-	}
-
-	content, err := TarResource(srcInfo)
-	if err != nil {
-		return err
-	}
-	defer content.Close()
-
-	return CopyTo(content, srcInfo, dstPath)
 }
 
 // CopyTo handles extracting the given content whose

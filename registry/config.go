@@ -41,9 +41,6 @@ var (
 	// IndexName is the name of the index
 	IndexName = "docker.io"
 
-	// NotaryServer is the endpoint serving the Notary trust server
-	NotaryServer = "https://notary.docker.io"
-
 	// DefaultV2Registry is the URI of the default v2 registry
 	DefaultV2Registry = &url.URL{
 		Scheme: "https",
@@ -344,15 +341,6 @@ func newIndexInfo(config *serviceConfig, indexName string) (*registrytypes.Index
 	}
 	index.Secure = isSecureIndex(config, indexName)
 	return index, nil
-}
-
-// GetAuthConfigKey special-cases using the full index address of the official
-// index as the AuthConfig key, and uses the (host)name[:port] for private indexes.
-func GetAuthConfigKey(index *registrytypes.IndexInfo) string {
-	if index.Official {
-		return IndexServer
-	}
-	return index.Name
 }
 
 // newRepositoryInfo validates and breaks down a repository name into a RepositoryInfo

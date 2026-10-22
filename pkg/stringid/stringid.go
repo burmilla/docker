@@ -4,7 +4,6 @@ package stringid
 import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"math"
 	"math/big"
@@ -19,7 +18,6 @@ const shortLen = 12
 
 var (
 	validShortID = regexp.MustCompile("^[a-f0-9]{12}$")
-	validHex     = regexp.MustCompile(`^[a-f0-9]{64}$`)
 )
 
 // IsShortID determines if an arbitrary string *looks like* a short ID.
@@ -68,14 +66,6 @@ func GenerateRandomID() string {
 // It helps you to save entropy.
 func GenerateNonCryptoID() string {
 	return generateID(readerFunc(rand.Read))
-}
-
-// ValidateID checks whether an ID string is a valid image ID.
-func ValidateID(id string) error {
-	if ok := validHex.MatchString(id); !ok {
-		return fmt.Errorf("image ID %q is invalid", id)
-	}
-	return nil
 }
 
 func init() {

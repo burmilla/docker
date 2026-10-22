@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package system
@@ -7,11 +8,6 @@ import (
 	"os"
 	"path/filepath"
 )
-
-// MkdirAllWithACL is a wrapper for MkdirAll on unix systems.
-func MkdirAllWithACL(path string, perm os.FileMode, sddl string) error {
-	return MkdirAll(path, perm, sddl)
-}
 
 // MkdirAll creates a directory named path along with any necessary parents,
 // with permission specified by attribute perm for all dir created.

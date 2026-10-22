@@ -349,13 +349,6 @@ func (s *State) ResetRemovalInProgress() {
 	s.Unlock()
 }
 
-// SetDead sets the container state to "dead"
-func (s *State) SetDead() {
-	s.Lock()
-	s.Dead = true
-	s.Unlock()
-}
-
 // SetRemoved assumes this container is already in the "dead" state and
 // closes the internal waitRemove channel to unblock callers waiting for a
 // container to be removed.

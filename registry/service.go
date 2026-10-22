@@ -9,11 +9,6 @@ import (
 	registrytypes "github.com/docker/docker/api/types/registry"
 )
 
-const (
-	// DefaultSearchLimit is the default value for maximum number of returned search results.
-	DefaultSearchLimit = 25
-)
-
 // Service is the interface defining what a registry service should implement.
 type Service interface {
 	LookupPullEndpoints(hostname string) (endpoints []APIEndpoint, err error)

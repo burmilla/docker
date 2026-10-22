@@ -71,8 +71,6 @@ const (
 	ConsistencyCached Consistency = "cached"
 	// ConsistencyDelegated mounts can cache read and written data and structure
 	ConsistencyDelegated Consistency = "delegated"
-	// ConsistencyDefault provides "consistent" behavior unless overridden
-	ConsistencyDefault Consistency = "default"
 )
 
 // BindOptions defines options specific to mounts of type "bind".

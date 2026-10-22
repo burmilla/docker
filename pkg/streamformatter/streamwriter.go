@@ -37,11 +37,3 @@ func NewStdoutWriter(out io.Writer) io.Writer {
 		return string(buf)
 	}}
 }
-
-// NewStderrWriter returns a writer which formats the output as json message
-// representing stderr lines
-func NewStderrWriter(out io.Writer) io.Writer {
-	return &streamWriter{Writer: out, lineFormat: func(buf []byte) string {
-		return "\033[91m" + string(buf) + "\033[0m"
-	}}
-}

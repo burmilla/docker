@@ -829,18 +829,3 @@ func (daemon *Daemon) ActivateContainerServiceBinding(containerName string) erro
 	}
 	return sb.EnableService()
 }
-
-// DeactivateContainerServiceBinding removes this container from load balancer active rotation, and DNS response
-func (daemon *Daemon) DeactivateContainerServiceBinding(containerName string) error {
-	container, err := daemon.GetContainer(containerName)
-	if err != nil {
-		return err
-	}
-	sb := daemon.getNetworkSandbox(container)
-	if sb == nil {
-		// If the network sandbox is not found, then there is nothing to deactivate
-		logrus.Debugf("Could not find network sandbox for container %s on service binding deactivation request", containerName)
-		return nil
-	}
-	return sb.DisableService()
-}

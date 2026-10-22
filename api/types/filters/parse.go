@@ -29,7 +29,7 @@ func NewArgs() Args {
 
 // ParseFlag parses the argument to the filter flag. Like
 //
-//   `docker ps -f 'created=today' -f 'image.name=ubuntu*'`
+//	`docker ps -f 'created=today' -f 'image.name=ubuntu*'`
 //
 // If prev map is provided, then it is appended to, and returned. By default a new
 // map is created.
@@ -158,8 +158,9 @@ func (filters Args) Len() int {
 // MatchKVList returns true if the values for the specified field matches the ones
 // from the sources.
 // e.g. given Args are {'label': {'label1=1','label2=1'}, 'image.name', {'ubuntu'}},
-//      field is 'label' and sources are {'label1': '1', 'label2': '2'}
-//      it returns true.
+//
+//	field is 'label' and sources are {'label1': '1', 'label2': '2'}
+//	it returns true.
 func (filters Args) MatchKVList(field string, sources map[string]string) bool {
 	fieldValues := filters.fields[field]
 
@@ -189,8 +190,9 @@ func (filters Args) MatchKVList(field string, sources map[string]string) bool {
 
 // Match returns true if the values for the specified field matches the source string
 // e.g. given Args are {'label': {'label1=1','label2=1'}, 'image.name', {'ubuntu'}},
-//      field is 'image.name' and source is 'ubuntu'
-//      it returns true.
+//
+//	field is 'image.name' and source is 'ubuntu'
+//	it returns true.
 func (filters Args) Match(field, source string) bool {
 	if filters.ExactMatch(field, source) {
 		return true
@@ -215,21 +217,6 @@ func (filters Args) ExactMatch(field, source string) bool {
 	//do not filter if there is no filter set or cannot determine filter
 	if !ok || len(fieldValues) == 0 {
 		return true
-	}
-
-	// try to match full name value to avoid O(N) regular expression matching
-	return fieldValues[source]
-}
-
-// UniqueExactMatch returns true if there is only one filter and the source matches exactly this one.
-func (filters Args) UniqueExactMatch(field, source string) bool {
-	fieldValues := filters.fields[field]
-	//do not filter if there is no filter set or cannot determine filter
-	if len(fieldValues) == 0 {
-		return true
-	}
-	if len(filters.fields[field]) != 1 {
-		return false
 	}
 
 	// try to match full name value to avoid O(N) regular expression matching

@@ -78,32 +78,6 @@ func sameFsTimeSpec(a, b syscall.Timespec) bool {
 		(a.Nsec == b.Nsec || a.Nsec == 0 || b.Nsec == 0)
 }
 
-// Changes walks the path rw and determines changes for the files in the path,
-// with respect to the parent layers
-func Changes(layers []string, rw string) ([]Change, error) {
-	return changes(layers, rw, aufsDeletedFile, aufsMetadataSkip)
-}
-
-func aufsMetadataSkip(path string) (skip bool, err error) {
-	skip, err = filepath.Match(string(os.PathSeparator)+WhiteoutMetaPrefix+"*", path)
-	if err != nil {
-		skip = true
-	}
-	return
-}
-
-func aufsDeletedFile(root, path string, fi os.FileInfo) (string, error) {
-	f := filepath.Base(path)
-
-	// If there is a whiteout, then the file was removed
-	if strings.HasPrefix(f, WhiteoutPrefix) {
-		originalFile := f[len(WhiteoutPrefix):]
-		return filepath.Join(filepath.Dir(path), originalFile), nil
-	}
-
-	return "", nil
-}
-
 type skipChange func(string) (bool, error)
 type deleteChange func(string, string, os.FileInfo) (string, error)
 

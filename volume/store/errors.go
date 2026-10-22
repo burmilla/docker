@@ -53,17 +53,6 @@ func IsInUse(err error) bool {
 	return isErr(err, errVolumeInUse)
 }
 
-// IsNotExist returns a boolean indicating whether the error indicates that the volume does not exist
-func IsNotExist(err error) bool {
-	return isErr(err, errNoSuchVolume)
-}
-
-// IsNameConflict returns a boolean indicating whether the error indicates that a
-// volume name is already taken
-func IsNameConflict(err error) bool {
-	return isErr(err, errNameConflict)
-}
-
 func isErr(err error, expected error) bool {
 	err = errors.Cause(err)
 	switch pe := err.(type) {

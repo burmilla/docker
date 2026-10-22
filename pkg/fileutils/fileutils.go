@@ -3,7 +3,6 @@ package fileutils
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -212,48 +211,6 @@ func (p *Pattern) compile() error {
 
 	p.regexp = re
 	return nil
-}
-
-// Matches returns true if file matches any of the patterns
-// and isn't excluded by any of the subsequent patterns.
-func Matches(file string, patterns []string) (bool, error) {
-	pm, err := NewPatternMatcher(patterns)
-	if err != nil {
-		return false, err
-	}
-	file = filepath.Clean(file)
-
-	if file == "." {
-		// Don't let them exclude everything, kind of silly.
-		return false, nil
-	}
-
-	return pm.Matches(file)
-}
-
-// CopyFile copies from src to dst until either EOF is reached
-// on src or an error occurs. It verifies src exists and removes
-// the dst if it exists.
-func CopyFile(src, dst string) (int64, error) {
-	cleanSrc := filepath.Clean(src)
-	cleanDst := filepath.Clean(dst)
-	if cleanSrc == cleanDst {
-		return 0, nil
-	}
-	sf, err := os.Open(cleanSrc)
-	if err != nil {
-		return 0, err
-	}
-	defer sf.Close()
-	if err := os.Remove(cleanDst); err != nil && !os.IsNotExist(err) {
-		return 0, err
-	}
-	df, err := os.Create(cleanDst)
-	if err != nil {
-		return 0, err
-	}
-	defer df.Close()
-	return io.Copy(df, sf)
 }
 
 // ReadSymlinkedDirectory returns the target directory of a symlink.

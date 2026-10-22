@@ -773,7 +773,7 @@ func setupRemappedRoot(config *config.Config) (*idtools.IDMappings, error) {
 
 		mappings, err := idtools.NewIDMappings(username, groupname)
 		if err != nil {
-			return nil, errors.Wrapf(err, "Can't create ID mappings: %v")
+			return nil, errors.Wrap(err, "Can't create ID mappings")
 		}
 		return mappings, nil
 	}

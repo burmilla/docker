@@ -19,8 +19,6 @@
 #  -e GPG_PASSPHRASE=gloubiboulga \
 #  docker hack/release.sh
 #
-# Note: AppArmor used to mess with privileged mode, but this is no longer
-# the case. Therefore, you don't have to disable it anymore.
 #
 
 FROM debian:jessie
@@ -30,7 +28,6 @@ COPY /sources.list /etc/apt/
 RUN apt-get update && apt-get install -y --force-yes \
 	--allow-unauthenticated \
 	--no-install-recommends \
-	apparmor \
 	apt-utils \
 	aufs-tools \
 	automake \
@@ -48,7 +45,6 @@ RUN apt-get update && apt-get install -y --force-yes \
 	iptables \
 	jq \
 	less \
-	libapparmor-dev \
 	libcap-dev \
 	libnl-3-dev \
 	libprotobuf-c0-dev \
@@ -194,7 +190,7 @@ RUN useradd --create-home --gid docker unprivilegeduser
 
 VOLUME /var/lib/docker
 WORKDIR /go/src/github.com/docker/docker
-ENV DOCKER_BUILDTAGS apparmor seccomp
+ENV DOCKER_BUILDTAGS seccomp
 
 # Let us use a .bashrc file
 RUN ln -sfv $PWD/.bashrc ~/.bashrc

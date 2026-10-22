@@ -89,7 +89,6 @@ type Daemon struct {
 	volumes           *store.VolumeStore
 	root              string
 	seccompEnabled    bool
-	apparmorEnabled   bool
 	shutdown          bool
 	idMappings        *idtools.IDMappings
 	stores            map[string]daemonStore // By container target platform
@@ -460,10 +459,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 		logrus.Warnf("Failed to configure golang's threads limit: %v", err)
 	}
 
-	if err := ensureDefaultAppArmorProfile(); err != nil {
-		logrus.Errorf(err.Error())
-	}
-
 	daemonRepo := filepath.Join(config.Root, "containers")
 	if err := idtools.MkdirAllAndChown(daemonRepo, 0700, rootIDs); err != nil && !os.IsExist(err) {
 		return nil, err
@@ -603,7 +598,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	d.root = config.Root
 	d.idMappings = idMappings
 	d.seccompEnabled = sysInfo.Seccomp
-	d.apparmorEnabled = sysInfo.AppArmor
 
 	d.nameIndex = registrar.NewRegistrar()
 	d.linkIndex = newLinkIndex()

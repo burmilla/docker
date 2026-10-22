@@ -48,9 +48,6 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 	cRunning, cPaused, cStopped := stateCtr.get()
 
 	securityOptions := []string{}
-	if sysInfo.AppArmor {
-		securityOptions = append(securityOptions, "name=apparmor")
-	}
 	if sysInfo.Seccomp && supportsSeccomp {
 		profile := daemon.seccompProfilePath
 		if profile == "" {

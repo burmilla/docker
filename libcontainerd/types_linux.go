@@ -34,12 +34,6 @@ type StateInfo struct {
 	OOMKilled bool
 }
 
-// Stats contains a stats properties from containerd.
-type Stats containerd.StatsResponse
-
-// Summary contains a container summary from containerd
-type Summary struct{}
-
 // Resources defines updatable container resource values.
 type Resources containerd.UpdateResource
 

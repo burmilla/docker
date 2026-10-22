@@ -37,7 +37,6 @@ import (
 	"github.com/docker/libnetwork/netutils"
 	"github.com/docker/libnetwork/options"
 	lntypes "github.com/docker/libnetwork/types"
-	"github.com/golang/protobuf/ptypes"
 	rsystem "github.com/opencontainers/runc/libcontainer/system"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -881,22 +880,6 @@ func (daemon *Daemon) conditionalMountOnStart(container *container.Container) er
 // during the cleanup of a container to unmount.
 func (daemon *Daemon) conditionalUnmountOnCleanup(container *container.Container) error {
 	return daemon.Unmount(container)
-}
-
-func (daemon *Daemon) stats(c *container.Container) (*types.StatsJSON, error) {
-	if !c.IsRunning() {
-		return nil, errNotRunning{c.ID}
-	}
-	stats, err := daemon.containerd.Stats(c.ID)
-	if err != nil {
-		return nil, err
-	}
-	s := &types.StatsJSON{}
-	s.Read, err = ptypes.Timestamp(stats.Timestamp)
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
 }
 
 // setDefaultIsolation determines the default isolation mode for the

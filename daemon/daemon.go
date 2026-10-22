@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	containerd "github.com/containerd/containerd/api/grpc/types"
 	"github.com/docker/docker/api"
 	"github.com/docker/docker/api/types"
 	containertypes "github.com/docker/docker/api/types/container"
@@ -32,7 +31,6 @@ import (
 	// register graph drivers
 	_ "github.com/docker/docker/daemon/graphdriver/register"
 	"github.com/docker/docker/daemon/initlayer"
-	"github.com/docker/docker/daemon/stats"
 	dmetadata "github.com/docker/docker/distribution/metadata"
 	"github.com/docker/docker/distribution/xfer"
 	"github.com/docker/docker/dockerversion"
@@ -86,7 +84,6 @@ type Daemon struct {
 	trustKey          libtrust.PrivateKey
 	idIndex           *truncindex.TruncIndex
 	configStore       *config.Config
-	statsCollector    *stats.Collector
 	defaultLogConfig  containertypes.LogConfig
 	RegistryService   registry.Service
 	EventsService     *events.Events
@@ -104,8 +101,6 @@ type Daemon struct {
 	containerd        libcontainerd.Client
 	containerdRemote  libcontainerd.Remote
 	defaultIsolation  containertypes.Isolation // Default isolation mode on Windows
-
-	machineMemory uint64
 
 	seccompProfile     []byte
 	seccompProfilePath string
@@ -645,7 +640,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	d.execCommands = exec.NewStore()
 	d.trustKey = trustKey
 	d.idIndex = truncindex.NewTruncIndex([]string{})
-	d.statsCollector = d.newStatsCollector(1 * time.Second)
 	d.defaultLogConfig = containertypes.LogConfig{
 		Type:   config.LogConfig.Type,
 		Config: config.LogConfig.Config,
@@ -1027,19 +1021,6 @@ func (daemon *Daemon) networkOptions(dconfig *config.Config, activeSandboxes map
 	}
 
 	return options, nil
-}
-
-func copyBlkioEntry(entries []*containerd.BlkioStatsEntry) []types.BlkioStatEntry {
-	out := make([]types.BlkioStatEntry, len(entries))
-	for i, re := range entries {
-		out[i] = types.BlkioStatEntry{
-			Major: re.Major,
-			Minor: re.Minor,
-			Op:    re.Op,
-			Value: re.Value,
-		}
-	}
-	return out
 }
 
 // CreateDaemonRoot creates the root for the daemon

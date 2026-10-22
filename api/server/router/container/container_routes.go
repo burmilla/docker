@@ -56,25 +56,6 @@ func (s *containerRouter) getContainersJSON(ctx context.Context, w http.Response
 	return httputils.WriteJSON(w, http.StatusOK, containers)
 }
 
-func (s *containerRouter) getContainersStats(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	if err := httputils.ParseForm(r); err != nil {
-		return err
-	}
-
-	stream := httputils.BoolValueOrDefault(r, "stream", true)
-	if !stream {
-		w.Header().Set("Content-Type", "application/json")
-	}
-
-	config := &backend.ContainerStatsConfig{
-		Stream:    stream,
-		OutStream: w,
-		Version:   string(httputils.VersionFromContext(ctx)),
-	}
-
-	return s.backend.ContainerStats(ctx, vars["name"], config)
-}
-
 func (s *containerRouter) getContainersLogs(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	if err := httputils.ParseForm(r); err != nil {
 		return err
@@ -334,19 +315,6 @@ func (s *containerRouter) getContainersChanges(ctx context.Context, w http.Respo
 	return httputils.WriteJSON(w, http.StatusOK, changes)
 }
 
-func (s *containerRouter) getContainersTop(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	if err := httputils.ParseForm(r); err != nil {
-		return err
-	}
-
-	procList, err := s.backend.ContainerTop(vars["name"], r.Form.Get("ps_args"))
-	if err != nil {
-		return err
-	}
-
-	return httputils.WriteJSON(w, http.StatusOK, procList)
-}
-
 func (s *containerRouter) postContainerRename(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	if err := httputils.ParseForm(r); err != nil {
 		return err
@@ -359,35 +327,6 @@ func (s *containerRouter) postContainerRename(ctx context.Context, w http.Respon
 	}
 	w.WriteHeader(http.StatusNoContent)
 	return nil
-}
-
-func (s *containerRouter) postContainerUpdate(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	if err := httputils.ParseForm(r); err != nil {
-		return err
-	}
-	if err := httputils.CheckForJSON(r); err != nil {
-		return err
-	}
-
-	var updateConfig container.UpdateConfig
-
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&updateConfig); err != nil {
-		return err
-	}
-
-	hostConfig := &container.HostConfig{
-		Resources:     updateConfig.Resources,
-		RestartPolicy: updateConfig.RestartPolicy,
-	}
-
-	name := vars["name"]
-	resp, err := s.backend.ContainerUpdate(name, hostConfig)
-	if err != nil {
-		return err
-	}
-
-	return httputils.WriteJSON(w, http.StatusOK, resp)
 }
 
 func (s *containerRouter) postContainersCreate(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {

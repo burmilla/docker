@@ -43,10 +43,6 @@ type Client interface {
 	Pause(containerID string) error
 	Resume(containerID string) error
 	Restore(containerID string, attachStdio StdioCallback, options ...CreateOption) error
-	Stats(containerID string) (*Stats, error)
-	GetPidsForContainer(containerID string) ([]int, error)
-	Summary(containerID string) ([]Summary, error)
-	UpdateResources(containerID string, resources Resources) error
 	CreateCheckpoint(containerID string, checkpointID string, checkpointDir string, exit bool) error
 	DeleteCheckpoint(containerID string, checkpointID string, checkpointDir string) error
 	ListCheckpoints(containerID string, checkpointDir string) (*Checkpoints, error)

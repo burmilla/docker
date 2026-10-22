@@ -12,7 +12,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
-	containertypes "github.com/docker/docker/api/types/container"
 	mounttypes "github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/pkg/chrootarchive"
 	"github.com/docker/docker/pkg/mount"
@@ -195,79 +194,6 @@ func (container *Container) IpcMounts() []Mount {
 	}
 
 	return mounts
-}
-
-// UpdateContainer updates configuration of a container. Callers must hold a Lock on the Container.
-func (container *Container) UpdateContainer(hostConfig *containertypes.HostConfig) error {
-	// update resources of container
-	resources := hostConfig.Resources
-	cResources := &container.HostConfig.Resources
-
-	// validate NanoCPUs, CPUPeriod, and CPUQuota
-	// Becuase NanoCPU effectively updates CPUPeriod/CPUQuota,
-	// once NanoCPU is already set, updating CPUPeriod/CPUQuota will be blocked, and vice versa.
-	// In the following we make sure the intended update (resources) does not conflict with the existing (cResource).
-	if resources.NanoCPUs > 0 && cResources.CPUPeriod > 0 {
-		return fmt.Errorf("Conflicting options: Nano CPUs cannot be updated as CPU Period has already been set")
-	}
-	if resources.NanoCPUs > 0 && cResources.CPUQuota > 0 {
-		return fmt.Errorf("Conflicting options: Nano CPUs cannot be updated as CPU Quota has already been set")
-	}
-	if resources.CPUPeriod > 0 && cResources.NanoCPUs > 0 {
-		return fmt.Errorf("Conflicting options: CPU Period cannot be updated as NanoCPUs has already been set")
-	}
-	if resources.CPUQuota > 0 && cResources.NanoCPUs > 0 {
-		return fmt.Errorf("Conflicting options: CPU Quota cannot be updated as NanoCPUs has already been set")
-	}
-
-	if resources.BlkioWeight != 0 {
-		cResources.BlkioWeight = resources.BlkioWeight
-	}
-	if resources.CPUShares != 0 {
-		cResources.CPUShares = resources.CPUShares
-	}
-	if resources.NanoCPUs != 0 {
-		cResources.NanoCPUs = resources.NanoCPUs
-	}
-	if resources.CPUPeriod != 0 {
-		cResources.CPUPeriod = resources.CPUPeriod
-	}
-	if resources.CPUQuota != 0 {
-		cResources.CPUQuota = resources.CPUQuota
-	}
-	if resources.CpusetCpus != "" {
-		cResources.CpusetCpus = resources.CpusetCpus
-	}
-	if resources.CpusetMems != "" {
-		cResources.CpusetMems = resources.CpusetMems
-	}
-	if resources.Memory != 0 {
-		// if memory limit smaller than already set memoryswap limit and doesn't
-		// update the memoryswap limit, then error out.
-		if resources.Memory > cResources.MemorySwap && resources.MemorySwap == 0 {
-			return fmt.Errorf("Memory limit should be smaller than already set memoryswap limit, update the memoryswap at the same time")
-		}
-		cResources.Memory = resources.Memory
-	}
-	if resources.MemorySwap != 0 {
-		cResources.MemorySwap = resources.MemorySwap
-	}
-	if resources.MemoryReservation != 0 {
-		cResources.MemoryReservation = resources.MemoryReservation
-	}
-	if resources.KernelMemory != 0 {
-		cResources.KernelMemory = resources.KernelMemory
-	}
-
-	// update HostConfig of container
-	if hostConfig.RestartPolicy.Name != "" {
-		if container.HostConfig.AutoRemove && !hostConfig.RestartPolicy.IsNone() {
-			return fmt.Errorf("Restart policy cannot be updated because AutoRemove is enabled for the container")
-		}
-		container.HostConfig.RestartPolicy = hostConfig.RestartPolicy
-	}
-
-	return nil
 }
 
 // DetachAndUnmount uses a detached mount on all mount destinations, then

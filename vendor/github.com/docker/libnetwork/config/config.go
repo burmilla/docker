@@ -5,7 +5,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/Sirupsen/logrus"
-	"github.com/docker/docker/pkg/discovery"
 	"github.com/docker/go-connections/tlsconfig"
 	"github.com/docker/libkv/store"
 	"github.com/docker/libnetwork/cluster"
@@ -36,7 +35,6 @@ type DaemonCfg struct {
 
 // ClusterCfg represents cluster configuration
 type ClusterCfg struct {
-	Watcher   discovery.Watcher
 	Address   string
 	Discovery string
 	Heartbeat uint64
@@ -173,13 +171,6 @@ func OptionKVOpts(opts map[string]string) Option {
 		} else {
 			logrus.Info("Option Initializing KV without TLS")
 		}
-	}
-}
-
-// OptionDiscoveryWatcher function returns an option setter for discovery watcher
-func OptionDiscoveryWatcher(watcher discovery.Watcher) Option {
-	return func(c *Config) {
-		c.Cluster.Watcher = watcher
 	}
 }
 

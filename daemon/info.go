@@ -110,8 +110,6 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 		DockerRootDir:      daemon.configStore.Root,
 		Labels:             daemon.configStore.Labels,
 		ServerVersion:      dockerversion.Version,
-		ClusterStore:       daemon.configStore.ClusterStore,
-		ClusterAdvertise:   daemon.configStore.ClusterAdvertise,
 		HTTPProxy:          sockets.GetProxyEnv("http_proxy"),
 		HTTPSProxy:         sockets.GetProxyEnv("https_proxy"),
 		NoProxy:            sockets.GetProxyEnv("no_proxy"),

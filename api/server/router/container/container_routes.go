@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/docker/docker/api"
 	"github.com/docker/docker/api/server/httputils"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/backend"
@@ -81,9 +80,8 @@ func (s *containerRouter) getContainersLogs(ctx context.Context, w http.Response
 		Details:    httputils.BoolValue(r, "details"),
 	}
 
-	// doesn't matter what version the client is on, we're using this internally only
 	// also do we need size? i'm thinkin no we don't
-	raw, err := s.backend.ContainerInspect(containerName, false, api.DefaultVersion)
+	raw, err := s.backend.ContainerInspect(containerName, false)
 	if err != nil {
 		return err
 	}
@@ -167,10 +165,6 @@ func (s *containerRouter) postContainersStop(ctx context.Context, w http.Respons
 	return nil
 }
 
-type errContainerIsRunning interface {
-	ContainerIsRunning() bool
-}
-
 func (s *containerRouter) postContainersKill(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	if err := httputils.ParseForm(r); err != nil {
 		return err
@@ -188,18 +182,7 @@ func (s *containerRouter) postContainersKill(ctx context.Context, w http.Respons
 	}
 
 	if err := s.backend.ContainerKill(name, uint64(sig)); err != nil {
-		var isStopped bool
-		if e, ok := err.(errContainerIsRunning); ok {
-			isStopped = !e.ContainerIsRunning()
-		}
-
-		// Return error that's not caused because the container is stopped.
-		// Return error if the container is not running and the api is >= 1.20
-		// to keep backwards compatibility.
-		version := httputils.VersionFromContext(ctx)
-		if versions.GreaterThanOrEqualTo(version, "1.20") || !isStopped {
-			return fmt.Errorf("Cannot kill container %s: %v", name, err)
-		}
+		return fmt.Errorf("Cannot kill container %s: %v", name, err)
 	}
 
 	w.WriteHeader(http.StatusNoContent)

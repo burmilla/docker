@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-
-	"github.com/docker/docker/api/types/versions"
 )
 
 // Args stores filter arguments as map key:{map key: bool}.
@@ -70,28 +68,6 @@ func ToParam(a Args) (string, error) {
 	return string(buf), nil
 }
 
-// ToParamWithVersion packs the Args into a string for easy transport from client to server.
-// The generated string will depend on the specified version (corresponding to the API version).
-func ToParamWithVersion(version string, a Args) (string, error) {
-	// this way we don't URL encode {}, just empty space
-	if a.Len() == 0 {
-		return "", nil
-	}
-
-	// for daemons older than v1.10, filter must be of the form map[string][]string
-	var buf []byte
-	var err error
-	if version != "" && versions.LessThan(version, "1.22") {
-		buf, err = json.Marshal(convertArgsToSlice(a.fields))
-	} else {
-		buf, err = json.Marshal(a.fields)
-	}
-	if err != nil {
-		return "", err
-	}
-	return string(buf), nil
-}
-
 // FromParam unpacks the filter Args.
 func FromParam(p string) (Args, error) {
 	if len(p) == 0 {
@@ -103,16 +79,7 @@ func FromParam(p string) (Args, error) {
 
 	m := map[string]map[string]bool{}
 	if err := d.Decode(&m); err != nil {
-		r.Seek(0, 0)
-
-		// Allow parsing old arguments in slice format.
-		// Because other libraries might be sending them in this format.
-		deprecated := map[string][]string{}
-		if deprecatedErr := d.Decode(&deprecated); deprecatedErr == nil {
-			m = deprecatedArgs(deprecated)
-		} else {
-			return NewArgs(), err
-		}
+		return NewArgs(), err
 	}
 	return Args{m}, nil
 }
@@ -268,30 +235,4 @@ func (filters Args) WalkValues(field string, op func(value string) error) error 
 		}
 	}
 	return nil
-}
-
-func deprecatedArgs(d map[string][]string) map[string]map[string]bool {
-	m := map[string]map[string]bool{}
-	for k, v := range d {
-		values := map[string]bool{}
-		for _, vv := range v {
-			values[vv] = true
-		}
-		m[k] = values
-	}
-	return m
-}
-
-func convertArgsToSlice(f map[string]map[string]bool) map[string][]string {
-	m := map[string][]string{}
-	for k, v := range f {
-		values := []string{}
-		for kk := range v {
-			if v[kk] {
-				values = append(values, kk)
-			}
-		}
-		m[k] = values
-	}
-	return m
 }

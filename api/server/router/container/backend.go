@@ -47,7 +47,7 @@ type stateBackend interface {
 // monitorBackend includes functions to implement to provide containers monitoring functionality.
 type monitorBackend interface {
 	ContainerChanges(name string) ([]archive.Change, error)
-	ContainerInspect(name string, size bool, version string) (interface{}, error)
+	ContainerInspect(name string, size bool) (interface{}, error)
 	ContainerLogs(ctx context.Context, name string, config *types.ContainerLogsOptions) (<-chan *backend.LogMessage, error)
 
 	Containers(config *types.ContainerListOptions) ([]*types.Container, error)

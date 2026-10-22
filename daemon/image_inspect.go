@@ -24,7 +24,7 @@ func (daemon *Daemon) LookupImage(name string) (*types.ImageInspect, error) {
 		platform = runtime.GOOS
 	}
 
-	refs := daemon.stores[platform].referenceStore.References(img.ID().Digest())
+	refs := daemon.stores.referenceStore.References(img.ID().Digest())
 	repoTags := []string{}
 	repoDigests := []string{}
 	for _, ref := range refs {
@@ -40,11 +40,11 @@ func (daemon *Daemon) LookupImage(name string) (*types.ImageInspect, error) {
 	var layerMetadata map[string]string
 	layerID := img.RootFS.ChainID()
 	if layerID != "" {
-		l, err := daemon.stores[platform].layerStore.Get(layerID)
+		l, err := daemon.stores.layerStore.Get(layerID)
 		if err != nil {
 			return nil, err
 		}
-		defer layer.ReleaseAndLog(daemon.stores[platform].layerStore, l)
+		defer layer.ReleaseAndLog(daemon.stores.layerStore, l)
 		size, err = l.Size()
 		if err != nil {
 			return nil, err
@@ -61,7 +61,7 @@ func (daemon *Daemon) LookupImage(name string) (*types.ImageInspect, error) {
 		comment = img.History[len(img.History)-1].Comment
 	}
 
-	lastUpdated, err := daemon.stores[platform].imageStore.GetLastUpdated(img.ID())
+	lastUpdated, err := daemon.stores.imageStore.GetLastUpdated(img.ID())
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func (daemon *Daemon) LookupImage(name string) (*types.ImageInspect, error) {
 		},
 	}
 
-	imageInspect.GraphDriver.Name = daemon.GraphDriverName(platform)
+	imageInspect.GraphDriver.Name = daemon.GraphDriverName()
 	imageInspect.GraphDriver.Data = layerMetadata
 
 	return imageInspect, nil

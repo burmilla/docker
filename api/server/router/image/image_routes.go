@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"runtime"
 	"strings"
 
 	apierrors "github.com/docker/docker/api/errors"
@@ -14,7 +13,6 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/streamformatter"
-	"github.com/docker/docker/pkg/system"
 	"golang.org/x/net/context"
 )
 
@@ -31,11 +29,6 @@ func (s *imageRouter) postImagesCreate(ctx context.Context, w http.ResponseWrite
 	tag := r.Form.Get("tag")
 	output := ioutils.NewWriteFlusher(w)
 	defer output.Close()
-
-	platform := runtime.GOOS
-	if system.LCOWSupported() {
-		platform = "linux"
-	}
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -57,7 +50,7 @@ func (s *imageRouter) postImagesCreate(ctx context.Context, w http.ResponseWrite
 		}
 	}
 
-	err := s.backend.PullImage(ctx, image, tag, platform, metaHeaders, authConfig, output)
+	err := s.backend.PullImage(ctx, image, tag, metaHeaders, authConfig, output)
 	if err != nil {
 		if !output.Flushed() {
 			return err

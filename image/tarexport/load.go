@@ -90,17 +90,6 @@ func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer, quiet bool)
 			return fmt.Errorf("invalid manifest, layers length mismatch: expected %d, got %d", expected, actual)
 		}
 
-		// On Windows, validate the platform, defaulting to windows if not present.
-		platform := layer.Platform(img.OS)
-		if runtime.GOOS == "windows" {
-			if platform == "" {
-				platform = "windows"
-			}
-			if (platform != "windows") && (platform != "linux") {
-				return fmt.Errorf("configuration for this image has an unsupported platform: %s", platform)
-			}
-		}
-
 		for i, diffID := range img.RootFS.DiffIDs {
 			layerPath, err := safePath(tmpDir, m.Layers[i])
 			if err != nil {
@@ -110,7 +99,7 @@ func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer, quiet bool)
 			r.Append(diffID)
 			newLayer, err := l.ls.Get(r.ChainID())
 			if err != nil {
-				newLayer, err = l.loadLayer(layerPath, rootFS, diffID.String(), platform, m.LayerSources[diffID], progressOutput)
+				newLayer, err = l.loadLayer(layerPath, rootFS, diffID.String(), layer.Platform(img.OS), m.LayerSources[diffID], progressOutput)
 				if err != nil {
 					return err
 				}
@@ -414,18 +403,9 @@ func checkValidParent(img, parent *image.Image) bool {
 }
 
 func checkCompatibleOS(os string) error {
-	// TODO @jhowardmsft LCOW - revisit for simultaneous platforms
-	platform := runtime.GOOS
-	if system.LCOWSupported() {
-		platform = "linux"
-	}
-	// always compatible if the OS matches; also match an empty OS
-	if os == platform || os == "" {
-		return nil
-	}
-	// for compatibility, only fail if the image or runtime OS is Windows
-	if os == "windows" || platform == "windows" {
-		return fmt.Errorf("cannot load %s image on %s", os, platform)
+	// for compatibility, only fail if the image OS is Windows
+	if os == "windows" {
+		return fmt.Errorf("cannot load %s image on %s", os, runtime.GOOS)
 	}
 	return nil
 }

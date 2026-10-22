@@ -23,7 +23,7 @@ const maxDownloadAttempts = 5
 // registers and downloads those, taking into account dependencies between
 // layers.
 type LayerDownloadManager struct {
-	layerStores  map[string]layer.Store
+	layerStore   layer.Store
 	tm           TransferManager
 	waitDuration time.Duration
 }
@@ -34,9 +34,9 @@ func (ldm *LayerDownloadManager) SetConcurrency(concurrency int) {
 }
 
 // NewLayerDownloadManager returns a new LayerDownloadManager.
-func NewLayerDownloadManager(layerStores map[string]layer.Store, concurrencyLimit int, options ...func(*LayerDownloadManager)) *LayerDownloadManager {
+func NewLayerDownloadManager(layerStore layer.Store, concurrencyLimit int, options ...func(*LayerDownloadManager)) *LayerDownloadManager {
 	manager := LayerDownloadManager{
-		layerStores:  layerStores,
+		layerStore:   layerStore,
 		tm:           NewTransferManager(concurrencyLimit),
 		waitDuration: time.Second,
 	}
@@ -121,13 +121,13 @@ func (ldm *LayerDownloadManager) Download(ctx context.Context, initialRootFS ima
 			if err == nil {
 				getRootFS := rootFS
 				getRootFS.Append(diffID)
-				l, err := ldm.layerStores[string(platform)].Get(getRootFS.ChainID())
+				l, err := ldm.layerStore.Get(getRootFS.ChainID())
 				if err == nil {
 					// Layer already exists.
 					logrus.Debugf("Layer already exists: %s", descriptor.ID())
 					progress.Update(progressOutput, descriptor.ID(), "Already exists")
 					if topLayer != nil {
-						layer.ReleaseAndLog(ldm.layerStores[string(platform)], topLayer)
+						layer.ReleaseAndLog(ldm.layerStore, topLayer)
 					}
 					topLayer = l
 					missingLayer = false
@@ -171,7 +171,7 @@ func (ldm *LayerDownloadManager) Download(ctx context.Context, initialRootFS ima
 	if topDownload == nil {
 		return rootFS, func() {
 			if topLayer != nil {
-				layer.ReleaseAndLog(ldm.layerStores[string(platform)], topLayer)
+				layer.ReleaseAndLog(ldm.layerStore, topLayer)
 			}
 		}, nil
 	}
@@ -182,7 +182,7 @@ func (ldm *LayerDownloadManager) Download(ctx context.Context, initialRootFS ima
 
 	defer func() {
 		if topLayer != nil {
-			layer.ReleaseAndLog(ldm.layerStores[string(platform)], topLayer)
+			layer.ReleaseAndLog(ldm.layerStore, topLayer)
 		}
 	}()
 
@@ -222,7 +222,7 @@ func (ldm *LayerDownloadManager) makeDownloadFunc(descriptor DownloadDescriptor,
 	return func(progressChan chan<- progress.Progress, start <-chan struct{}, inactive chan<- struct{}) Transfer {
 		d := &downloadTransfer{
 			Transfer:   NewTransfer(),
-			layerStore: ldm.layerStores[string(platform)],
+			layerStore: ldm.layerStore,
 		}
 
 		go func() {
@@ -386,7 +386,7 @@ func (ldm *LayerDownloadManager) makeDownloadFuncFromDownload(descriptor Downloa
 	return func(progressChan chan<- progress.Progress, start <-chan struct{}, inactive chan<- struct{}) Transfer {
 		d := &downloadTransfer{
 			Transfer:   NewTransfer(),
-			layerStore: ldm.layerStores[string(platform)],
+			layerStore: ldm.layerStore,
 		}
 
 		go func() {

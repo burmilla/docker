@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"fmt"
-	"runtime"
 	"sort"
 
 	"github.com/docker/distribution/reference"
@@ -11,7 +10,6 @@ import (
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
-	"github.com/docker/docker/pkg/system"
 )
 
 var acceptedImageFilterTags = map[string]bool{
@@ -32,12 +30,7 @@ func (r byCreated) Less(i, j int) bool { return r[i].Created < r[j].Created }
 
 // Map returns a map of all images in the ImageStore
 func (daemon *Daemon) Map() map[image.ID]*image.Image {
-	// TODO @jhowardmsft LCOW. This will need  work to enumerate the stores for all platforms.
-	platform := runtime.GOOS
-	if system.LCOWSupported() {
-		platform = "linux"
-	}
-	return daemon.stores[platform].imageStore.Map()
+	return daemon.stores.imageStore.Map()
 }
 
 // Images returns a filtered list of images. filterArgs is a JSON-encoded set
@@ -46,12 +39,6 @@ func (daemon *Daemon) Map() map[image.ID]*image.Image {
 // named all controls whether all images in the graph are filtered, or just
 // the heads.
 func (daemon *Daemon) Images(imageFilters filters.Args, all bool, withExtraAttrs bool) ([]*types.ImageSummary, error) {
-
-	// TODO @jhowardmsft LCOW. This will need  work to enumerate the stores for all platforms.
-	platform := runtime.GOOS
-	if system.LCOWSupported() {
-		platform = "linux"
-	}
 
 	var (
 		allImages    map[image.ID]*image.Image
@@ -71,9 +58,9 @@ func (daemon *Daemon) Images(imageFilters filters.Args, all bool, withExtraAttrs
 		}
 	}
 	if danglingOnly {
-		allImages = daemon.stores[platform].imageStore.Heads()
+		allImages = daemon.stores.imageStore.Heads()
 	} else {
-		allImages = daemon.stores[platform].imageStore.Map()
+		allImages = daemon.stores.imageStore.Map()
 	}
 
 	var beforeFilter, sinceFilter *image.Image
@@ -126,7 +113,7 @@ func (daemon *Daemon) Images(imageFilters filters.Args, all bool, withExtraAttrs
 		layerID := img.RootFS.ChainID()
 		var size int64
 		if layerID != "" {
-			l, err := daemon.stores[platform].layerStore.Get(layerID)
+			l, err := daemon.stores.layerStore.Get(layerID)
 			if err != nil {
 				// The layer may have been deleted between the call to `Map()` or
 				// `Heads()` and the call to `Get()`, so we just ignore this error
@@ -137,7 +124,7 @@ func (daemon *Daemon) Images(imageFilters filters.Args, all bool, withExtraAttrs
 			}
 
 			size, err = l.Size()
-			layer.ReleaseAndLog(daemon.stores[platform].layerStore, l)
+			layer.ReleaseAndLog(daemon.stores.layerStore, l)
 			if err != nil {
 				return nil, err
 			}
@@ -145,7 +132,7 @@ func (daemon *Daemon) Images(imageFilters filters.Args, all bool, withExtraAttrs
 
 		newImage := newImage(img, size)
 
-		for _, ref := range daemon.stores[platform].referenceStore.References(id.Digest()) {
+		for _, ref := range daemon.stores.referenceStore.References(id.Digest()) {
 			if imageFilters.Include("reference") {
 				var found bool
 				var matchErr error
@@ -167,7 +154,7 @@ func (daemon *Daemon) Images(imageFilters filters.Args, all bool, withExtraAttrs
 			}
 		}
 		if newImage.RepoDigests == nil && newImage.RepoTags == nil {
-			if all || len(daemon.stores[platform].imageStore.Children(id)) == 0 {
+			if all || len(daemon.stores.imageStore.Children(id)) == 0 {
 
 				if imageFilters.Include("dangling") && !danglingOnly {
 					//dangling=false case, so dangling image is not needed
@@ -189,7 +176,7 @@ func (daemon *Daemon) Images(imageFilters filters.Args, all bool, withExtraAttrs
 			// lazily init variables
 			if imagesMap == nil {
 				allContainers = daemon.List()
-				allLayers = daemon.stores[platform].layerStore.Map()
+				allLayers = daemon.stores.layerStore.Map()
 				imagesMap = make(map[*image.Image]*types.ImageSummary)
 				layerRefs = make(map[layer.ChainID]int)
 			}

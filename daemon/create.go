@@ -18,7 +18,6 @@ import (
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/runconfig"
 )
 
@@ -63,16 +62,6 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig) (retC *containe
 		err       error
 	)
 
-	// TODO: @jhowardmsft LCOW support - at a later point, can remove the hard-coding
-	// to force the platform to be linux.
-	// Default the platform if not supplied
-	if params.Platform == "" {
-		params.Platform = runtime.GOOS
-	}
-	if system.LCOWSupported() {
-		params.Platform = "linux"
-	}
-
 	if params.Config.Image != "" {
 		img, err = daemon.GetImage(params.Config.Image)
 		if err != nil {
@@ -84,18 +73,8 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig) (retC *containe
 		}
 		imgID = img.ID()
 
-		if runtime.GOOS == "windows" && img.OS == "linux" && !system.LCOWSupported() {
-			return nil, errors.New("platform on which parent image was created is not Windows")
-		}
-	}
-
-	// Make sure the platform requested matches the image
-	if img != nil {
-		if params.Platform != img.Platform() {
-			// Ignore this in LCOW mode. @jhowardmsft TODO - This will need revisiting later.
-			if !system.LCOWSupported() {
-				return nil, fmt.Errorf("cannot create a %s container from a %s image", params.Platform, img.Platform())
-			}
+		if img.Platform() != runtime.GOOS {
+			return nil, fmt.Errorf("cannot create a %s container from a %s image", runtime.GOOS, img.Platform())
 		}
 	}
 
@@ -107,7 +86,7 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig) (retC *containe
 		return nil, err
 	}
 
-	if container, err = daemon.newContainer(params.Name, params.Platform, params.Config, params.HostConfig, imgID); err != nil {
+	if container, err = daemon.newContainer(params.Name, params.Config, params.HostConfig, imgID); err != nil {
 		return nil, err
 	}
 	defer func() {
@@ -162,7 +141,7 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig) (retC *containe
 func (daemon *Daemon) setRWLayer(container *container.Container) error {
 	var layerID layer.ChainID
 	if container.ImageID != "" {
-		img, err := daemon.stores[container.Platform].imageStore.Get(container.ImageID)
+		img, err := daemon.stores.imageStore.Get(container.ImageID)
 		if err != nil {
 			return err
 		}
@@ -174,7 +153,7 @@ func (daemon *Daemon) setRWLayer(container *container.Container) error {
 		StorageOpt: container.HostConfig.StorageOpt,
 	}
 
-	rwLayer, err := daemon.stores[container.Platform].layerStore.CreateRWLayer(container.ID, layerID, rwLayerOpts)
+	rwLayer, err := daemon.stores.layerStore.CreateRWLayer(container.ID, layerID, rwLayerOpts)
 	if err != nil {
 		return err
 	}

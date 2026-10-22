@@ -931,20 +931,12 @@ func (container *Container) InitializeStdio(iop libcontainerd.IOPipe) error {
 // CreateDaemonEnvironment creates a new environment variable slice for this container.
 func (container *Container) CreateDaemonEnvironment(tty bool) []string {
 	// Setup environment
-	// TODO @jhowardmsft LCOW Support. This will need revisiting later.
-	platform := container.Platform
-	if platform == "" {
-		platform = runtime.GOOS
+	env := []string{
+		"PATH=" + system.DefaultPathEnv(),
+		"HOSTNAME=" + container.Config.Hostname,
 	}
-	env := []string{}
-	if runtime.GOOS != "windows" || (system.LCOWSupported() && platform == "linux") {
-		env = []string{
-			"PATH=" + system.DefaultPathEnv(platform),
-			"HOSTNAME=" + container.Config.Hostname,
-		}
-		if tty {
-			env = append(env, "TERM=xterm")
-		}
+	if tty {
+		env = append(env, "TERM=xterm")
 	}
 
 	// because the env on the container can override certain default values

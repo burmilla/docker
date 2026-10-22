@@ -460,41 +460,11 @@ func (p *v2Puller) pullSchema2(ctx context.Context, ref reference.Named, mfst *s
 	}()
 
 	var (
-		configJSON       []byte         // raw serialized image config
-		downloadedRootFS *image.RootFS  // rootFS from registered layers
-		configRootFS     *image.RootFS  // rootFS from configuration
-		release          func()         // release resources from rootFS download
-		platform         layer.Platform // for LCOW when registering downloaded layers
+		configJSON       []byte        // raw serialized image config
+		downloadedRootFS *image.RootFS // rootFS from registered layers
+		configRootFS     *image.RootFS // rootFS from configuration
+		release          func()        // release resources from rootFS download
 	)
-
-	// https://github.com/docker/docker/issues/24766 - Err on the side of caution,
-	// explicitly blocking images intended for linux from the Windows daemon. On
-	// Windows, we do this before the attempt to download, effectively serialising
-	// the download slightly slowing it down. We have to do it this way, as
-	// chances are the download of layers itself would fail due to file names
-	// which aren't suitable for NTFS. At some point in the future, if a similar
-	// check to block Windows images being pulled on Linux is implemented, it
-	// may be necessary to perform the same type of serialisation.
-	if runtime.GOOS == "windows" {
-		configJSON, configRootFS, platform, err = receiveConfig(p.config.ImageStore, configChan, configErrChan)
-		if err != nil {
-			return "", "", err
-		}
-
-		if configRootFS == nil {
-			return "", "", errRootFSInvalid
-		}
-
-		if len(descriptors) != len(configRootFS.DiffIDs) {
-			return "", "", errRootFSMismatch
-		}
-
-		// Populate diff ids in descriptors to avoid downloading foreign layers
-		// which have been side loaded
-		for i := range descriptors {
-			descriptors[i].(*v2LayerDescriptor).diffID = configRootFS.DiffIDs[i]
-		}
-	}
 
 	if p.config.DownloadManager != nil {
 		go func() {
@@ -503,7 +473,7 @@ func (p *v2Puller) pullSchema2(ctx context.Context, ref reference.Named, mfst *s
 				rootFS image.RootFS
 			)
 			downloadRootFS := *image.NewRootFS()
-			rootFS, release, err = p.config.DownloadManager.Download(ctx, downloadRootFS, platform, descriptors, p.config.ProgressOutput)
+			rootFS, release, err = p.config.DownloadManager.Download(ctx, downloadRootFS, "", descriptors, p.config.ProgressOutput)
 			if err != nil {
 				// Intentionally do not cancel the config download here
 				// as the error from config download (if there is one)
@@ -521,7 +491,7 @@ func (p *v2Puller) pullSchema2(ctx context.Context, ref reference.Named, mfst *s
 	}
 
 	if configJSON == nil {
-		configJSON, configRootFS, _, err = receiveConfig(p.config.ImageStore, configChan, configErrChan)
+		configJSON, configRootFS, err = receiveConfig(p.config.ImageStore, configChan, configErrChan)
 		if err == nil && configRootFS == nil {
 			err = errRootFSInvalid
 		}
@@ -568,16 +538,16 @@ func (p *v2Puller) pullSchema2(ctx context.Context, ref reference.Named, mfst *s
 	return imageID, manifestDigest, nil
 }
 
-func receiveConfig(s ImageConfigStore, configChan <-chan []byte, errChan <-chan error) ([]byte, *image.RootFS, layer.Platform, error) {
+func receiveConfig(s ImageConfigStore, configChan <-chan []byte, errChan <-chan error) ([]byte, *image.RootFS, error) {
 	select {
 	case configJSON := <-configChan:
-		rootfs, platform, err := s.RootFSAndPlatformFromConfig(configJSON)
+		rootfs, err := s.RootFSFromConfig(configJSON)
 		if err != nil {
-			return nil, nil, "", err
+			return nil, nil, err
 		}
-		return configJSON, rootfs, platform, nil
+		return configJSON, rootfs, nil
 	case err := <-errChan:
-		return nil, nil, "", err
+		return nil, nil, err
 		// Don't need a case for ctx.Done in the select because cancellation
 		// will trigger an error in p.pullSchema2ImageConfig.
 	}
@@ -606,7 +576,7 @@ func (p *v2Puller) pullManifestList(ctx context.Context, ref reference.Named, mf
 
 	if manifestDigest == "" {
 		errMsg := fmt.Sprintf("no matching manifest for %s/%s in the manifest list entries", runtime.GOOS, runtime.GOARCH)
-		logrus.Debugf(errMsg)
+		logrus.Debug(errMsg)
 		return "", "", errors.New(errMsg)
 	}
 

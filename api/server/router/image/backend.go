@@ -32,5 +32,5 @@ type importExportBackend interface {
 }
 
 type registryBackend interface {
-	PullImage(ctx context.Context, image, tag, platform string, metaHeaders map[string][]string, authConfig *types.AuthConfig, outStream io.Writer) error
+	PullImage(ctx context.Context, image, tag string, metaHeaders map[string][]string, authConfig *types.AuthConfig, outStream io.Writer) error
 }

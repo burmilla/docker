@@ -62,7 +62,6 @@ var (
 
 type daemonStore struct {
 	graphDriver               string
-	imageRoot                 string
 	imageStore                image.Store
 	layerStore                layer.Store
 	distributionMetadataStore dmetadata.Store
@@ -87,7 +86,7 @@ type Daemon struct {
 	root              string
 	shutdown          bool
 	idMappings        *idtools.IDMappings
-	stores            map[string]daemonStore // By container target platform
+	stores            daemonStore
 	nameIndex         *registrar.Registrar
 	containerd        libcontainerd.Client
 	containerdRemote  libcontainerd.Remote
@@ -128,9 +127,9 @@ func (daemon *Daemon) restore() error {
 		}
 
 		// Ignore the container if it does not support the current driver being used by the graph
-		currentDriverForContainerPlatform := daemon.stores[container.Platform].graphDriver
-		if (container.Driver == "" && currentDriverForContainerPlatform == "aufs") || container.Driver == currentDriverForContainerPlatform {
-			rwlayer, err := daemon.stores[container.Platform].layerStore.GetRWLayer(container.ID)
+		currentDriver := daemon.stores.graphDriver
+		if (container.Driver == "" && currentDriver == "aufs") || container.Driver == currentDriver {
+			rwlayer, err := daemon.stores.layerStore.GetRWLayer(container.ID)
 			if err != nil {
 				logrus.Errorf("Failed to load container mount %v: %v", id, err)
 				continue
@@ -415,69 +414,38 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 		}
 	}
 
-	// On Windows we don't support the environment variable, or a user supplied graphdriver
-	// as Windows has no choice in terms of which graphdrivers to use. It's a case of
-	// running Windows containers on Windows - windowsfilter, running Linux containers on Windows,
-	// lcow. Unix platforms however run a single graphdriver for all containers, and it can
-	// be set through an environment variable, a daemon start parameter, or chosen through
-	// initialization of the layerstore through driver priority order for example.
-	d.stores = make(map[string]daemonStore)
-	if runtime.GOOS == "windows" {
-		d.stores["windows"] = daemonStore{graphDriver: "windowsfilter"}
-		if system.LCOWSupported() {
-			d.stores["linux"] = daemonStore{graphDriver: "lcow"}
-		}
-	} else {
-		driverName := os.Getenv("DOCKER_DRIVER")
-		if driverName == "" {
-			driverName = config.GraphDriver
-		}
-		d.stores[runtime.GOOS] = daemonStore{graphDriver: driverName} // May still be empty. Layerstore init determines instead.
+	driverName := os.Getenv("DOCKER_DRIVER")
+	if driverName == "" {
+		driverName = config.GraphDriver
 	}
 
 	d.RegistryService = registryService
 
-	var graphDrivers []string
-	for platform, ds := range d.stores {
-		ls, err := layer.NewStoreFromOptions(layer.StoreOptions{
-			StorePath:                 config.Root,
-			MetadataStorePathTemplate: filepath.Join(config.Root, "image", "%s", "layerdb"),
-			GraphDriver:               ds.graphDriver,
-			GraphDriverOptions:        config.GraphOptions,
-			IDMappings:                idMappings,
-			Platform:                  platform,
-		})
-		if err != nil {
-			return nil, err
-		}
-		ds.graphDriver = ls.DriverName() // As layerstore may set the driver
-		ds.layerStore = ls
-		d.stores[platform] = ds
-		graphDrivers = append(graphDrivers, ls.DriverName())
+	ls, err := layer.NewStoreFromOptions(layer.StoreOptions{
+		StorePath:                 config.Root,
+		MetadataStorePathTemplate: filepath.Join(config.Root, "image", "%s", "layerdb"),
+		GraphDriver:               driverName,
+		GraphDriverOptions:        config.GraphOptions,
+		IDMappings:                idMappings,
+	})
+	if err != nil {
+		return nil, err
 	}
+	d.stores.graphDriver = ls.DriverName() // As layerstore may set the driver
+	d.stores.layerStore = ls
 
 	logrus.Debugf("Max Concurrent Downloads: %d", *config.MaxConcurrentDownloads)
-	lsMap := make(map[string]layer.Store)
-	for platform, ds := range d.stores {
-		lsMap[platform] = ds.layerStore
+	d.downloadManager = xfer.NewLayerDownloadManager(ls, *config.MaxConcurrentDownloads)
+
+	imageRoot := filepath.Join(config.Root, "image", d.stores.graphDriver)
+	ifs, err := image.NewFSStoreBackend(filepath.Join(imageRoot, "imagedb"))
+	if err != nil {
+		return nil, err
 	}
-	d.downloadManager = xfer.NewLayerDownloadManager(lsMap, *config.MaxConcurrentDownloads)
 
-	for platform, ds := range d.stores {
-		imageRoot := filepath.Join(config.Root, "image", ds.graphDriver)
-		ifs, err := image.NewFSStoreBackend(filepath.Join(imageRoot, "imagedb"))
-		if err != nil {
-			return nil, err
-		}
-
-		var is image.Store
-		is, err = image.NewImageStore(ifs, platform, ds.layerStore)
-		if err != nil {
-			return nil, err
-		}
-		ds.imageRoot = imageRoot
-		ds.imageStore = is
-		d.stores[platform] = ds
+	d.stores.imageStore, err = image.NewImageStore(ifs, ls)
+	if err != nil {
+		return nil, err
 	}
 
 	// Configure the volumes driver
@@ -492,19 +460,14 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 
 	eventsService := events.New()
 
-	for platform, ds := range d.stores {
-		dms, err := dmetadata.NewFSMetadataStore(filepath.Join(ds.imageRoot, "distribution"), platform)
-		if err != nil {
-			return nil, err
-		}
+	d.stores.distributionMetadataStore, err = dmetadata.NewFSMetadataStore(filepath.Join(imageRoot, "distribution"))
+	if err != nil {
+		return nil, err
+	}
 
-		rs, err := refstore.NewReferenceStore(filepath.Join(ds.imageRoot, "repositories.json"), platform)
-		if err != nil {
-			return nil, fmt.Errorf("Couldn't create Tag store repositories: %s", err)
-		}
-		ds.distributionMetadataStore = dms
-		ds.referenceStore = rs
-		d.stores[platform] = ds
+	d.stores.referenceStore, err = refstore.NewReferenceStore(filepath.Join(imageRoot, "repositories.json"))
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't create Tag store repositories: %s", err)
 	}
 
 	d.repository = daemonRepo
@@ -538,20 +501,10 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	}
 	close(d.startupDone)
 
-	gd := ""
-	for platform, ds := range d.stores {
-		if len(gd) > 0 {
-			gd += ", "
-		}
-		gd += ds.graphDriver
-		if len(d.stores) > 1 {
-			gd = fmt.Sprintf("%s (%s)", gd, platform)
-		}
-	}
 	logrus.WithFields(logrus.Fields{
 		"version":        dockerversion.Version,
 		"commit":         dockerversion.GitCommit,
-		"graphdriver(s)": gd,
+		"graphdriver(s)": d.stores.graphDriver,
 	}).Info("Docker daemon")
 
 	return d, nil
@@ -658,7 +611,7 @@ func (daemon *Daemon) Shutdown() error {
 				logrus.Errorf("Stop container error: %v", err)
 				return
 			}
-			if mountid, err := daemon.stores[c.Platform].layerStore.GetMountID(c.ID); err == nil {
+			if mountid, err := daemon.stores.layerStore.GetMountID(c.ID); err == nil {
 				daemon.cleanupMountsByID(mountid)
 			}
 			logrus.Debugf("container stopped %s", c.ID)
@@ -671,11 +624,9 @@ func (daemon *Daemon) Shutdown() error {
 		}
 	}
 
-	for platform, ds := range daemon.stores {
-		if ds.layerStore != nil {
-			if err := ds.layerStore.Cleanup(); err != nil {
-				logrus.Errorf("Error during layer Store.Cleanup(): %v %s", err, platform)
-			}
+	if daemon.stores.layerStore != nil {
+		if err := daemon.stores.layerStore.Cleanup(); err != nil {
+			logrus.Errorf("Error during layer Store.Cleanup(): %v", err)
 		}
 	}
 
@@ -707,7 +658,7 @@ func (daemon *Daemon) Mount(container *container.Container) error {
 		if container.BaseFS != "" && runtime.GOOS != "windows" {
 			daemon.Unmount(container)
 			return fmt.Errorf("Error: driver %s is returning inconsistent paths for container %s ('%s' then '%s')",
-				daemon.GraphDriverName(container.Platform), container.ID, container.BaseFS, dir)
+				daemon.GraphDriverName(), container.ID, container.BaseFS, dir)
 		}
 	}
 	container.BaseFS = dir // TODO: combine these fields
@@ -725,8 +676,8 @@ func (daemon *Daemon) Unmount(container *container.Container) error {
 }
 
 // GraphDriverName returns the name of the graph driver used by the layer.Store
-func (daemon *Daemon) GraphDriverName(platform string) string {
-	return daemon.stores[platform].layerStore.DriverName()
+func (daemon *Daemon) GraphDriverName() string {
+	return daemon.stores.layerStore.DriverName()
 }
 
 // prepareTempDir prepares and returns the default directory to use

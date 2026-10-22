@@ -76,9 +76,7 @@ type Container struct {
 	Name            string
 	Driver          string
 	Platform        string
-	// MountLabel contains the options for the 'mount' command
-	MountLabel             string
-	ProcessLabel           string
+
 	RestartCount           int
 	HasBeenStartedBefore   bool
 	HasBeenManuallyStopped bool // used for unless-stopped restart policy
@@ -387,22 +385,6 @@ func (container *Container) StartLogger() (logger.Logger, error) {
 		l = logger.NewRingLogger(l, info, bufferSize)
 	}
 	return l, nil
-}
-
-// GetProcessLabel returns the process label for the container.
-func (container *Container) GetProcessLabel() string {
-	// even if we have a process label return "" if we are running
-	// in privileged mode
-	if container.HostConfig.Privileged {
-		return ""
-	}
-	return container.ProcessLabel
-}
-
-// GetMountLabel returns the mounting label for the container.
-// This label is empty if the container is privileged.
-func (container *Container) GetMountLabel() string {
-	return container.MountLabel
 }
 
 // GetExecIDs returns the list of exec commands running on the container.

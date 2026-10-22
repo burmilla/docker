@@ -160,18 +160,9 @@ func (daemon *Daemon) parseSecurityOpt(container *container.Container, hostConfi
 }
 
 func parseSecurityOpt(container *container.Container, config *containertypes.HostConfig) error {
-	var (
-		labelOpts []string
-		err       error
-	)
-
 	for _, opt := range config.SecurityOpt {
 		if opt == "no-new-privileges" {
 			container.NoNewPrivileges = true
-			continue
-		}
-		if opt == "disable" {
-			labelOpts = append(labelOpts, "disable")
 			continue
 		}
 
@@ -187,8 +178,6 @@ func parseSecurityOpt(container *container.Container, config *containertypes.Hos
 		}
 
 		switch con[0] {
-		case "label":
-			labelOpts = append(labelOpts, con[1])
 		case "apparmor":
 			container.AppArmorProfile = con[1]
 		case "seccomp":
@@ -204,8 +193,7 @@ func parseSecurityOpt(container *container.Container, config *containertypes.Hos
 		}
 	}
 
-	container.ProcessLabel, container.MountLabel, err = "", "", nil
-	return err
+	return nil
 }
 
 func getBlkioThrottleDevices(devs []*blkiodev.ThrottleDevice) ([]specs.LinuxThrottleDevice, error) {
@@ -267,12 +255,6 @@ func (daemon *Daemon) adaptContainerSettings(hostConfig *containertypes.HostConf
 			hostConfig.ShmSize = int64(daemon.configStore.ShmSize)
 		}
 	}
-	var err error
-	opts, err := daemon.generateSecurityOpt(hostConfig)
-	if err != nil {
-		return err
-	}
-	hostConfig.SecurityOpt = append(hostConfig.SecurityOpt, opts...)
 	if hostConfig.MemorySwappiness == nil {
 		defaultSwappiness := int64(-1)
 		hostConfig.MemorySwappiness = &defaultSwappiness

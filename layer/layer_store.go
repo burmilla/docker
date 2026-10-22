@@ -475,11 +475,9 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 	var (
 		storageOpt map[string]string
 		initFunc   MountInit
-		mountLabel string
 	)
 
 	if opts != nil {
-		mountLabel = opts.MountLabel
 		storageOpt = opts.StorageOpt
 		initFunc = opts.InitFunc
 	}
@@ -520,7 +518,7 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 	}
 
 	if initFunc != nil {
-		pid, err = ls.initMount(m.mountID, pid, mountLabel, initFunc, storageOpt)
+		pid, err = ls.initMount(m.mountID, pid, initFunc, storageOpt)
 		if err != nil {
 			return nil, err
 		}
@@ -633,7 +631,7 @@ func (ls *layerStore) saveMount(mount *mountedLayer) error {
 	return nil
 }
 
-func (ls *layerStore) initMount(graphID, parent, mountLabel string, initFunc MountInit, storageOpt map[string]string) (string, error) {
+func (ls *layerStore) initMount(graphID, parent string, initFunc MountInit, storageOpt map[string]string) (string, error) {
 	// Use "<graph-id>-init" to maintain compatibility with graph drivers
 	// which are expecting this layer with this special name. If all
 	// graph drivers can be updated to not rely on knowing about this layer
@@ -641,14 +639,13 @@ func (ls *layerStore) initMount(graphID, parent, mountLabel string, initFunc Mou
 	initID := fmt.Sprintf("%s-init", graphID)
 
 	createOpts := &graphdriver.CreateOpts{
-		MountLabel: mountLabel,
 		StorageOpt: storageOpt,
 	}
 
 	if err := ls.driver.CreateReadWrite(initID, parent, createOpts); err != nil {
 		return "", err
 	}
-	p, err := ls.driver.Get(initID, "")
+	p, err := ls.driver.Get(initID)
 	if err != nil {
 		return "", err
 	}
@@ -741,7 +738,7 @@ func (w *fileGetPutter) Close() error {
 }
 
 func (n *naiveDiffPathDriver) DiffGetter(id string) (graphdriver.FileGetCloser, error) {
-	p, err := n.Driver.Get(id, "")
+	p, err := n.Driver.Get(id)
 	if err != nil {
 		return nil, err
 	}

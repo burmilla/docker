@@ -761,7 +761,7 @@ func (daemon *Daemon) Shutdown() error {
 // Mount sets container.BaseFS
 // (is it not set coming in? why is it unset?)
 func (daemon *Daemon) Mount(container *container.Container) error {
-	dir, err := container.RWLayer.Mount(container.GetMountLabel())
+	dir, err := container.RWLayer.Mount()
 	if err != nil {
 		return err
 	}

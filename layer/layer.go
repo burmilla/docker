@@ -137,7 +137,7 @@ type RWLayer interface {
 
 	// Mount mounts the RWLayer and returns the filesystem path
 	// the to the writable layer.
-	Mount(mountLabel string) (string, error)
+	Mount() (string, error)
 
 	// Unmount unmounts the RWLayer. This should be called
 	// for every mount. If there are multiple mount calls
@@ -182,7 +182,6 @@ type MountInit func(root string) error
 
 // CreateRWLayerOpts contains optional arguments to be passed to CreateRWLayer
 type CreateRWLayerOpts struct {
-	MountLabel string
 	InitFunc   MountInit
 	StorageOpt map[string]string
 }

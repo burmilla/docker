@@ -159,37 +159,6 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig) (retC *containe
 	return container, nil
 }
 
-func (daemon *Daemon) generateSecurityOpt(hostConfig *containertypes.HostConfig) ([]string, error) {
-	for _, opt := range hostConfig.SecurityOpt {
-		con := strings.Split(opt, "=")
-		if con[0] == "label" {
-			// Caller overrode SecurityOpts
-			return nil, nil
-		}
-	}
-	ipcMode := hostConfig.IpcMode
-	pidMode := hostConfig.PidMode
-	privileged := hostConfig.Privileged
-	if ipcMode.IsHost() || pidMode.IsHost() || privileged {
-		return []string{}, nil
-	}
-
-	ipcContainer := ipcMode.Container()
-	pidContainer := pidMode.Container()
-	if ipcContainer != "" {
-		if pidContainer == "" {
-			return []string{}, nil
-		}
-	}
-	if pidContainer != "" {
-		if ipcContainer == "" {
-			return []string{}, nil
-		}
-	}
-
-	return nil, nil
-}
-
 func (daemon *Daemon) setRWLayer(container *container.Container) error {
 	var layerID layer.ChainID
 	if container.ImageID != "" {
@@ -201,7 +170,6 @@ func (daemon *Daemon) setRWLayer(container *container.Container) error {
 	}
 
 	rwLayerOpts := &layer.CreateRWLayerOpts{
-		MountLabel: container.MountLabel,
 		InitFunc:   daemon.getLayerInit(),
 		StorageOpt: container.HostConfig.StorageOpt,
 	}

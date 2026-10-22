@@ -54,7 +54,7 @@ func (daemon *Daemon) setupMounts(c *container.Container) ([]container.Mount, er
 			return nil
 		}
 
-		path, err := m.Setup(c.MountLabel, daemon.idMappings.RootPair(), checkfunc)
+		path, err := m.Setup(daemon.idMappings.RootPair(), checkfunc)
 		if err != nil {
 			return nil, err
 		}

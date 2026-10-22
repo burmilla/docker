@@ -88,8 +88,8 @@ type referencedRWLayer struct {
 	*mountedLayer
 }
 
-func (rl *referencedRWLayer) Mount(mountLabel string) (string, error) {
-	return rl.layerStore.driver.Get(rl.mountedLayer.mountID, mountLabel)
+func (rl *referencedRWLayer) Mount() (string, error) {
+	return rl.layerStore.driver.Get(rl.mountedLayer.mountID)
 }
 
 // Unmount decrements the activity count and unmounts the underlying layer

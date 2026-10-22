@@ -1,4 +1,4 @@
-.PHONY: all binary build cross deb help init-go-pkg-cache install manpages rpm run shell test test-docker-py test-integration-cli test-unit tgz validate win
+.PHONY: binary build help init-go-pkg-cache install run shell
 
 # set the graph driver as the current graphdriver if not set
 DOCKER_GRAPHDRIVER := $(if $(DOCKER_GRAPHDRIVER),$(DOCKER_GRAPHDRIVER),$(shell docker info 2>&1 | grep "Storage Driver" | sed 's/.*: //'))
@@ -15,7 +15,6 @@ export DOCKER_GITCOMMIT
 
 # env vars passed through directly to Docker's build scripts
 # to allow things like `make KEEPBUNDLE=1 binary` easily
-# `project/PACKAGERS.md` have some limited documentation of some of these
 DOCKER_ENVS := \
 	-e DOCKER_CROSSPLATFORMS \
 	-e BUILD_APT_MIRROR \
@@ -80,11 +79,7 @@ export BUILD_APT_MIRROR
 
 SWAGGER_DOCS_PORT ?= 9000
 
-INTEGRATION_CLI_MASTER_IMAGE := $(if $(INTEGRATION_CLI_MASTER_IMAGE), $(INTEGRATION_CLI_MASTER_IMAGE), integration-cli-master)
-INTEGRATION_CLI_WORKER_IMAGE := $(if $(INTEGRATION_CLI_WORKER_IMAGE), $(INTEGRATION_CLI_WORKER_IMAGE), integration-cli-worker)
-
 define \n
-
 
 endef
 
@@ -99,9 +94,6 @@ endif
 DOCKER_RUN_DOCKER := $(DOCKER_FLAGS) "$(DOCKER_IMAGE)"
 
 default: binary
-
-all: build ## validate all checks, build linux binaries, run all tests\ncross build non-linux binaries and generate archives
-	$(DOCKER_RUN_DOCKER) bash -c 'hack/validate/default && hack/make.sh'
 
 binary: build ## build the linux binaries
 	$(DOCKER_RUN_DOCKER) hack/make.sh binary
@@ -120,13 +112,6 @@ clean-pkg-cache-vol:
 		$(shell docker volume rm $(PKGCACHE_VOLROOT)-$(shell echo $(mapping) | awk -F':/' '{ print $$1 }') > /dev/null 2>&1) \
 	)
 
-cross: build ## cross build the binaries for darwin, freebsd and\nwindows
-	$(DOCKER_RUN_DOCKER) hack/make.sh dynbinary binary cross
-
-deb: build  ## build the deb packages
-	$(DOCKER_RUN_DOCKER) hack/make.sh dynbinary build-deb
-
-
 help: ## this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {sub("\\\\n",sprintf("\n%22c"," "), $$2);printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
@@ -136,35 +121,11 @@ init-go-pkg-cache:
 install: ## install the linux binaries
 	KEEPBUNDLE=1 hack/make.sh install-binary
 
-rpm: build ## build the rpm packages
-	$(DOCKER_RUN_DOCKER) hack/make.sh dynbinary build-rpm
-
 run: build ## run the docker daemon in a container
 	$(DOCKER_RUN_DOCKER) sh -c "KEEPBUNDLE=1 hack/make.sh install-binary run"
 
 shell: build ## start a shell inside the build env
 	$(DOCKER_RUN_DOCKER) bash
-
-test: build ## run the unit, integration and docker-py tests
-	$(DOCKER_RUN_DOCKER) hack/make.sh dynbinary cross test-unit test-integration-cli test-docker-py
-
-test-docker-py: build ## run the docker-py tests
-	$(DOCKER_RUN_DOCKER) hack/make.sh dynbinary test-docker-py
-
-test-integration-cli: build ## run the integration tests
-	$(DOCKER_RUN_DOCKER) hack/make.sh build-integration-test-binary dynbinary test-integration-cli
-
-test-unit: build ## run the unit tests
-	$(DOCKER_RUN_DOCKER) hack/make.sh test-unit
-
-tgz: build ## build the archives (.zip on windows and .tgz\notherwise) containing the binaries
-	$(DOCKER_RUN_DOCKER) hack/make.sh dynbinary binary cross tgz
-
-validate: build ## validate DCO, Seccomp profile generation, gofmt,\n./pkg/ isolation, golint, tests, tomls, go vet and vendor
-	$(DOCKER_RUN_DOCKER) hack/validate/all
-
-win: build ## cross build the binary for windows
-	$(DOCKER_RUN_DOCKER) hack/make.sh win
 
 .PHONY: swagger-gen
 swagger-gen:
@@ -181,19 +142,3 @@ swagger-docs: ## preview the API documentation
 		-e 'REDOC_OPTIONS=hide-hostname="true" lazy-rendering' \
 		-p $(SWAGGER_DOCS_PORT):80 \
 		bfirsh/redoc:1.6.2
-
-build-integration-cli-on-swarm: build ## build images and binary for running integration-cli on Swarm in parallel
-	@echo "Building hack/integration-cli-on-swarm (if build fails, please refer to hack/integration-cli-on-swarm/README.md)"
-	go build -o ./hack/integration-cli-on-swarm/integration-cli-on-swarm ./hack/integration-cli-on-swarm/host
-	@echo "Building $(INTEGRATION_CLI_MASTER_IMAGE)"
-	docker build -t $(INTEGRATION_CLI_MASTER_IMAGE) hack/integration-cli-on-swarm/agent
-# For worker, we don't use `docker build` so as to enable DOCKER_INCREMENTAL_BINARY and so on
-	@echo "Building $(INTEGRATION_CLI_WORKER_IMAGE) from $(DOCKER_IMAGE)"
-	$(eval tmp := integration-cli-worker-tmp)
-# We mount pkgcache, but not bundle (bundle needs to be baked into the image)
-# For avoiding bakings DOCKER_GRAPHDRIVER and so on to image, we cannot use $(DOCKER_ENVS) here
-	docker run -t -d --name $(tmp) -e DOCKER_GITCOMMIT -e BUILDFLAGS -e DOCKER_INCREMENTAL_BINARY --privileged $(DOCKER_MOUNT_PKGCACHE) $(DOCKER_IMAGE) top
-	docker exec $(tmp) hack/make.sh build-integration-test-binary dynbinary
-	docker exec $(tmp) go build -o /worker github.com/docker/docker/hack/integration-cli-on-swarm/agent/worker
-	docker commit -c 'ENTRYPOINT ["/worker"]' $(tmp) $(INTEGRATION_CLI_WORKER_IMAGE)
-	docker rm -f $(tmp)

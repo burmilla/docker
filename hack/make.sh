@@ -58,13 +58,6 @@ echo
 DEFAULT_BUNDLES=(
 	binary-daemon
 	dynbinary
-
-	test-unit
-	test-integration-cli
-	test-docker-py
-
-	cross
-	tgz
 )
 
 VERSION=$(< ./VERSION)
@@ -98,41 +91,12 @@ if [ "$AUTO_GOPATH" ]; then
 	ln -sf ../../../.. .gopath/src/"${DOCKER_PKG}"
 	export GOPATH="${PWD}/.gopath"
 
-	if [ "$(go env GOOS)" = 'solaris' ]; then
-		# sys/unix is installed outside the standard library on solaris
-		# TODO need to allow for version change, need to get version from go
-		export GO_VERSION=${GO_VERSION:-"1.8.1"}
-		export GOPATH="${GOPATH}:/usr/lib/gocode/${GO_VERSION}"
-	fi
 fi
 
 if [ ! "$GOPATH" ]; then
 	echo >&2 'error: missing GOPATH; please see https://golang.org/doc/code.html#GOPATH'
 	echo >&2 '  alternatively, set AUTO_GOPATH=1'
 	exit 1
-fi
-
-if ${PKG_CONFIG} 'libsystemd >= 209' 2> /dev/null ; then
-	DOCKER_BUILDTAGS+=" journald"
-elif ${PKG_CONFIG} 'libsystemd-journal' 2> /dev/null ; then
-	DOCKER_BUILDTAGS+=" journald journald_compat"
-fi
-
-# test whether "btrfs/version.h" exists and apply btrfs_noversion appropriately
-if \
-	command -v gcc &> /dev/null \
-	&& ! gcc -E - -o /dev/null &> /dev/null <<<'#include <btrfs/version.h>' \
-; then
-	DOCKER_BUILDTAGS+=' btrfs_noversion'
-fi
-
-# test whether "libdevmapper.h" is new enough to support deferred remove
-# functionality.
-if \
-	command -v gcc &> /dev/null \
-	&& ! ( echo -e  '#include <libdevmapper.h>\nint main() { dm_task_deferred_remove(NULL); }'| gcc -xc - -o /dev/null -ldevmapper &> /dev/null ) \
-; then
-       DOCKER_BUILDTAGS+=' libdm_no_deferred_remove'
 fi
 
 # Use these flags when compiling the tests and final binary
@@ -158,38 +122,11 @@ fi
 ORIG_BUILDFLAGS+=( $REBUILD_FLAG )
 
 BUILDFLAGS=( $BUILDFLAGS "${ORIG_BUILDFLAGS[@]}" )
-# Test timeout.
-
-if [ "${DOCKER_ENGINE_GOARCH}" == "arm" ]; then
-	: ${TIMEOUT:=10m}
-elif [ "${DOCKER_ENGINE_GOARCH}" == "windows" ]; then
-	: ${TIMEOUT:=8m}
-else
-	: ${TIMEOUT:=5m}
-fi
 
 LDFLAGS_STATIC_DOCKER="
 	$LDFLAGS_STATIC
 	-extldflags \"$EXTLDFLAGS_STATIC\"
 "
-
-if [ "$(uname -s)" = 'FreeBSD' ]; then
-	# Tell cgo the compiler is Clang, not GCC
-	# https://code.google.com/p/go/source/browse/src/cmd/cgo/gcc.go?spec=svne77e74371f2340ee08622ce602e9f7b15f29d8d3&r=e6794866ebeba2bf8818b9261b54e2eef1c9e588#752
-	export CC=clang
-
-	# "-extld clang" is a workaround for
-	# https://code.google.com/p/go/issues/detail?id=6845
-	LDFLAGS="$LDFLAGS -extld clang"
-fi
-
-HAVE_GO_TEST_COVER=
-if \
-	go help testflag | grep -- -cover > /dev/null \
-	&& go tool -n cover > /dev/null 2>&1 \
-; then
-	HAVE_GO_TEST_COVER=1
-fi
 
 # a helper to provide ".exe" when it's appropriate
 binary_extension() {

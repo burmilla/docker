@@ -14,12 +14,9 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"syscall"
-	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/blkiodev"
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/config"
@@ -36,119 +33,17 @@ import (
 	"github.com/docker/libnetwork/options"
 	lntypes "github.com/docker/libnetwork/types"
 	rsystem "github.com/opencontainers/runc/libcontainer/system"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 )
 
 const (
 	// See https://git.kernel.org/cgit/linux/kernel/git/tip/tip.git/tree/kernel/sched/sched.h?id=8cd9234c64c584432f6992fe944ca9e46ca8ea76#n269
-	linuxMinCPUShares = 2
-	linuxMaxCPUShares = 262144
 	platformSupported = true
 	// constants for remapped root settings
 	defaultIDSpecifier string = "default"
 	defaultRemappedID  string = "dockremap"
 )
-
-func getMemoryResources(config containertypes.Resources) *specs.LinuxMemory {
-	memory := specs.LinuxMemory{}
-
-	if config.Memory > 0 {
-		limit := uint64(config.Memory)
-		memory.Limit = &limit
-	}
-
-	if config.MemoryReservation > 0 {
-		reservation := uint64(config.MemoryReservation)
-		memory.Reservation = &reservation
-	}
-
-	if config.MemorySwap > 0 {
-		swap := uint64(config.MemorySwap)
-		memory.Swap = &swap
-	}
-
-	if config.MemorySwappiness != nil {
-		swappiness := uint64(*config.MemorySwappiness)
-		memory.Swappiness = &swappiness
-	}
-
-	if config.KernelMemory != 0 {
-		kernelMemory := uint64(config.KernelMemory)
-		memory.Kernel = &kernelMemory
-	}
-
-	return &memory
-}
-
-func getCPUResources(config containertypes.Resources) (*specs.LinuxCPU, error) {
-	cpu := specs.LinuxCPU{}
-
-	if config.CPUShares < 0 {
-		return nil, fmt.Errorf("shares: invalid argument")
-	}
-	if config.CPUShares >= 0 {
-		shares := uint64(config.CPUShares)
-		cpu.Shares = &shares
-	}
-
-	if config.CpusetCpus != "" {
-		cpu.Cpus = config.CpusetCpus
-	}
-
-	if config.CpusetMems != "" {
-		cpu.Mems = config.CpusetMems
-	}
-
-	if config.NanoCPUs > 0 {
-		// https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt
-		period := uint64(100 * time.Millisecond / time.Microsecond)
-		quota := config.NanoCPUs * int64(period) / 1e9
-		cpu.Period = &period
-		cpu.Quota = &quota
-	}
-
-	if config.CPUPeriod != 0 {
-		period := uint64(config.CPUPeriod)
-		cpu.Period = &period
-	}
-
-	if config.CPUQuota != 0 {
-		q := config.CPUQuota
-		cpu.Quota = &q
-	}
-
-	if config.CPURealtimePeriod != 0 {
-		period := uint64(config.CPURealtimePeriod)
-		cpu.RealtimePeriod = &period
-	}
-
-	if config.CPURealtimeRuntime != 0 {
-		c := config.CPURealtimeRuntime
-		cpu.RealtimeRuntime = &c
-	}
-
-	return &cpu, nil
-}
-
-func getBlkioWeightDevices(config containertypes.Resources) ([]specs.LinuxWeightDevice, error) {
-	var stat syscall.Stat_t
-	var blkioWeightDevices []specs.LinuxWeightDevice
-
-	for _, weightDevice := range config.BlkioWeightDevice {
-		if err := syscall.Stat(weightDevice.Path, &stat); err != nil {
-			return nil, err
-		}
-		weight := weightDevice.Weight
-		d := specs.LinuxWeightDevice{Weight: &weight}
-		d.Major = int64(stat.Rdev / 256)
-		d.Minor = int64(stat.Rdev % 256)
-		blkioWeightDevices = append(blkioWeightDevices, d)
-	}
-
-	return blkioWeightDevices, nil
-}
 
 func (daemon *Daemon) parseSecurityOpt(container *container.Container, hostConfig *containertypes.HostConfig) error {
 	container.NoNewPrivileges = daemon.configStore.NoNewPrivileges
@@ -193,23 +88,6 @@ func parseSecurityOpt(container *container.Container, config *containertypes.Hos
 	return nil
 }
 
-func getBlkioThrottleDevices(devs []*blkiodev.ThrottleDevice) ([]specs.LinuxThrottleDevice, error) {
-	var throttleDevices []specs.LinuxThrottleDevice
-	var stat syscall.Stat_t
-
-	for _, d := range devs {
-		if err := syscall.Stat(d.Path, &stat); err != nil {
-			return nil, err
-		}
-		d := specs.LinuxThrottleDevice{Rate: d.Rate}
-		d.Major = int64(stat.Rdev / 256)
-		d.Minor = int64(stat.Rdev % 256)
-		throttleDevices = append(throttleDevices, d)
-	}
-
-	return throttleDevices, nil
-}
-
 func checkKernel() error {
 	// Check for unsupported kernel versions
 	// FIXME: it would be cleaner to not test for specific versions, but rather
@@ -231,64 +109,14 @@ func checkKernel() error {
 
 // adaptContainerSettings is called during container creation to modify any
 // settings necessary in the HostConfig structure.
-func (daemon *Daemon) adaptContainerSettings(hostConfig *containertypes.HostConfig, adjustCPUShares bool) error {
-	if adjustCPUShares && hostConfig.CPUShares > 0 {
-		// Handle unsupported CPUShares
-		if hostConfig.CPUShares < linuxMinCPUShares {
-			logrus.Warnf("Changing requested CPUShares of %d to minimum allowed of %d", hostConfig.CPUShares, linuxMinCPUShares)
-			hostConfig.CPUShares = linuxMinCPUShares
-		} else if hostConfig.CPUShares > linuxMaxCPUShares {
-			logrus.Warnf("Changing requested CPUShares of %d to maximum allowed of %d", hostConfig.CPUShares, linuxMaxCPUShares)
-			hostConfig.CPUShares = linuxMaxCPUShares
-		}
-	}
-	if hostConfig.Memory > 0 && hostConfig.MemorySwap == 0 {
-		// By default, MemorySwap is set to twice the size of Memory.
-		hostConfig.MemorySwap = hostConfig.Memory * 2
-	}
+func (daemon *Daemon) adaptContainerSettings(hostConfig *containertypes.HostConfig) error {
 	if hostConfig.ShmSize == 0 {
 		hostConfig.ShmSize = config.DefaultShmSize
 		if daemon.configStore != nil {
 			hostConfig.ShmSize = int64(daemon.configStore.ShmSize)
 		}
 	}
-	if hostConfig.MemorySwappiness == nil {
-		defaultSwappiness := int64(-1)
-		hostConfig.MemorySwappiness = &defaultSwappiness
-	}
-	if hostConfig.OomKillDisable == nil {
-		defaultOomKillDisable := false
-		hostConfig.OomKillDisable = &defaultOomKillDisable
-	}
-
 	return nil
-}
-
-func verifyContainerResources(resources *containertypes.Resources, sysInfo *sysinfo.SysInfo, update bool) ([]string, error) {
-	warnings := []string{}
-
-	// Remove all limits which would require cgroups
-	resources.Memory = 0
-	resources.MemorySwap = -1
-	resources.MemoryReservation = 0
-	// resources.KernelMemory = 0
-	// resources.PidsLimit = 0
-	resources.CPUShares = 0
-	resources.CPUPeriod = 0
-	resources.CPUQuota = 0
-	resources.CPUPercent = 0
-	resources.CpusetCpus = ""
-	resources.CpusetMems = ""
-	resources.BlkioWeight = 0
-	/*
-		resources.BlkioWeightDevice = []*pblkiodev.WeightDevice{}
-		resources.BlkioDeviceReadBps = []*pblkiodev.ThrottleDevice{}
-		resources.BlkioDeviceWriteBps = []*pblkiodev.ThrottleDevice{}
-		resources.BlkioDeviceReadIOps = []*pblkiodev.ThrottleDevice{}
-		resources.BlkioDeviceWriteIOps = []*pblkiodev.ThrottleDevice{}
-	*/
-
-	return warnings, nil
 }
 
 // verifyPlatformContainerSettings performs platform-specific validation of the
@@ -296,15 +124,6 @@ func verifyContainerResources(resources *containertypes.Resources, sysInfo *sysi
 func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.HostConfig, config *containertypes.Config, update bool) ([]string, error) {
 	var warnings []string
 	sysInfo := sysinfo.New(true)
-
-	w, err := verifyContainerResources(&hostConfig.Resources, sysInfo, update)
-
-	// no matter err is nil or not, w could have data in itself.
-	warnings = append(warnings, w...)
-
-	if err != nil {
-		return warnings, err
-	}
 
 	if hostConfig.ShmSize < 0 {
 		return warnings, fmt.Errorf("SHM size can not be less than 0")

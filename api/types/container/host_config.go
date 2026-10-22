@@ -3,7 +3,6 @@ package container
 import (
 	"strings"
 
-	"github.com/docker/docker/api/types/blkiodev"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/go-connections/nat"
@@ -256,39 +255,8 @@ type LogConfig struct {
 
 // Resources contains container's resources (ulimits...)
 type Resources struct {
-	// Applicable to all platforms
-	CPUShares int64 `json:"CpuShares"` // CPU shares (relative weight vs. other containers)
-	Memory    int64 // Memory limit (in bytes)
-	NanoCPUs  int64 `json:"NanoCpus"` // CPU quota in units of 10<sup>-9</sup> CPUs.
-
-	// Applicable to UNIX platforms
-	BlkioWeight          uint16 // Block IO weight (relative weight vs. other containers)
-	BlkioWeightDevice    []*blkiodev.WeightDevice
-	BlkioDeviceReadBps   []*blkiodev.ThrottleDevice
-	BlkioDeviceWriteBps  []*blkiodev.ThrottleDevice
-	BlkioDeviceReadIOps  []*blkiodev.ThrottleDevice
-	BlkioDeviceWriteIOps []*blkiodev.ThrottleDevice
-	CPUPeriod            int64           `json:"CpuPeriod"`          // CPU CFS (Completely Fair Scheduler) period
-	CPUQuota             int64           `json:"CpuQuota"`           // CPU CFS (Completely Fair Scheduler) quota
-	CPURealtimePeriod    int64           `json:"CpuRealtimePeriod"`  // CPU real-time period
-	CPURealtimeRuntime   int64           `json:"CpuRealtimeRuntime"` // CPU real-time runtime
-	CpusetCpus           string          // CpusetCpus 0-2, 0,1
-	CpusetMems           string          // CpusetMems 0-2, 0,1
-	Devices              []DeviceMapping // List of devices to map inside the container
-	DiskQuota            int64           // Disk limit (in bytes)
-	KernelMemory         int64           // Kernel memory limit (in bytes)
-	MemoryReservation    int64           // Memory soft limit (in bytes)
-	MemorySwap           int64           // Total memory usage (memory + swap); set `-1` to enable unlimited swap
-	MemorySwappiness     *int64          // Tuning container memory swappiness behaviour
-	OomKillDisable       *bool           // Whether to disable OOM Killer or not
-	PidsLimit            int64           // Setting pids limit for a container
-	Ulimits              []*units.Ulimit // List of ulimits to be set in the container
-
-	// Applicable to Windows
-	CPUCount           int64  `json:"CpuCount"`   // CPU count
-	CPUPercent         int64  `json:"CpuPercent"` // CPU percent
-	IOMaximumIOps      uint64 // Maximum IOps for the container system drive
-	IOMaximumBandwidth uint64 // Maximum IO in bytes per second for the container system drive
+	Devices []DeviceMapping // List of devices to map inside the container
+	Ulimits []*units.Ulimit // List of ulimits to be set in the container
 }
 
 // UpdateConfig holds the mutable attributes of a Container.

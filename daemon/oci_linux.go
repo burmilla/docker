@@ -24,55 +24,10 @@ import (
 )
 
 func setResources(s *specs.Spec, r containertypes.Resources) error {
-	weightDevices, err := getBlkioWeightDevices(r)
-	if err != nil {
-		return err
-	}
-	readBpsDevice, err := getBlkioThrottleDevices(r.BlkioDeviceReadBps)
-	if err != nil {
-		return err
-	}
-	writeBpsDevice, err := getBlkioThrottleDevices(r.BlkioDeviceWriteBps)
-	if err != nil {
-		return err
-	}
-	readIOpsDevice, err := getBlkioThrottleDevices(r.BlkioDeviceReadIOps)
-	if err != nil {
-		return err
-	}
-	writeIOpsDevice, err := getBlkioThrottleDevices(r.BlkioDeviceWriteIOps)
-	if err != nil {
-		return err
-	}
-
-	memoryRes := getMemoryResources(r)
-	cpuRes, err := getCPUResources(r)
-	if err != nil {
-		return err
-	}
-	blkioWeight := r.BlkioWeight
-
-	specResources := &specs.LinuxResources{
-		Memory: memoryRes,
-		CPU:    cpuRes,
-		BlockIO: &specs.LinuxBlockIO{
-			Weight:                  &blkioWeight,
-			WeightDevice:            weightDevices,
-			ThrottleReadBpsDevice:   readBpsDevice,
-			ThrottleWriteBpsDevice:  writeBpsDevice,
-			ThrottleReadIOPSDevice:  readIOpsDevice,
-			ThrottleWriteIOPSDevice: writeIOpsDevice,
-		},
-		DisableOOMKiller: r.OomKillDisable,
-		Pids: &specs.LinuxPids{
-			Limit: r.PidsLimit,
-		},
-	}
-
+	specResources := &specs.LinuxResources{}
 	if s.Linux.Resources != nil && len(s.Linux.Resources.Devices) > 0 {
 		specResources.Devices = s.Linux.Resources.Devices
 	}
-
 	s.Linux.Resources = specResources
 	return nil
 }

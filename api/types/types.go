@@ -134,19 +134,11 @@ type Info struct {
 	DriverStatus       [][2]string
 	SystemStatus       [][2]string
 	Plugins            PluginsInfo
-	MemoryLimit        bool
-	SwapLimit          bool
-	KernelMemory       bool
-	CPUCfsPeriod       bool `json:"CpuCfsPeriod"`
-	CPUCfsQuota        bool `json:"CpuCfsQuota"`
-	CPUShares          bool
-	CPUSet             bool
 	IPv4Forwarding     bool
 	BridgeNfIptables   bool
 	BridgeNfIP6tables  bool `json:"BridgeNfIp6tables"`
 	Debug              bool
 	NFd                int
-	OomKillDisable     bool
 	NGoroutines        int
 	SystemTime         string
 	LoggingDriver      string

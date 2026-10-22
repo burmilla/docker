@@ -7,7 +7,6 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	networktypes "github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/pkg/sysinfo"
 	"github.com/docker/docker/volume"
 )
 
@@ -61,16 +60,6 @@ func DecodeContainerConfig(src io.Reader) (*container.Config, *container.HostCon
 
 	// Validate isolation
 	if err := validateIsolation(hc); err != nil {
-		return nil, nil, nil, err
-	}
-
-	// Validate QoS
-	if err := validateQoS(hc); err != nil {
-		return nil, nil, nil, err
-	}
-
-	// Validate Resources
-	if err := validateResources(hc, sysinfo.New(true)); err != nil {
 		return nil, nil, nil, err
 	}
 

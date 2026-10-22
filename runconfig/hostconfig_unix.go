@@ -8,7 +8,6 @@ import (
 	"runtime"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/pkg/sysinfo"
 )
 
 // DefaultDaemonNetworkMode returns the default network stack the daemon should
@@ -53,37 +52,6 @@ func validateIsolation(hc *container.HostConfig) error {
 	}
 	if !hc.Isolation.IsValid() {
 		return fmt.Errorf("Invalid isolation: %q - %s only supports 'default'", hc.Isolation, runtime.GOOS)
-	}
-	return nil
-}
-
-// validateQoS performs platform specific validation of the QoS settings
-func validateQoS(hc *container.HostConfig) error {
-	// We may not be passed a host config, such as in the case of docker commit
-	if hc == nil {
-		return nil
-	}
-
-	if hc.IOMaximumBandwidth != 0 {
-		return fmt.Errorf("Invalid QoS settings: %s does not support configuration of maximum bandwidth", runtime.GOOS)
-	}
-
-	if hc.IOMaximumIOps != 0 {
-		return fmt.Errorf("Invalid QoS settings: %s does not support configuration of maximum IOPs", runtime.GOOS)
-	}
-	return nil
-}
-
-// validateResources performs platform specific validation of the resource settings
-// cpu-rt-runtime and cpu-rt-period can not be greater than their parent, cpu-rt-runtime requires sys_nice
-func validateResources(hc *container.HostConfig, si *sysinfo.SysInfo) error {
-	// We may not be passed a host config, such as in the case of docker commit
-	if hc == nil {
-		return nil
-	}
-
-	if hc.Resources.CPURealtimePeriod != 0 && hc.Resources.CPURealtimeRuntime != 0 && hc.Resources.CPURealtimeRuntime > hc.Resources.CPURealtimePeriod {
-		return fmt.Errorf("cpu real-time runtime cannot be higher than cpu real-time period")
 	}
 	return nil
 }

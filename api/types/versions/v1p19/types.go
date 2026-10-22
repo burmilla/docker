@@ -28,8 +28,4 @@ type ContainerConfig struct {
 
 	// backward compatibility, they now live in HostConfig
 	VolumeDriver string
-	Memory       int64
-	MemorySwap   int64
-	CPUShares    int64  `json:"CpuShares"`
-	CPUSet       string `json:"Cpuset"`
 }

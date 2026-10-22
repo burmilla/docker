@@ -15,7 +15,6 @@ type ContainerCreateConfig struct {
 	Config           *container.Config
 	HostConfig       *container.HostConfig
 	NetworkingConfig *network.NetworkingConfig
-	AdjustCPUShares  bool
 	Platform         string
 }
 

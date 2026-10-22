@@ -1,3 +1,4 @@
+//go:build !windows && !solaris
 // +build !windows,!solaris
 
 package daemon
@@ -47,10 +48,6 @@ func (daemon *Daemon) containerInspectPre120(name string) (*v1p19.ContainerJSON,
 		NetworkDisabled: container.Config.NetworkDisabled,
 		ExposedPorts:    container.Config.ExposedPorts,
 		VolumeDriver:    container.HostConfig.VolumeDriver,
-		Memory:          container.HostConfig.Memory,
-		MemorySwap:      container.HostConfig.MemorySwap,
-		CPUShares:       container.HostConfig.CPUShares,
-		CPUSet:          container.HostConfig.CpusetCpus,
 	}
 	networkSettings := daemon.getBackwardsCompatibleNetworkSettings(container.NetworkSettings)
 

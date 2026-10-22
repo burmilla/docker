@@ -29,3 +29,28 @@ RUN apt-get update && apt-get install -y --force-yes \
 	pkg-config \
 	tar
 
+# Install Go
+ENV GO_VERSION 1.27.3
+RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-$(dpkg --print-architecture).tar.gz" \
+	| tar -xzC /usr/local
+
+ENV PATH /go/bin:/usr/local/go/bin:$PATH
+ENV GOPATH /go
+# The tree is GOPATH/vendor based, not Go modules
+ENV GO111MODULE off
+ENV GOTOOLCHAIN local
+
+VOLUME /var/lib/docker
+WORKDIR /go/src/github.com/docker/docker
+
+# Install vndr, runc, containerd, tini, docker-proxy
+# Please edit hack/dockerfile/install-binaries.sh to update them.
+COPY hack/dockerfile/binaries-commits /tmp/binaries-commits
+COPY hack/dockerfile/install-binaries.sh /tmp/install-binaries.sh
+RUN /tmp/install-binaries.sh vndr runc containerd tini proxy
+
+# Wrap all commands in the "docker-in-docker" script to allow nested containers
+ENTRYPOINT ["hack/dind"]
+
+# Upload docker source
+COPY . /go/src/github.com/docker/docker

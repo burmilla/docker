@@ -46,7 +46,6 @@ const (
 // flatOptions contains configuration keys
 // that MUST NOT be parsed as deep structures.
 // Use this to differentiate these options
-// with others like the ones in CommonTLSOptions.
 var flatOptions = map[string]bool{
 	"cluster-store-opts": true,
 	"log-opts":           true,
@@ -67,15 +66,6 @@ type LogConfig struct {
 type commonBridgeConfig struct {
 	Iface     string `json:"bridge,omitempty"`
 	FixedCIDR string `json:"fixed-cidr,omitempty"`
-}
-
-// CommonTLSOptions defines TLS configuration for the daemon server.
-// It includes json tags to deserialize configuration from a file
-// using the same names that the flags in the command line use.
-type CommonTLSOptions struct {
-	CAFile   string `json:"tlscacert,omitempty"`
-	CertFile string `json:"tlscert,omitempty"`
-	KeyFile  string `json:"tlskey,omitempty"`
 }
 
 // CommonConfig defines the configuration of a docker daemon which is
@@ -138,17 +128,12 @@ type CommonConfig struct {
 	// to stop when daemon is being shutdown
 	ShutdownTimeout int `json:"shutdown-timeout,omitempty"`
 
-	Debug     bool     `json:"debug,omitempty"`
-	Hosts     []string `json:"hosts,omitempty"`
-	LogLevel  string   `json:"log-level,omitempty"`
-	TLS       bool     `json:"tls,omitempty"`
-	TLSVerify bool     `json:"tlsverify,omitempty"`
+	Debug    bool     `json:"debug,omitempty"`
+	Hosts    []string `json:"hosts,omitempty"`
+	LogLevel string   `json:"log-level,omitempty"`
 
 	// Embedded structs that allow config
 	// deserialization without the full struct.
-	CommonTLSOptions
-
-	MetricsAddress string `json:"metrics-addr"`
 
 	LogConfig
 	BridgeConfig // bridgeConfig holds bridge network specific configuration.

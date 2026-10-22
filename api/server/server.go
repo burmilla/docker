@@ -1,7 +1,6 @@
 package server
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -28,7 +27,6 @@ type Config struct {
 	CorsHeaders string
 	Version     string
 	SocketGroup string
-	TLSConfig   *tls.Config
 }
 
 // Server contains instance details for the server

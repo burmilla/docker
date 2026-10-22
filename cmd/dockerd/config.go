@@ -58,8 +58,6 @@ func installCommonConfigFlags(conf *config.Config, flags *pflag.FlagSet) {
 
 	flags.BoolVar(&conf.Experimental, "experimental", false, "Enable experimental features")
 
-	flags.StringVar(&conf.MetricsAddress, "metrics-addr", "", "Set default address and port to serve the metrics api on")
-
 	// "--deprecated-key-path" is to allow configuration of the key used
 	// for the daemon ID and the deprecated image signing. It was never
 	// exposed as a command line option but is added here to allow

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/tls"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -40,7 +39,6 @@ import (
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/registry"
 	"github.com/docker/docker/runconfig"
-	"github.com/docker/go-connections/tlsconfig"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 )
@@ -66,8 +64,6 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 
 	// warn from uuid package when running the daemon
 	uuid.Loggerf = logrus.Warnf
-
-	opts.SetDefaultOptions(opts.flags)
 
 	if cli.Config, err = loadDaemonCliConfig(opts); err != nil {
 		return err
@@ -125,25 +121,6 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 		CorsHeaders: cli.Config.CorsHeaders,
 	}
 
-	if cli.Config.TLS {
-		tlsOptions := tlsconfig.Options{
-			CAFile:             cli.Config.CommonTLSOptions.CAFile,
-			CertFile:           cli.Config.CommonTLSOptions.CertFile,
-			KeyFile:            cli.Config.CommonTLSOptions.KeyFile,
-			ExclusiveRootPools: true,
-		}
-
-		if cli.Config.TLSVerify {
-			// server requires and verifies client's certificate
-			tlsOptions.ClientAuth = tls.RequireAndVerifyClientCert
-		}
-		tlsConfig, err := tlsconfig.Server(tlsOptions)
-		if err != nil {
-			return err
-		}
-		serverConfig.TLSConfig = tlsConfig
-	}
-
 	if len(cli.Config.Hosts) == 0 {
 		cli.Config.Hosts = make([]string, 1)
 	}
@@ -154,7 +131,7 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 
 	for i := 0; i < len(cli.Config.Hosts); i++ {
 		var err error
-		if cli.Config.Hosts[i], err = dopts.ParseHost(cli.Config.TLS, cli.Config.Hosts[i]); err != nil {
+		if cli.Config.Hosts[i], err = dopts.ParseHost(false, cli.Config.Hosts[i]); err != nil {
 			return fmt.Errorf("error parsing -H %s : %v", cli.Config.Hosts[i], err)
 		}
 
@@ -167,21 +144,14 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 		proto := protoAddrParts[0]
 		addr := protoAddrParts[1]
 
-		// It's a bad idea to bind to TCP without tlsverify.
-		if proto == "tcp" && (serverConfig.TLSConfig == nil || serverConfig.TLSConfig.ClientAuth != tls.RequireAndVerifyClientCert) {
-			logrus.Warn("[!] DON'T BIND ON ANY IP ADDRESS WITHOUT setting --tlsverify IF YOU DON'T KNOW WHAT YOU'RE DOING [!]")
+		if proto != "unix" {
+			return fmt.Errorf("unsupported -H %s: only unix:// sockets are supported", protoAddr)
 		}
-		ls, err := listeners.Init(proto, addr, serverConfig.SocketGroup, serverConfig.TLSConfig)
+		ls, err := listeners.Init(addr, serverConfig.SocketGroup)
 		if err != nil {
 			return err
 		}
-		ls = wrapListeners(proto, ls)
-		// If we're binding to a TCP port, make sure that a container doesn't try to use it.
-		if proto == "tcp" {
-			if err := allocateDaemonPort(addr); err != nil {
-				return err
-			}
-		}
+		ls = wrapListeners(ls)
 		logrus.Debugf("Listener created for HTTP on %s (%s)", proto, addr)
 		hosts = append(hosts, protoAddrParts[1])
 		cli.api.Accept(addr, ls...)
@@ -197,9 +167,6 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 		<-stopc // wait for daemonCli.start() to return
 	})
 
-	// Notify that the API is active, but before daemon is set up.
-	preNotifySystem()
-
 	if err := cli.initMiddlewares(cli.api, serverConfig); err != nil {
 		logrus.Fatalf("Error creating middlewares: %v", err)
 	}
@@ -214,16 +181,6 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 	}
 
 	d.StoreHosts(hosts)
-
-	// TODO: move into startMetricsServer()
-	if cli.Config.MetricsAddress != "" {
-		if !d.HasExperimental() {
-			return fmt.Errorf("metrics-addr is only supported when experimental is enabled")
-		}
-		if err := startMetricsServer(cli.Config.MetricsAddress); err != nil {
-			return err
-		}
-	}
 
 	logrus.Info("Daemon has completed initialization")
 
@@ -244,9 +201,6 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 	// daemon doesn't exit
 	serveAPIWait := make(chan error)
 	go cli.api.Wait(serveAPIWait)
-
-	// after the daemon is done setting up we can notify systemd api
-	notifySystem()
 
 	// Daemon is fully initialized and handling API traffic
 	// Wait for serve API to complete
@@ -367,15 +321,6 @@ func loadDaemonCliConfig(opts *daemonOptions) (*config.Config, error) {
 	conf.Debug = opts.Debug
 	conf.Hosts = opts.Hosts
 	conf.LogLevel = opts.LogLevel
-	conf.TLS = opts.TLS
-	conf.TLSVerify = opts.TLSVerify
-	conf.CommonTLSOptions = config.CommonTLSOptions{}
-
-	if opts.TLSOptions != nil {
-		conf.CommonTLSOptions.CAFile = opts.TLSOptions.CAFile
-		conf.CommonTLSOptions.CertFile = opts.TLSOptions.CertFile
-		conf.CommonTLSOptions.KeyFile = opts.TLSOptions.KeyFile
-	}
 
 	if conf.TrustKeyPath == "" {
 		conf.TrustKeyPath = filepath.Join(
@@ -428,12 +373,6 @@ func loadDaemonCliConfig(opts *daemonOptions) (*config.Config, error) {
 	//
 	if _, err := config.GetConflictFreeLabels(conf.Labels); err != nil {
 		logrus.Warnf("Engine labels with duplicate keys and conflicting values have been deprecated: %s", err)
-	}
-
-	// Regardless of whether the user sets it to true or false, if they
-	// specify TLSVerify at all then we need to turn on TLS
-	if conf.IsValueSet(FlagTLSVerify) {
-		conf.TLS = true
 	}
 
 	// ensure that the log level is the one set after merging configurations

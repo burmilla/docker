@@ -2,7 +2,6 @@ package registry
 
 import (
 	"crypto/tls"
-	"net/http"
 	"net/url"
 	"sync"
 
@@ -112,11 +111,6 @@ type APIEndpoint struct {
 	TLSConfig                      *tls.Config
 }
 
-// ToV1Endpoint returns a V1 API endpoint based on the APIEndpoint
-func (e APIEndpoint) ToV1Endpoint(userAgent string, metaHeaders http.Header) (*V1Endpoint, error) {
-	return newV1Endpoint(*e.URL, e.TLSConfig, userAgent, metaHeaders)
-}
-
 // TLSConfig constructs a client TLS configuration based on server defaults
 func (s *DefaultService) TLSConfig(hostname string) (*tls.Config, error) {
 	s.mu.Lock()
@@ -135,30 +129,11 @@ func (s *DefaultService) tlsConfigForMirror(mirrorURL *url.URL) (*tls.Config, er
 }
 
 // LookupPullEndpoints creates a list of endpoints to try to pull from, in order of preference.
-// It gives preference to v2 endpoints over v1, mirrors over the actual
-// registry, and HTTPS over plain HTTP.
+// It gives preference to mirrors over the actual registry, and HTTPS over
+// plain HTTP.
 func (s *DefaultService) LookupPullEndpoints(hostname string) (endpoints []APIEndpoint, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.lookupEndpoints(hostname)
-}
-
-func (s *DefaultService) lookupEndpoints(hostname string) (endpoints []APIEndpoint, err error) {
-	endpoints, err = s.lookupV2Endpoints(hostname)
-	if err != nil {
-		return nil, err
-	}
-
-	if s.config.V2Only {
-		return endpoints, nil
-	}
-
-	legacyEndpoints, err := s.lookupV1Endpoints(hostname)
-	if err != nil {
-		return nil, err
-	}
-	endpoints = append(endpoints, legacyEndpoints...)
-
-	return endpoints, nil
+	return s.lookupV2Endpoints(hostname)
 }

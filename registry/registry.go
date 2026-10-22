@@ -3,7 +3,6 @@ package registry
 
 import (
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -17,12 +16,6 @@ import (
 	"github.com/docker/distribution/registry/client/transport"
 	"github.com/docker/go-connections/sockets"
 	"github.com/docker/go-connections/tlsconfig"
-)
-
-var (
-	// ErrAlreadyExists is an error returned if an image being pushed
-	// already exists on the remote side
-	ErrAlreadyExists = errors.New("Image already exists")
 )
 
 func newTLSConfig(hostname string, isSecure bool) (*tls.Config, error) {

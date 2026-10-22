@@ -21,16 +21,11 @@ type ServiceOptions struct {
 	AllowNondistributableArtifacts []string `json:"allow-nondistributable-artifacts,omitempty"`
 	Mirrors                        []string `json:"registry-mirrors,omitempty"`
 	InsecureRegistries             []string `json:"insecure-registries,omitempty"`
-
-	// V2Only controls access to legacy registries.  If it is set to true via the
-	// command line flag the daemon will not attempt to contact v1 legacy registries
-	V2Only bool `json:"disable-legacy-registry,omitempty"`
 }
 
 // serviceConfig holds daemon configuration for the registry service.
 type serviceConfig struct {
 	registrytypes.ServiceConfig
-	V2Only bool
 }
 
 var (
@@ -82,8 +77,6 @@ func (options *ServiceOptions) InstallCliFlags(flags *pflag.FlagSet) {
 	flags.Var(ana, "allow-nondistributable-artifacts", "Allow push of nondistributable artifacts to registry")
 	flags.Var(mirrors, "registry-mirror", "Preferred Docker registry mirror")
 	flags.Var(insecureRegistries, "insecure-registry", "Enable insecure registry communication")
-
-	options.installCliPlatformFlags(flags)
 }
 
 // newServiceConfig returns a new instance of ServiceConfig
@@ -95,7 +88,6 @@ func newServiceConfig(options ServiceOptions) *serviceConfig {
 			// Hack: Bypass setting the mirrors to IndexConfigs since they are going away
 			// and Mirrors are only for the official registry anyways.
 		},
-		V2Only: options.V2Only,
 	}
 
 	config.LoadAllowNondistributableArtifacts(options.AllowNondistributableArtifacts)

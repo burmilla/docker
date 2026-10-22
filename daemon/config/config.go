@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"runtime"
 	"strings"
 	"sync"
 
@@ -130,10 +129,6 @@ func (conf *Config) IsValueSet(name string) bool {
 func New() *Config {
 	config := Config{}
 	config.LogConfig.Config = make(map[string]string)
-
-	if runtime.GOOS != "linux" {
-		config.V2Only = true
-	}
 	return &config
 }
 

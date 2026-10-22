@@ -94,7 +94,6 @@ func NewV2Repository(ctx context.Context, repoInfo *registry.RepositoryInfo, end
 		}
 		return nil, foundVersion, fallbackError{
 			err:         err,
-			confirmedV2: foundVersion,
 			transportOK: transportOK,
 		}
 	}
@@ -126,7 +125,6 @@ func NewV2Repository(ctx context.Context, repoInfo *registry.RepositoryInfo, end
 	if err != nil {
 		return nil, foundVersion, fallbackError{
 			err:         err,
-			confirmedV2: foundVersion,
 			transportOK: true,
 		}
 	}
@@ -135,7 +133,6 @@ func NewV2Repository(ctx context.Context, repoInfo *registry.RepositoryInfo, end
 	if err != nil {
 		err = fallbackError{
 			err:         err,
-			confirmedV2: foundVersion,
 			transportOK: true,
 		}
 	}

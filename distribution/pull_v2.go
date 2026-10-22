@@ -56,14 +56,11 @@ type v2Puller struct {
 	config            *ImagePullConfig
 	repoInfo          *registry.RepositoryInfo
 	repo              distribution.Repository
-	// confirmedV2 is set to true if we confirm we're talking to a v2
-	// registry. This is used to limit fallbacks to the v1 protocol.
-	confirmedV2 bool
 }
 
 func (p *v2Puller) Pull(ctx context.Context, ref reference.Named) (err error) {
 	// TODO(tiborvass): was ReceiveTimeout
-	p.repo, p.confirmedV2, err = NewV2Repository(ctx, p.repoInfo, p.endpoint, p.config.MetaHeaders, p.config.AuthConfig, "pull")
+	p.repo, _, err = NewV2Repository(ctx, p.repoInfo, p.endpoint, p.config.MetaHeaders, p.config.AuthConfig, "pull")
 	if err != nil {
 		logrus.Warnf("Error getting v2 registry: %v", err)
 		return err
@@ -76,7 +73,6 @@ func (p *v2Puller) Pull(ctx context.Context, ref reference.Named) (err error) {
 		if continueOnError(err) {
 			return fallbackError{
 				err:         err,
-				confirmedV2: p.confirmedV2,
 				transportOK: true,
 			}
 		}
@@ -94,15 +90,8 @@ func (p *v2Puller) pullV2Repository(ctx context.Context, ref reference.Named) (e
 	} else {
 		tags, err := p.repo.Tags(ctx).All(ctx)
 		if err != nil {
-			// If this repository doesn't exist on V2, we should
-			// permit a fallback to V1.
 			return allowV1Fallback(err)
 		}
-
-		// The v2 registry knows about this repository, so we will not
-		// allow fallback to the v1 protocol even if we encounter an
-		// error later on.
-		p.confirmedV2 = true
 
 		for _, tag := range tags {
 			tagRef, err := reference.WithTag(ref, tag)
@@ -113,7 +102,7 @@ func (p *v2Puller) pullV2Repository(ctx context.Context, ref reference.Named) (e
 			if err != nil {
 				// Since this is the pull-all-tags case, don't
 				// allow an error pulling a particular tag to
-				// make the whole pull fall back to v1.
+				// make the whole pull fall back to the next endpoint.
 				if fallbackErr, ok := err.(fallbackError); ok {
 					return fallbackErr.err
 				}
@@ -371,10 +360,6 @@ func (p *v2Puller) pullV2Tag(ctx context.Context, ref reference.Named) (tagUpdat
 			return false, fmt.Errorf("Encountered remote %q(%s) when fetching", m.Manifest.Config.MediaType, configClass)
 		}
 	}
-
-	// If manSvc.Get succeeded, we can be confident that the registry on
-	// the other side speaks the v2 protocol.
-	p.confirmedV2 = true
 
 	logrus.Debugf("Pulling ref from V2 registry: %s", reference.FamiliarString(ref))
 	progress.Message(p.config.ProgressOutput, tagOrDigest, "Pulling from "+reference.FamiliarName(p.repo.Named()))
@@ -805,10 +790,9 @@ func schema2ManifestDigest(ref reference.Named, mfst distribution.Manifest) (dig
 	return digest.FromBytes(canonical), nil
 }
 
-// allowV1Fallback checks if the error is a possible reason to fallback to v1
-// (even if confirmedV2 has been set already), and if so, wraps the error in
-// a fallbackError with confirmedV2 set to false. Otherwise, it returns the
-// error unmodified.
+// allowV1Fallback checks if the error is a possible reason to fall back to
+// the next endpoint, and if so, wraps the error in a fallbackError.
+// Otherwise, it returns the error unmodified.
 func allowV1Fallback(err error) error {
 	switch v := err.(type) {
 	case errcode.Errors:
@@ -816,7 +800,6 @@ func allowV1Fallback(err error) error {
 			if v0, ok := v[0].(errcode.Error); ok && shouldV2Fallback(v0) {
 				return fallbackError{
 					err:         err,
-					confirmedV2: false,
 					transportOK: true,
 				}
 			}
@@ -825,13 +808,12 @@ func allowV1Fallback(err error) error {
 		if shouldV2Fallback(v) {
 			return fallbackError{
 				err:         err,
-				confirmedV2: false,
 				transportOK: true,
 			}
 		}
 	case *url.Error:
 		if v.Err == auth.ErrNoBasicAuthCredentials {
-			return fallbackError{err: err, confirmedV2: false}
+			return fallbackError{err: err}
 		}
 	}
 

@@ -16,7 +16,6 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/versions"
 	"github.com/docker/libnetwork"
-	"github.com/docker/libnetwork/networkdb"
 )
 
 var (
@@ -239,11 +238,6 @@ func (n *networkRouter) buildNetworkResource(nw libnetwork.Network) *types.Netwo
 		r.ConfigFrom = network.ConfigReference{Network: cn}
 	}
 
-	peers := info.Peers()
-	if len(peers) != 0 {
-		r.Peers = buildPeerInfoResources(peers)
-	}
-
 	return r
 }
 
@@ -291,17 +285,6 @@ func (n *networkRouter) buildDetailedNetworkResources(nw libnetwork.Network, ver
 		}
 	}
 	return r
-}
-
-func buildPeerInfoResources(peers []networkdb.PeerInfo) []network.PeerInfo {
-	peerInfo := make([]network.PeerInfo, 0, len(peers))
-	for _, peer := range peers {
-		peerInfo = append(peerInfo, network.PeerInfo{
-			Name: peer.Name,
-			IP:   peer.IP,
-		})
-	}
-	return peerInfo
 }
 
 func buildIpamResources(r *types.NetworkResource, nwInfo libnetwork.NetworkInfo) {

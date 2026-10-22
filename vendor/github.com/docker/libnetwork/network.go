@@ -18,7 +18,6 @@ import (
 	"github.com/docker/libnetwork/ipamapi"
 	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/netutils"
-	"github.com/docker/libnetwork/networkdb"
 	"github.com/docker/libnetwork/options"
 	"github.com/docker/libnetwork/types"
 )
@@ -73,11 +72,6 @@ type NetworkInfo interface {
 	Labels() map[string]string
 	Dynamic() bool
 	Created() time.Time
-	// Peers returns a slice of PeerInfo structures which has the information about the peer
-	// nodes participating in the same overlay network. This is currently the per-network
-	// gossip cluster. For non-dynamic overlay networks and bridge networks it returns an
-	// empty slice
-	Peers() []networkdb.PeerInfo
 	//Services returns a map of services keyed by the service name with the details
 	//of all the tasks that belong to the service. Applicable only in swarm mode.
 	Services() map[string]ServiceInfo
@@ -1683,19 +1677,6 @@ func (n *network) deriveAddressSpace() (string, error) {
 
 func (n *network) Info() NetworkInfo {
 	return n
-}
-
-func (n *network) Peers() []networkdb.PeerInfo {
-	if !n.Dynamic() {
-		return []networkdb.PeerInfo{}
-	}
-
-	agent := n.getController().getAgent()
-	if agent == nil {
-		return []networkdb.PeerInfo{}
-	}
-
-	return agent.networkDB.Peers(n.ID())
 }
 
 func (n *network) DriverOptions() map[string]string {

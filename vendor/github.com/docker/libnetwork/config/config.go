@@ -7,7 +7,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/go-connections/tlsconfig"
 	"github.com/docker/libkv/store"
-	"github.com/docker/libnetwork/cluster"
 	"github.com/docker/libnetwork/datastore"
 	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/osl"
@@ -23,14 +22,13 @@ type Config struct {
 
 // DaemonCfg represents libnetwork core configuration
 type DaemonCfg struct {
-	Debug           bool
-	Experimental    bool
-	DataDir         string
-	DefaultNetwork  string
-	DefaultDriver   string
-	Labels          []string
-	DriverCfg       map[string]interface{}
-	ClusterProvider cluster.Provider
+	Debug          bool
+	Experimental   bool
+	DataDir        string
+	DefaultNetwork string
+	DefaultDriver  string
+	Labels         []string
+	DriverCfg      map[string]interface{}
 }
 
 // ClusterCfg represents cluster configuration

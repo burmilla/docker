@@ -55,7 +55,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/locker"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/libnetwork/cluster"
 	"github.com/docker/libnetwork/config"
 	"github.com/docker/libnetwork/datastore"
 	"github.com/docker/libnetwork/discoverapi"
@@ -117,18 +116,6 @@ type NetworkController interface {
 
 	// ReloadCondfiguration updates the controller configuration
 	ReloadConfiguration(cfgOptions ...config.Option) error
-
-	// SetClusterProvider sets cluster provider
-	SetClusterProvider(provider cluster.Provider)
-
-	// Wait for agent initialization complete in libnetwork controller
-	AgentInitWait()
-
-	// Wait for agent to stop if running
-	AgentStopWait()
-
-	// SetKeys configures the encryption key for gossip and overlay data path
-	SetKeys(keys []*types.EncryptionKey) error
 }
 
 // NetworkWalker is a client provided function which will be used to walk the Networks.
@@ -142,26 +129,21 @@ type SandboxWalker func(sb Sandbox) bool
 type sandboxTable map[string]*sandbox
 
 type controller struct {
-	id                     string
-	drvRegistry            *drvregistry.DrvRegistry
-	sandboxes              sandboxTable
-	cfg                    *config.Config
-	stores                 []datastore.DataStore
-	extKeyListener         net.Listener
-	watchCh                chan *endpoint
-	unWatchCh              chan *endpoint
-	svcRecords             map[string]svcInfo
-	nmap                   map[string]*netWatch
-	serviceBindings        map[serviceKey]*service
-	defOsSbox              osl.Sandbox
-	ingressSandbox         *sandbox
-	sboxOnce               sync.Once
-	agent                  *agent
-	networkLocker          *locker.Locker
-	agentInitDone          chan struct{}
-	agentStopDone          chan struct{}
-	keys                   []*types.EncryptionKey
-	clusterConfigAvailable bool
+	id              string
+	drvRegistry     *drvregistry.DrvRegistry
+	sandboxes       sandboxTable
+	cfg             *config.Config
+	stores          []datastore.DataStore
+	extKeyListener  net.Listener
+	watchCh         chan *endpoint
+	unWatchCh       chan *endpoint
+	svcRecords      map[string]svcInfo
+	nmap            map[string]*netWatch
+	serviceBindings map[serviceKey]*service
+	defOsSbox       osl.Sandbox
+	ingressSandbox  *sandbox
+	sboxOnce        sync.Once
+	networkLocker   *locker.Locker
 	sync.Mutex
 }
 
@@ -178,7 +160,6 @@ func New(cfgOptions ...config.Option) (NetworkController, error) {
 		sandboxes:       sandboxTable{},
 		svcRecords:      make(map[string]svcInfo),
 		serviceBindings: make(map[serviceKey]*service),
-		agentInitDone:   make(chan struct{}),
 		networkLocker:   locker.New(),
 	}
 
@@ -222,164 +203,8 @@ func New(cfgOptions ...config.Option) (NetworkController, error) {
 	return c, nil
 }
 
-func (c *controller) SetClusterProvider(provider cluster.Provider) {
-	var sameProvider bool
-	c.Lock()
-	// Avoids to spawn multiple goroutine for the same cluster provider
-	if c.cfg.Daemon.ClusterProvider == provider {
-		// If the cluster provider is already set, there is already a go routine spawned
-		// that is listening for events, so nothing to do here
-		sameProvider = true
-	} else {
-		c.cfg.Daemon.ClusterProvider = provider
-	}
-	c.Unlock()
-
-	if provider == nil || sameProvider {
-		return
-	}
-	// We don't want to spawn a new go routine if the previous one did not exit yet
-	c.AgentStopWait()
-	go c.clusterAgentInit()
-}
-
 func isValidClusteringIP(addr string) bool {
 	return addr != "" && !net.ParseIP(addr).IsLoopback() && !net.ParseIP(addr).IsUnspecified()
-}
-
-// libnetwork side of agent depends on the keys. On the first receipt of
-// keys setup the agent. For subsequent key set handle the key change
-func (c *controller) SetKeys(keys []*types.EncryptionKey) error {
-	subsysKeys := make(map[string]int)
-	for _, key := range keys {
-		if key.Subsystem != subsysGossip &&
-			key.Subsystem != subsysIPSec {
-			return fmt.Errorf("key received for unrecognized subsystem")
-		}
-		subsysKeys[key.Subsystem]++
-	}
-	for s, count := range subsysKeys {
-		if count != keyringSize {
-			return fmt.Errorf("incorrect number of keys for subsystem %v", s)
-		}
-	}
-
-	agent := c.getAgent()
-
-	if agent == nil {
-		c.Lock()
-		c.keys = keys
-		c.Unlock()
-		return nil
-	}
-	return c.handleKeyChange(keys)
-}
-
-func (c *controller) getAgent() *agent {
-	c.Lock()
-	defer c.Unlock()
-	return c.agent
-}
-
-func (c *controller) clusterAgentInit() {
-	clusterProvider := c.cfg.Daemon.ClusterProvider
-	var keysAvailable bool
-	for {
-		eventType := <-clusterProvider.ListenClusterEvents()
-		// The events: EventSocketChange, EventNodeReady and EventNetworkKeysAvailable are not ordered
-		// when all the condition for the agent initialization are met then proceed with it
-		switch eventType {
-		case cluster.EventNetworkKeysAvailable:
-			// Validates that the keys are actually available before starting the initialization
-			// This will handle old spurious messages left on the channel
-			c.Lock()
-			keysAvailable = c.keys != nil
-			c.Unlock()
-			fallthrough
-		case cluster.EventSocketChange, cluster.EventNodeReady:
-			if keysAvailable && !c.isDistributedControl() {
-				c.agentOperationStart()
-				if err := c.agentSetup(clusterProvider); err != nil {
-					c.agentStopComplete()
-				} else {
-					c.agentInitComplete()
-				}
-			}
-		case cluster.EventNodeLeave:
-			keysAvailable = false
-			c.agentOperationStart()
-			c.Lock()
-			c.keys = nil
-			c.Unlock()
-
-			// We are leaving the cluster. Make sure we
-			// close the gossip so that we stop all
-			// incoming gossip updates before cleaning up
-			// any remaining service bindings. But before
-			// deleting the networks since the networks
-			// should still be present when cleaning up
-			// service bindings
-			c.agentClose()
-			c.cleanupServiceBindings("")
-
-			c.agentStopComplete()
-
-			return
-		}
-	}
-}
-
-// AgentInitWait waits for agent initialization to be completed in the controller.
-func (c *controller) AgentInitWait() {
-	c.Lock()
-	agentInitDone := c.agentInitDone
-	c.Unlock()
-
-	if agentInitDone != nil {
-		<-agentInitDone
-	}
-}
-
-// AgentStopWait waits for the Agent stop to be completed in the controller
-func (c *controller) AgentStopWait() {
-	c.Lock()
-	agentStopDone := c.agentStopDone
-	c.Unlock()
-	if agentStopDone != nil {
-		<-agentStopDone
-	}
-}
-
-// agentOperationStart marks the start of an Agent Init or Agent Stop
-func (c *controller) agentOperationStart() {
-	c.Lock()
-	if c.agentInitDone == nil {
-		c.agentInitDone = make(chan struct{})
-	}
-	if c.agentStopDone == nil {
-		c.agentStopDone = make(chan struct{})
-	}
-	c.Unlock()
-}
-
-// agentInitComplete notifies the successful completion of the Agent initialization
-func (c *controller) agentInitComplete() {
-	c.Lock()
-	if c.agentInitDone != nil {
-		close(c.agentInitDone)
-		c.agentInitDone = nil
-	}
-	c.Unlock()
-}
-
-// agentStopComplete notifies the successful completion of the Agent stop
-func (c *controller) agentStopComplete() {
-	c.Lock()
-	if c.agentStopDone != nil {
-		close(c.agentStopDone)
-		c.agentStopDone = nil
-	}
-	c.Unlock()
 }
 
 func (c *controller) makeDriverConfig(ntype string) map[string]interface{} {
@@ -537,23 +362,9 @@ func (c *controller) Config() config.Config {
 	return *c.cfg
 }
 
-func (c *controller) isManager() bool {
-	c.Lock()
-	defer c.Unlock()
-	if c.cfg == nil || c.cfg.Daemon.ClusterProvider == nil {
-		return false
-	}
-	return c.cfg.Daemon.ClusterProvider.IsManager()
-}
+func (c *controller) isManager() bool { return false }
 
-func (c *controller) isAgent() bool {
-	c.Lock()
-	defer c.Unlock()
-	if c.cfg == nil || c.cfg.Daemon.ClusterProvider == nil {
-		return false
-	}
-	return c.cfg.Daemon.ClusterProvider.IsAgent()
-}
+func (c *controller) isAgent() bool { return false }
 
 func (c *controller) isDistributedControl() bool {
 	return !c.isManager() && !c.isAgent()
@@ -1096,42 +907,4 @@ func (c *controller) Stop() {
 	c.closeStores()
 	c.stopExternalKeyListener()
 	osl.GC()
-}
-
-func (c *controller) processNodeDiscovery(nodes []net.IP, add bool) {
-	c.drvRegistry.WalkDrivers(func(name string, driver driverapi.Driver, capability driverapi.Capability) bool {
-		c.pushNodeDiscovery(driver, capability, nodes, add)
-		return false
-	})
-}
-
-func (c *controller) pushNodeDiscovery(d driverapi.Driver, cap driverapi.Capability, nodes []net.IP, add bool) {
-	var self net.IP
-	if c.cfg != nil {
-		addr := strings.Split(c.cfg.Cluster.Address, ":")
-		self = net.ParseIP(addr[0])
-		// if external kvstore is not configured, try swarm-mode config
-		if self == nil {
-			if agent := c.getAgent(); agent != nil {
-				self = net.ParseIP(agent.advertiseAddr)
-			}
-		}
-	}
-
-	if d == nil || cap.ConnectivityScope != datastore.GlobalScope || nodes == nil {
-		return
-	}
-
-	for _, node := range nodes {
-		nodeData := discoverapi.NodeDiscoveryData{Address: node.String(), Self: node.Equal(self)}
-		var err error
-		if add {
-			err = d.DiscoverNew(discoverapi.NodeDiscovery, nodeData)
-		} else {
-			err = d.DiscoverDelete(discoverapi.NodeDiscovery, nodeData)
-		}
-		if err != nil {
-			logrus.Debugf("discovery notification error: %v", err)
-		}
-	}
 }

@@ -9,11 +9,9 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/go-connections/nat"
 )
 
@@ -73,12 +71,6 @@ type Container struct {
 	}
 	NetworkSettings *SummaryNetworkSettings
 	Mounts          []MountPoint
-}
-
-// CopyConfig contains request body of Engine API:
-// POST "/containers/"+containerID+"/copy"
-type CopyConfig struct {
-	Resource string
 }
 
 // ContainerPathStat is used to encode the header from
@@ -179,7 +171,6 @@ type Info struct {
 	ClusterAdvertise   string
 	Runtimes           map[string]Runtime
 	DefaultRuntime     string
-	Swarm              swarm.Info
 	// LiveRestoreEnabled determines whether containers should be kept
 	// running when the daemon is shutdown or upon daemon start if
 	// running containers are detected
@@ -296,18 +287,6 @@ type ContainerState struct {
 	Health     *Health `json:",omitempty"`
 }
 
-// ContainerNode stores information about the node that a container
-// is running on.  It's only available in Docker Swarm
-type ContainerNode struct {
-	ID        string
-	IPAddress string `json:"IP"`
-	Addr      string
-	Name      string
-	Cpus      int
-	Memory    int64
-	Labels    map[string]string
-}
-
 // ContainerJSONBase contains response of Engine API:
 // GET "/containers/{name:.*}/json"
 type ContainerJSONBase struct {
@@ -321,7 +300,6 @@ type ContainerJSONBase struct {
 	HostnamePath    string
 	HostsPath       string
 	LogPath         string
-	Node            *ContainerNode `json:",omitempty"`
 	Name            string
 	RestartCount    int
 	Driver          string
@@ -414,7 +392,6 @@ type NetworkResource struct {
 	Containers map[string]EndpointResource    // Containers contains endpoints belonging to the network
 	Options    map[string]string              // Options holds the network specific options to use for when creating the network
 	Labels     map[string]string              // Labels holds metadata specific to the network being created
-	Peers      []network.PeerInfo             `json:",omitempty"` // List of peer nodes for an overlay network
 	Services   map[string]network.ServiceInfo `json:",omitempty"`
 }
 
@@ -480,11 +457,6 @@ type NetworkInspectOptions struct {
 	Verbose bool
 }
 
-// Checkpoint represents the details of a checkpoint
-type Checkpoint struct {
-	Name string // Name is the name of the checkpoint
-}
-
 // Runtime describes an OCI runtime
 type Runtime struct {
 	Path string   `json:"path"`
@@ -522,52 +494,8 @@ type ImagesPruneReport struct {
 	SpaceReclaimed uint64
 }
 
-// BuildCachePruneReport contains the response for Engine API:
-// POST "/build/prune"
-type BuildCachePruneReport struct {
-	SpaceReclaimed uint64
-}
-
 // NetworksPruneReport contains the response for Engine API:
 // POST "/networks/prune"
 type NetworksPruneReport struct {
 	NetworksDeleted []string
-}
-
-// SecretCreateResponse contains the information returned to a client
-// on the creation of a new secret.
-type SecretCreateResponse struct {
-	// ID is the id of the created secret.
-	ID string
-}
-
-// SecretListOptions holds parameters to list secrets
-type SecretListOptions struct {
-	Filters filters.Args
-}
-
-// ConfigCreateResponse contains the information returned to a client
-// on the creation of a new config.
-type ConfigCreateResponse struct {
-	// ID is the id of the created config.
-	ID string
-}
-
-// ConfigListOptions holds parameters to list configs
-type ConfigListOptions struct {
-	Filters filters.Args
-}
-
-// PushResult contains the tag, manifest digest, and manifest size from the
-// push. It's used to signal this information to the trust code in the client
-// so it can sign the manifest if necessary.
-type PushResult struct {
-	Tag    string
-	Digest string
-	Size   int
-}
-
-// BuildResult contains the image id of a successful build
-type BuildResult struct {
-	ID string
 }

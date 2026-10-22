@@ -9,16 +9,6 @@ import (
 	"github.com/docker/go-units"
 )
 
-// Isolation represents the isolation technology of a container. The supported
-// values are platform specific
-type Isolation string
-
-// IsDefault indicates the default isolation technology of a container. On Linux this
-// is the native driver. On Windows, this is a Windows Server Container.
-func (i Isolation) IsDefault() bool {
-	return strings.ToLower(string(i)) == "default" || string(i) == ""
-}
-
 // IpcMode represents the container ipc stack.
 type IpcMode string
 
@@ -277,10 +267,6 @@ type HostConfig struct {
 	ShmSize         int64             // Total shm memory usage
 	Sysctls         map[string]string `json:",omitempty"` // List of Namespaced sysctls used for the container
 	Runtime         string            `json:",omitempty"` // Runtime to use with this container
-
-	// Applicable to Windows
-	ConsoleSize [2]uint   // Initial console size (height,width)
-	Isolation   Isolation // Isolation technology of the container (e.g. default, hyperv)
 
 	// Contains container's resources (ulimits)
 	Resources

@@ -58,11 +58,6 @@ func DecodeContainerConfig(src io.Reader) (*container.Config, *container.HostCon
 		return nil, nil, nil, err
 	}
 
-	// Validate isolation
-	if err := validateIsolation(hc); err != nil {
-		return nil, nil, nil, err
-	}
-
 	// Validate Privileged
 	if err := validatePrivileged(hc); err != nil {
 		return nil, nil, nil, err

@@ -24,20 +24,19 @@ var acceptedVolumeFilterTags = map[string]bool{
 }
 
 var acceptedPsFilterTags = map[string]bool{
-	"ancestor":  true,
-	"before":    true,
-	"exited":    true,
-	"id":        true,
-	"isolation": true,
-	"label":     true,
-	"name":      true,
-	"status":    true,
-	"health":    true,
-	"since":     true,
-	"volume":    true,
-	"network":   true,
-	"publish":   true,
-	"expose":    true,
+	"ancestor": true,
+	"before":   true,
+	"exited":   true,
+	"id":       true,
+	"label":    true,
+	"name":     true,
+	"status":   true,
+	"health":   true,
+	"since":    true,
+	"volume":   true,
+	"network":  true,
+	"publish":  true,
+	"expose":   true,
 }
 
 // iterationAction represents possible outcomes happening during the container iteration.
@@ -399,11 +398,6 @@ func includeContainerInList(container *container.Snapshot, ctx *listContext) ite
 
 	// Do not include container if any of the labels don't match
 	if !ctx.filters.MatchKVList("label", container.Labels) {
-		return excludeContainer
-	}
-
-	// Do not include container if isolation doesn't match
-	if excludeContainer == excludeByIsolation(container, ctx) {
 		return excludeContainer
 	}
 

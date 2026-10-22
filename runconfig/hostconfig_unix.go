@@ -4,9 +4,6 @@
 package runconfig
 
 import (
-	"fmt"
-	"runtime"
-
 	"github.com/docker/docker/api/types/container"
 )
 
@@ -39,20 +36,6 @@ func validateNetMode(c *container.Config, hc *container.HostConfig) error {
 		return ErrConflictUTSHostname
 	}
 
-	return nil
-}
-
-// validateIsolation performs platform specific validation of
-// isolation in the hostconfig structure. Linux only supports "default"
-// which is LXC container isolation
-func validateIsolation(hc *container.HostConfig) error {
-	// We may not be passed a host config, such as in the case of docker commit
-	if hc == nil {
-		return nil
-	}
-	if !hc.Isolation.IsValid() {
-		return fmt.Errorf("Invalid isolation: %q - %s only supports 'default'", hc.Isolation, runtime.GOOS)
-	}
 	return nil
 }
 

@@ -159,7 +159,6 @@ type Info struct {
 	// running when the daemon is shutdown or upon daemon start if
 	// running containers are detected
 	LiveRestoreEnabled bool
-	Isolation          container.Isolation
 	InitBinary         string
 	ContainerdCommit   Commit
 	RuncCommit         Commit

@@ -90,7 +90,6 @@ type Daemon struct {
 	nameIndex         *registrar.Registrar
 	containerd        libcontainerd.Client
 	containerdRemote  libcontainerd.Remote
-	defaultIsolation  containertypes.Isolation // Default isolation mode on Windows
 
 	diskUsageRunning int32
 	pruneRunning     int32
@@ -391,11 +390,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 		stackDumpDir = execRoot
 	}
 	d.setupDumpStackTrap(stackDumpDir)
-
-	// Set the default isolation mode (only applicable on Windows)
-	if err := d.setDefaultIsolation(); err != nil {
-		return nil, fmt.Errorf("error setting default isolation mode: %v", err)
-	}
 
 	logrus.Debugf("Using default logging driver %s", config.LogConfig.Type)
 

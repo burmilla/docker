@@ -639,12 +639,6 @@ func (daemon *Daemon) conditionalUnmountOnCleanup(container *container.Container
 	return daemon.Unmount(container)
 }
 
-// setDefaultIsolation determines the default isolation mode for the
-// daemon to run in. This is only applicable on Windows
-func (daemon *Daemon) setDefaultIsolation() error {
-	return nil
-}
-
 func rootFSToAPIType(rootfs *image.RootFS) types.RootFS {
 	var layers []string
 	for _, l := range rootfs.DiffIDs {

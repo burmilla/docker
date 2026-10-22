@@ -91,7 +91,6 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 		NoProxy:            sockets.GetProxyEnv("no_proxy"),
 		LiveRestoreEnabled: daemon.configStore.LiveRestoreEnabled,
 		SecurityOptions:    securityOptions,
-		Isolation:          daemon.defaultIsolation,
 	}
 
 	// Retrieve platform specific info

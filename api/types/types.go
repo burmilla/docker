@@ -153,8 +153,6 @@ type Info struct {
 	ServerVersion      string
 	ClusterStore       string
 	ClusterAdvertise   string
-	Runtimes           map[string]Runtime
-	DefaultRuntime     string
 	// LiveRestoreEnabled determines whether containers should be kept
 	// running when the daemon is shutdown or upon daemon start if
 	// running containers are detected
@@ -414,12 +412,6 @@ type NetworkDisconnect struct {
 type NetworkInspectOptions struct {
 	Scope   string
 	Verbose bool
-}
-
-// Runtime describes an OCI runtime
-type Runtime struct {
-	Path string   `json:"path"`
-	Args []string `json:"runtimeArgs,omitempty"`
 }
 
 // DiskUsage contains response of Engine API:

@@ -9,8 +9,6 @@ const (
 	ImageEventType = "image"
 	// NetworkEventType is the event type that networks generate
 	NetworkEventType = "network"
-	// PluginEventType is the event type that plugins generate
-	PluginEventType = "plugin"
 	// VolumeEventType is the event type that volumes generate
 	VolumeEventType = "volume"
 )

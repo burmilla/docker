@@ -21,9 +21,6 @@ const (
 	// maximum number of downloads that
 	// may take place at a time for each pull.
 	DefaultMaxConcurrentDownloads = 3
-	// StockRuntimeName is the reserved name/alias used to represent the
-	// OCI runtime being shipped with the docker daemon package.
-	StockRuntimeName = "runc"
 	// DefaultShmSize is the default value for container's shm size
 	DefaultShmSize = int64(67108864)
 	// DefaultNetworkMtu is the default value for network MTU
@@ -67,7 +64,6 @@ type CommonConfig struct {
 	DNS            []string            `json:"dns,omitempty"`
 	DNSOptions     []string            `json:"dns-opts,omitempty"`
 	DNSSearch      []string            `json:"dns-search,omitempty"`
-	ExecOptions    []string            `json:"exec-opts,omitempty"`
 	GraphDriver    string              `json:"storage-driver,omitempty"`
 	GraphOptions   []string            `json:"storage-opts,omitempty"`
 	Labels         []string            `json:"labels,omitempty"`
@@ -397,20 +393,6 @@ func Validate(config *Config) error {
 	// validate MaxConcurrentDownloads
 	if config.MaxConcurrentDownloads != nil && *config.MaxConcurrentDownloads < 0 {
 		return fmt.Errorf("invalid max concurrent downloads: %d", *config.MaxConcurrentDownloads)
-	}
-
-	// validate that "default" runtime is not reset
-	if runtimes := config.GetAllRuntimes(); len(runtimes) > 0 {
-		if _, ok := runtimes[StockRuntimeName]; ok {
-			return fmt.Errorf("runtime name '%s' is reserved", StockRuntimeName)
-		}
-	}
-
-	if defaultRuntime := config.GetDefaultRuntimeName(); defaultRuntime != "" && defaultRuntime != StockRuntimeName {
-		runtimes := config.GetAllRuntimes()
-		if _, ok := runtimes[defaultRuntime]; !ok {
-			return fmt.Errorf("specified default runtime '%s' does not exist", defaultRuntime)
-		}
 	}
 
 	return nil

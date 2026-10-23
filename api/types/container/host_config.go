@@ -266,7 +266,6 @@ type HostConfig struct {
 	UsernsMode      UsernsMode        // The user namespace to use for the container
 	ShmSize         int64             // Total shm memory usage
 	Sysctls         map[string]string `json:",omitempty"` // List of Namespaced sysctls used for the container
-	Runtime         string            `json:",omitempty"` // Runtime to use with this container
 
 	// Contains container's resources (ulimits)
 	Resources

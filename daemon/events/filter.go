@@ -23,7 +23,6 @@ func (ef *Filter) Include(ev events.Message) bool {
 		ef.matchScope(ev.Scope) &&
 		ef.matchDaemon(ev) &&
 		ef.matchContainer(ev) &&
-		ef.matchPlugin(ev) &&
 		ef.matchVolume(ev) &&
 		ef.matchNetwork(ev) &&
 		ef.matchImage(ev) &&
@@ -68,10 +67,6 @@ func (ef *Filter) matchDaemon(ev events.Message) bool {
 
 func (ef *Filter) matchContainer(ev events.Message) bool {
 	return ef.fuzzyMatchName(ev, events.ContainerEventType)
-}
-
-func (ef *Filter) matchPlugin(ev events.Message) bool {
-	return ef.fuzzyMatchName(ev, events.PluginEventType)
 }
 
 func (ef *Filter) matchVolume(ev events.Message) bool {

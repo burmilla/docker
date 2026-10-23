@@ -16,9 +16,6 @@ import (
 
 // FillPlatformInfo fills the platform related info.
 func (daemon *Daemon) FillPlatformInfo(v *types.Info, sysInfo *sysinfo.SysInfo) {
-	v.Runtimes = daemon.configStore.GetAllRuntimes()
-	v.DefaultRuntime = daemon.configStore.GetDefaultRuntimeName()
-
 	v.ContainerdCommit.Expected = dockerversion.ContainerdCommitID
 	if sv, err := daemon.containerd.GetServerVersion(context.Background()); err == nil {
 		v.ContainerdCommit.ID = sv.Revision
@@ -28,7 +25,7 @@ func (daemon *Daemon) FillPlatformInfo(v *types.Info, sysInfo *sysinfo.SysInfo) 
 	}
 
 	v.RuncCommit.Expected = dockerversion.RuncCommitID
-	defaultRuntimeBinary := daemon.configStore.GetRuntime(daemon.configStore.GetDefaultRuntimeName()).Path
+	defaultRuntimeBinary := DefaultRuntimeBinary
 	if rv, err := exec.Command(defaultRuntimeBinary, "--version").Output(); err == nil {
 		parts := strings.Split(strings.TrimSpace(string(rv)), "\n")
 		if len(parts) == 3 {

@@ -4,7 +4,6 @@
 package daemon
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -150,14 +149,6 @@ func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.
 			return warnings, fmt.Errorf("Cannot share the host PID namespace when user namespaces are enabled")
 		}
 	}
-	if hostConfig.Runtime == "" {
-		hostConfig.Runtime = daemon.configStore.GetDefaultRuntimeName()
-	}
-
-	if rt := daemon.configStore.GetRuntime(hostConfig.Runtime); rt == nil {
-		return warnings, fmt.Errorf("Unknown runtime specified %s", hostConfig.Runtime)
-	}
-
 	for dest := range hostConfig.Tmpfs {
 		if err := volume.ValidateTmpfsMountDestination(dest); err != nil {
 			return warnings, err
@@ -170,31 +161,11 @@ func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.
 // reloadPlatform updates configuration with platform specific options
 // and updates the passed attributes
 func (daemon *Daemon) reloadPlatform(conf *config.Config, attributes map[string]string) {
-	if conf.IsValueSet("runtimes") {
-		daemon.configStore.Runtimes = conf.Runtimes
-		// Always set the default one
-		daemon.configStore.Runtimes[config.StockRuntimeName] = types.Runtime{Path: DefaultRuntimeBinary, Args: defaultRuntimeArgs}
-	}
-
-	if conf.DefaultRuntime != "" {
-		daemon.configStore.DefaultRuntime = conf.DefaultRuntime
-	}
-
 	if conf.IsValueSet("default-shm-size") {
 		daemon.configStore.ShmSize = conf.ShmSize
 	}
 
 	// Update attributes
-	var runtimeList bytes.Buffer
-	for name, rt := range daemon.configStore.Runtimes {
-		if runtimeList.Len() > 0 {
-			runtimeList.WriteRune(' ')
-		}
-		runtimeList.WriteString(fmt.Sprintf("%s:%s", name, rt))
-	}
-
-	attributes["runtimes"] = runtimeList.String()
-	attributes["default-runtime"] = daemon.configStore.DefaultRuntime
 	attributes["default-shm-size"] = fmt.Sprintf("%d", daemon.configStore.ShmSize)
 }
 
@@ -210,14 +181,6 @@ func verifyDaemonSettings(conf *config.Config) error {
 	if !conf.BridgeConfig.EnableIPTables && conf.BridgeConfig.EnableIPMasq {
 		conf.BridgeConfig.EnableIPMasq = false
 	}
-
-	if conf.DefaultRuntime == "" {
-		conf.DefaultRuntime = config.StockRuntimeName
-	}
-	if conf.Runtimes == nil {
-		conf.Runtimes = make(map[string]types.Runtime)
-	}
-	conf.Runtimes[config.StockRuntimeName] = types.Runtime{Path: DefaultRuntimeBinary, Args: defaultRuntimeArgs}
 
 	return nil
 }

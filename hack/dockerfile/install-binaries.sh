@@ -31,7 +31,7 @@ install_crun() {
 
 install_containerd() {
 	echo "Install containerd version $CONTAINERD_COMMIT"
-	git clone https://github.com/containerd/containerd.git "$GOPATH/src/github.com/containerd/containerd" -b v0.2.9
+	git clone https://github.com/burmilla/containerd.git "$GOPATH/src/github.com/containerd/containerd"
 	cd "$GOPATH/src/github.com/containerd/containerd"
 	git checkout -q "$CONTAINERD_COMMIT"
 	make static

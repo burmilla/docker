@@ -168,8 +168,6 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 
 	initRouter(cli.api, d)
 
-	cli.setupConfigReloadTrap()
-
 	// The serve API routine never exits unless an error occurs
 	// We need to start it as a goroutine and wait on it so
 	// daemon doesn't exit
@@ -186,31 +184,6 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 	}
 
 	return nil
-}
-
-func (cli *DaemonCli) reloadConfig() {
-	reload := func(config *config.Config) {
-
-		if err := cli.d.Reload(config); err != nil {
-			logrus.Errorf("Error reconfiguring the daemon: %v", err)
-			return
-		}
-
-		if config.IsValueSet("debug") {
-			debugEnabled := debug.IsEnabled()
-			switch {
-			case debugEnabled && !config.Debug: // disable debug
-				debug.Disable()
-			case config.Debug && !debugEnabled: // enable debug
-				debug.Enable()
-			}
-
-		}
-	}
-
-	if err := config.Reload(*cli.configFile, cli.flags, reload); err != nil {
-		logrus.Error(err)
-	}
 }
 
 func (cli *DaemonCli) stop() {
@@ -247,10 +220,6 @@ func loadDaemonCliConfig(opts *daemonOptions) (*config.Config, error) {
 	conf.Hosts = opts.Hosts
 	conf.LogLevel = opts.LogLevel
 
-	if flags.Changed("graph") && flags.Changed("data-root") {
-		return nil, fmt.Errorf(`cannot specify both "--graph" and "--data-root" option`)
-	}
-
 	if opts.configFile != "" {
 		c, err := config.MergeDaemonConfigurations(conf, flags, opts.configFile)
 		if err != nil {
@@ -267,10 +236,6 @@ func loadDaemonCliConfig(opts *daemonOptions) (*config.Config, error) {
 
 	if err := config.Validate(conf); err != nil {
 		return nil, err
-	}
-
-	if flags.Changed("graph") {
-		logrus.Warnf(`The "-g / --graph" flag is deprecated. Please use "--data-root" instead`)
 	}
 
 	// Labels of the docker engine used to allow multiple values associated with the same key.

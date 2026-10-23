@@ -6,8 +6,6 @@ package main
 import (
 	"fmt"
 	"net"
-	"os"
-	"os/signal"
 	"path/filepath"
 	"syscall"
 
@@ -28,17 +26,6 @@ func setDefaultUmask() error {
 	}
 
 	return nil
-}
-
-// setupConfigReloadTrap configures the USR2 signal to reload the configuration.
-func (cli *DaemonCli) setupConfigReloadTrap() {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGHUP)
-	go func() {
-		for range c {
-			cli.reloadConfig()
-		}
-	}()
 }
 
 func (cli *DaemonCli) getPlatformRemoteOptions() []libcontainerd.RemoteOption {
@@ -69,6 +56,6 @@ func notifyShutdown(err error) {
 }
 
 func wrapListeners(ls []net.Listener) []net.Listener {
-	ls[0] = &hack.MalformedHostHeaderOverride{ls[0]}
+	ls[0] = &hack.MalformedHostHeaderOverride{Listener: ls[0]}
 	return ls
 }

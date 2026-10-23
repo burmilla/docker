@@ -158,17 +158,6 @@ func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.
 	return warnings, nil
 }
 
-// reloadPlatform updates configuration with platform specific options
-// and updates the passed attributes
-func (daemon *Daemon) reloadPlatform(conf *config.Config, attributes map[string]string) {
-	if conf.IsValueSet("default-shm-size") {
-		daemon.configStore.ShmSize = conf.ShmSize
-	}
-
-	// Update attributes
-	attributes["default-shm-size"] = fmt.Sprintf("%d", daemon.configStore.ShmSize)
-}
-
 // verifyDaemonSettings performs validation of daemon config struct
 func verifyDaemonSettings(conf *config.Config) error {
 	// Check for mutually incompatible config options

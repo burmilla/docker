@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/registry"
 	"github.com/imdario/mergo"
@@ -34,7 +33,6 @@ const (
 // Use this to differentiate these options
 var flatOptions = map[string]bool{
 	"log-opts":        true,
-	"runtimes":        true,
 	"default-ulimits": true,
 }
 
@@ -58,21 +56,20 @@ type commonBridgeConfig struct {
 // It includes json tags to deserialize configuration from a file
 // using the same names that the flags in the command line use.
 type CommonConfig struct {
-	AutoRestart    bool                `json:"-"`
-	Context        map[string][]string `json:"-"`
-	DisableBridge  bool                `json:"-"`
-	DNS            []string            `json:"dns,omitempty"`
-	DNSOptions     []string            `json:"dns-opts,omitempty"`
-	DNSSearch      []string            `json:"dns-search,omitempty"`
-	GraphDriver    string              `json:"storage-driver,omitempty"`
-	GraphOptions   []string            `json:"storage-opts,omitempty"`
-	Labels         []string            `json:"labels,omitempty"`
-	Mtu            int                 `json:"mtu,omitempty"`
-	Pidfile        string              `json:"pidfile,omitempty"`
-	RawLogs        bool                `json:"raw-logs,omitempty"`
-	RootDeprecated string              `json:"graph,omitempty"`
-	Root           string              `json:"data-root,omitempty"`
-	SocketGroup    string              `json:"group,omitempty"`
+	AutoRestart   bool                `json:"-"`
+	Context       map[string][]string `json:"-"`
+	DisableBridge bool                `json:"-"`
+	DNS           []string            `json:"dns,omitempty"`
+	DNSOptions    []string            `json:"dns-opts,omitempty"`
+	DNSSearch     []string            `json:"dns-search,omitempty"`
+	GraphDriver   string              `json:"storage-driver,omitempty"`
+	GraphOptions  []string            `json:"storage-opts,omitempty"`
+	Labels        []string            `json:"labels,omitempty"`
+	Mtu           int                 `json:"mtu,omitempty"`
+	Pidfile       string              `json:"pidfile,omitempty"`
+	RawLogs       bool                `json:"raw-logs,omitempty"`
+	Root          string              `json:"data-root,omitempty"`
+	SocketGroup   string              `json:"group,omitempty"`
 
 	// LiveRestoreEnabled determines whether we should keep containers
 	// alive upon daemon shutdown/start
@@ -98,19 +95,6 @@ type CommonConfig struct {
 	registry.ServiceOptions
 
 	sync.Mutex
-	// FIXME(vdemeester) This part is not that clear and is mainly dependent on cli flags
-	// It should probably be handled outside this package.
-	ValuesSet map[string]interface{}
-}
-
-// IsValueSet returns true if a configuration value
-// was explicitly set in the configuration file.
-func (conf *Config) IsValueSet(name string) bool {
-	if conf.ValuesSet == nil {
-		return false
-	}
-	_, ok := conf.ValuesSet[name]
-	return ok
 }
 
 // New returns a new fully initialized Config struct
@@ -142,39 +126,6 @@ func GetConflictFreeLabels(labels []string) ([]string, error) {
 		newLabels = append(newLabels, fmt.Sprintf("%s=%s", k, v))
 	}
 	return newLabels, nil
-}
-
-// Reload reads the configuration in the host and reloads the daemon and server.
-func Reload(configFile string, flags *pflag.FlagSet, reload func(*Config)) error {
-	logrus.Infof("Got signal to reload configuration, reloading from: %s", configFile)
-	newConfig, err := getConflictFreeConfiguration(configFile, flags)
-	if err != nil {
-		return err
-	}
-
-	if err := Validate(newConfig); err != nil {
-		return fmt.Errorf("file configuration validation failed (%v)", err)
-	}
-
-	// Labels of the docker engine used to allow multiple values associated with the same key.
-	// This is deprecated in 1.13, and, be removed after 3 release cycles.
-	// The following will check the conflict of labels, and report a warning for deprecation.
-	//
-	// TODO: After 3 release cycles (17.12) an error will be returned, and labels will be
-	// sanitized to consolidate duplicate key-value pairs (config.Labels = newLabels):
-	//
-	// newLabels, err := GetConflictFreeLabels(newConfig.Labels)
-	// if err != nil {
-	//      return err
-	// }
-	// newConfig.Labels = newLabels
-	//
-	if _, err := GetConflictFreeLabels(newConfig.Labels); err != nil {
-		logrus.Warnf("Engine labels with duplicate keys and conflicting values have been deprecated: %s", err)
-	}
-
-	reload(newConfig)
-	return nil
 }
 
 // boolValue is an interface that boolean value flags implement
@@ -265,22 +216,11 @@ func getConflictFreeConfiguration(configFile string, flags *pflag.FlagSet) (*Con
 			})
 		}
 
-		config.ValuesSet = configSet
 	}
 
 	reader = bytes.NewReader(b)
 	if err := json.NewDecoder(reader).Decode(&config); err != nil {
 		return nil, err
-	}
-
-	if config.RootDeprecated != "" {
-		logrus.Warn(`The "graph" config file option is deprecated. Please use "data-root" instead.`)
-
-		if config.Root != "" {
-			return nil, fmt.Errorf(`cannot specify both "graph" and "data-root" config file options`)
-		}
-
-		config.Root = config.RootDeprecated
 	}
 
 	return &config, nil

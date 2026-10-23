@@ -15,8 +15,6 @@ type Service interface {
 	ResolveRepository(name reference.Named) (*RepositoryInfo, error)
 	ServiceConfig() *registrytypes.ServiceConfig
 	TLSConfig(hostname string) (*tls.Config, error)
-	LoadMirrors([]string) error
-	LoadInsecureRegistries([]string) error
 }
 
 // DefaultService is a registry service. It tracks configuration data such as a list
@@ -56,22 +54,6 @@ func (s *DefaultService) ServiceConfig() *registrytypes.ServiceConfig {
 	servConfig.Mirrors = append(servConfig.Mirrors, s.config.ServiceConfig.Mirrors...)
 
 	return &servConfig
-}
-
-// LoadMirrors loads registry mirrors for Service
-func (s *DefaultService) LoadMirrors(mirrors []string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	return s.config.LoadMirrors(mirrors)
-}
-
-// LoadInsecureRegistries loads insecure registries for Service
-func (s *DefaultService) LoadInsecureRegistries(registries []string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	return s.config.LoadInsecureRegistries(registries)
 }
 
 // ResolveRepository splits a repository name into its components

@@ -39,6 +39,5 @@ type BridgeConfig struct {
 	EnableIPForward     bool   `json:"ip-forward,omitempty"`
 	EnableIPMasq        bool   `json:"ip-masq,omitempty"`
 	EnableUserlandProxy bool   `json:"userland-proxy,omitempty"`
-	UserlandProxyPath   string `json:"userland-proxy-path,omitempty"`
 	FixedCIDRv6         string `json:"fixed-cidr-v6,omitempty"`
 }

@@ -252,8 +252,7 @@ func driverOptions(config *config.Config) []nwconfig.Option {
 	bridgeConfig := options.Generic{
 		"EnableIPForwarding":  config.BridgeConfig.EnableIPForward,
 		"EnableIPTables":      config.BridgeConfig.EnableIPTables,
-		"EnableUserlandProxy": config.BridgeConfig.EnableUserlandProxy,
-		"UserlandProxyPath":   config.BridgeConfig.UserlandProxyPath}
+		"EnableUserlandProxy": config.BridgeConfig.EnableUserlandProxy}
 	bridgeOption := options.Generic{netlabel.GenericData: bridgeConfig}
 
 	dOptions := []nwconfig.Option{}

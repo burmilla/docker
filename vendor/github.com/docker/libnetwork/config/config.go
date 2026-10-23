@@ -3,7 +3,6 @@ package config
 import (
 	"strings"
 
-	"github.com/BurntSushi/toml"
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/go-connections/tlsconfig"
 	"github.com/docker/libkv/store"
@@ -46,20 +45,6 @@ func (c *Config) LoadDefaultScopes(dataDir string) {
 			c.Scopes[k] = v
 		}
 	}
-}
-
-// ParseConfig parses the libnetwork configuration file
-func ParseConfig(tomlCfgFile string) (*Config, error) {
-	cfg := &Config{
-		Scopes: map[string]*datastore.ScopeCfg{},
-	}
-
-	if _, err := toml.DecodeFile(tomlCfgFile, cfg); err != nil {
-		return nil, err
-	}
-
-	cfg.LoadDefaultScopes(cfg.Daemon.DataDir)
-	return cfg, nil
 }
 
 // ParseConfigOptions parses the configuration options and returns

@@ -157,10 +157,8 @@ type Info struct {
 	// running when the daemon is shutdown or upon daemon start if
 	// running containers are detected
 	LiveRestoreEnabled bool
-	InitBinary         string
 	ContainerdCommit   Commit
 	RuncCommit         Commit
-	InitCommit         Commit
 	SecurityOptions    []string
 }
 

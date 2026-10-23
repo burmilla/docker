@@ -150,6 +150,7 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 		cli.stop()
 		<-stopc // wait for daemonCli.start() to return
 	})
+	ignoreHangup()
 
 	if err := cli.initMiddlewares(cli.api, serverConfig); err != nil {
 		logrus.Fatalf("Error creating middlewares: %v", err)

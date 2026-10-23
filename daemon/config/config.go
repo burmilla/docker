@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"strings"
 	"sync"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/registry"
 	"github.com/imdario/mergo"
@@ -34,6 +34,12 @@ const (
 var flatOptions = map[string]bool{
 	"log-opts":        true,
 	"default-ulimits": true,
+}
+
+// ignoredOptions are config file keys from earlier releases that no longer
+// do anything. They are dropped with a warning instead of failing startup.
+var ignoredOptions = map[string]bool{
+	"userland-proxy-path": true,
 }
 
 // LogConfig represents the default log configuration.
@@ -171,15 +177,31 @@ func getConflictFreeConfiguration(configFile string, flags *pflag.FlagSet) (*Con
 		return nil, err
 	}
 
-	var config Config
-	var reader io.Reader
-	if flags != nil {
-		var jsonConfig map[string]interface{}
-		reader = bytes.NewReader(b)
-		if err := json.NewDecoder(reader).Decode(&jsonConfig); err != nil {
-			return nil, err
+	var jsonConfig map[string]interface{}
+	if err := json.NewDecoder(bytes.NewReader(b)).Decode(&jsonConfig); err != nil {
+		return nil, err
+	}
+	for key := range jsonConfig {
+		if ignoredOptions[key] {
+			logrus.Warnf("The %q config file option is no longer supported and is ignored", key)
+			delete(jsonConfig, key)
 		}
+	}
+	if v, ok := jsonConfig["graph"]; ok {
+		logrus.Warn(`The "graph" config file option is deprecated. Please use "data-root" instead.`)
+		if _, both := jsonConfig["data-root"]; both {
+			return nil, fmt.Errorf(`cannot specify both "graph" and "data-root" config file options`)
+		}
+		jsonConfig["data-root"] = v
+		delete(jsonConfig, "graph")
+	}
+	b, err = json.Marshal(jsonConfig)
+	if err != nil {
+		return nil, err
+	}
 
+	var config Config
+	if flags != nil {
 		configSet := configValuesSet(jsonConfig)
 
 		if err := findConfigurationConflicts(configSet, flags); err != nil {
@@ -218,8 +240,7 @@ func getConflictFreeConfiguration(configFile string, flags *pflag.FlagSet) (*Con
 
 	}
 
-	reader = bytes.NewReader(b)
-	if err := json.NewDecoder(reader).Decode(&config); err != nil {
+	if err := json.NewDecoder(bytes.NewReader(b)).Decode(&config); err != nil {
 		return nil, err
 	}
 

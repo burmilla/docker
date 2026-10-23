@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"net"
+	"os/signal"
 	"path/filepath"
 	"syscall"
 
@@ -15,6 +16,12 @@ import (
 )
 
 const defaultDaemonConfigFile = "/etc/docker/system-docker.json"
+
+// ignoreHangup keeps a SIGHUP (which older releases used to reload the
+// config file) from terminating the daemon.
+func ignoreHangup() {
+	signal.Ignore(syscall.SIGHUP)
+}
 
 // setDefaultUmask sets the umask to 0022 to avoid problems
 // caused by custom umask

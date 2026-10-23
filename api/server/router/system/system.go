@@ -18,7 +18,6 @@ func NewRouter(b Backend) router.Router {
 	}
 
 	r.routes = []router.Route{
-		router.NewOptionsRoute("/{anyroute:.*}", optionsHandler),
 		router.NewGetRoute("/_ping", pingHandler),
 		router.NewGetRoute("/events", r.getEvents, router.WithCancel),
 		router.NewGetRoute("/info", r.getInfo),

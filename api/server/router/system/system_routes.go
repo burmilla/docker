@@ -19,11 +19,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-func optionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	w.WriteHeader(http.StatusOK)
-	return nil
-}
-
 func pingHandler(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	_, err := w.Write([]byte{'O', 'K'})
 	return err

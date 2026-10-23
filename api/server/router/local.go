@@ -63,11 +63,6 @@ func NewDeleteRoute(path string, handler httputils.APIFunc, opts ...RouteWrapper
 	return NewRoute("DELETE", path, handler, opts...)
 }
 
-// NewOptionsRoute initializes a new route with the http method OPTIONS.
-func NewOptionsRoute(path string, handler httputils.APIFunc, opts ...RouteWrapper) Route {
-	return NewRoute("OPTIONS", path, handler, opts...)
-}
-
 // NewHeadRoute initializes a new route with the http method HEAD.
 func NewHeadRoute(path string, handler httputils.APIFunc, opts ...RouteWrapper) Route {
 	return NewRoute("HEAD", path, handler, opts...)

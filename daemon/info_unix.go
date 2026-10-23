@@ -27,11 +27,11 @@ func (daemon *Daemon) FillPlatformInfo(v *types.Info, sysInfo *sysinfo.SysInfo) 
 	v.RuncCommit.Expected = dockerversion.RuncCommitID
 	defaultRuntimeBinary := DefaultRuntimeBinary
 	if rv, err := exec.Command(defaultRuntimeBinary, "--version").Output(); err == nil {
-		parts := strings.Split(strings.TrimSpace(string(rv)), "\n")
-		if len(parts) == 3 {
-			parts = strings.Split(parts[1], ": ")
-			if len(parts) == 2 {
-				v.RuncCommit.ID = strings.TrimSpace(parts[1])
+		// crun prints "commit: <sha>" on its own line, as runc does.
+		for _, line := range strings.Split(string(rv), "\n") {
+			if strings.HasPrefix(line, "commit:") {
+				v.RuncCommit.ID = strings.TrimSpace(strings.TrimPrefix(line, "commit:"))
+				break
 			}
 		}
 
@@ -43,5 +43,4 @@ func (daemon *Daemon) FillPlatformInfo(v *types.Info, sysInfo *sysinfo.SysInfo) 
 		logrus.Warnf("failed to retrieve %s version: %v", defaultRuntimeBinary, err)
 		v.RuncCommit.ID = "N/A"
 	}
-
 }

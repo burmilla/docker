@@ -1,11 +1,7 @@
 package sysinfo
 
 // SysInfo stores information about which features a kernel supports.
-// TODO Windows: Factor out platform specific capabilities.
 type SysInfo struct {
-	// Whether the kernel supports Seccomp or not
-	Seccomp bool
-
 	// Whether IPv4 forwarding is supported or not, if this was disabled, networking will not work
 	IPv4ForwardingDisabled bool
 

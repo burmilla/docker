@@ -6,7 +6,7 @@
 # make binary
 #
 # # Mount your source in an interactive container for quick testing:
-# docker run -v `pwd`:/go/src/github.com/docker/docker --privileged -i -t docker bash
+# docker run -v `pwd`:/go/src/github.com/docker/docker -i -t docker bash
 #
 
 FROM debian:trixie
@@ -37,7 +37,6 @@ ENV GOPATH /go
 ENV GO111MODULE off
 ENV GOTOOLCHAIN local
 
-VOLUME /var/lib/docker
 WORKDIR /go/src/github.com/docker/docker
 
 # Install crun and containerd
@@ -45,9 +44,6 @@ WORKDIR /go/src/github.com/docker/docker
 COPY hack/dockerfile/binaries-commits /tmp/binaries-commits
 COPY hack/dockerfile/install-binaries.sh /tmp/install-binaries.sh
 RUN /tmp/install-binaries.sh crun containerd
-
-# Wrap all commands in the "docker-in-docker" script to allow nested containers
-ENTRYPOINT ["hack/dind"]
 
 # Upload docker source
 COPY . /go/src/github.com/docker/docker

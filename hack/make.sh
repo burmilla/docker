@@ -57,7 +57,6 @@ echo
 # List of bundles to create when no argument is passed
 DEFAULT_BUNDLES=(
 	binary-daemon
-	dynbinary
 )
 
 VERSION=$(< ./VERSION)
@@ -103,24 +102,15 @@ fi
 
 IAMSTATIC='true'
 if [ -z "$DOCKER_DEBUG" ]; then
-	LDFLAGS='-w'
+	LDFLAGS='-s -w'
 fi
 
-LDFLAGS_STATIC=''
-EXTLDFLAGS_STATIC='-static'
-# ORIG_BUILDFLAGS is necessary for the cross target which cannot always build
-# with options like -race.
-ORIG_BUILDFLAGS=( -tags "autogen netgo static_build $DOCKER_BUILDTAGS" -installsuffix netgo )
-# see https://github.com/golang/go/issues/9369#issuecomment-69864440 for why -installsuffix is necessary here
-
-ORIG_BUILDFLAGS+=( -a )
+# Pure Go, statically linked: no cgo, so no glibc NSS lookups at runtime
+# (osusergo reads /etc/passwd and /etc/group directly, netgo resolves DNS in Go)
+export CGO_ENABLED=0
+ORIG_BUILDFLAGS=( -tags "autogen netgo osusergo static_build $DOCKER_BUILDTAGS" -trimpath )
 
 BUILDFLAGS=( $BUILDFLAGS "${ORIG_BUILDFLAGS[@]}" )
-
-LDFLAGS_STATIC_DOCKER="
-	$LDFLAGS_STATIC
-	-extldflags \"$EXTLDFLAGS_STATIC\"
-"
 
 # a helper to provide ".exe" when it's appropriate
 binary_extension() {

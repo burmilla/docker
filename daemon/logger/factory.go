@@ -2,7 +2,6 @@ package logger
 
 import (
 	"fmt"
-	"sort"
 	"sync"
 
 	containertypes "github.com/docker/docker/api/types/container"
@@ -21,17 +20,6 @@ type logdriverFactory struct {
 	registry     map[string]Creator
 	optValidator map[string]LogOptValidator
 	m            sync.Mutex
-}
-
-func (lf *logdriverFactory) list() []string {
-	ls := make([]string, 0, len(lf.registry))
-	lf.m.Lock()
-	for name := range lf.registry {
-		ls = append(ls, name)
-	}
-	lf.m.Unlock()
-	sort.Strings(ls)
-	return ls
 }
 
 func (lf *logdriverFactory) register(name string, c Creator) error {

@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	goruntime "runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -56,7 +55,6 @@ type remote struct {
 	clients              []*client
 	eventTsPath          string
 	runtime              string
-	runtimeArgs          []string
 	daemonWaitCh         chan struct{}
 	liveRestore          bool
 	oomScore             int
@@ -395,24 +393,12 @@ func (r *remote) runContainerdDaemon() error {
 		"--start-timeout", "2m",
 		"--state-dir", filepath.Join(r.stateDir, containerdStateDir),
 	}
-	if goruntime.GOOS == "solaris" {
-		args = append(args, "--shim", "containerd-shim", "--runtime", "runc")
-	} else {
-		args = append(args, "--shim", "system-docker-containerd-shim")
-		if r.runtime != "" {
-			args = append(args, "--runtime")
-			args = append(args, r.runtime)
-		}
+	args = append(args, "--shim", "system-docker-containerd-shim")
+	if r.runtime != "" {
+		args = append(args, "--runtime", r.runtime)
 	}
 	if r.debugLog {
 		args = append(args, "--debug")
-	}
-	if len(r.runtimeArgs) > 0 {
-		for _, v := range r.runtimeArgs {
-			args = append(args, "--runtime-args")
-			args = append(args, v)
-		}
-		logrus.Debugf("libcontainerd: runContainerdDaemon: runtimeArgs: %s", args)
 	}
 
 	cmd := exec.Command(containerdBinary, args...)
@@ -485,16 +471,6 @@ func (rt runtimePath) Apply(r Remote) error {
 		return nil
 	}
 	return fmt.Errorf("WithRuntime option not supported for this remote")
-}
-
-type runtimeArgs []string
-
-func (rt runtimeArgs) Apply(r Remote) error {
-	if remote, ok := r.(*remote); ok {
-		remote.runtimeArgs = rt
-		return nil
-	}
-	return fmt.Errorf("WithRuntimeArgs option not supported for this remote")
 }
 
 // WithStartDaemon defines if libcontainerd should also run containerd daemon.

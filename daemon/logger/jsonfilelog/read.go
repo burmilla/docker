@@ -235,7 +235,7 @@ func followLogs(f *os.File, logWatcher *logger.LogWatcher, notifyRotate chan int
 			}
 			return errRetry
 		case err := <-fileWatcher.Errors():
-			logrus.Debug("logger got error watching file: %v", err)
+			logrus.Debugf("logger got error watching file: %v", err)
 			// Something happened, let's try and stay alive and create a new watcher
 			if retries <= 5 {
 				fileWatcher.Close()

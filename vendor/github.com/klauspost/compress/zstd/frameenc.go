@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/klauspost/compress/math"
-	"github.com/klauspost/compress/math/bits"
+	"math"
+	"math/bits"
 )
 
 type frameHeader struct {

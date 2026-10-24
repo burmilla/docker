@@ -38,7 +38,7 @@ var SignalMap = map[string]syscall.Signal{
 	"TSTP":     syscall.SIGTSTP,
 	"TTIN":     syscall.SIGTTIN,
 	"TTOU":     syscall.SIGTTOU,
-	"UNUSED":   syscall.SIGUNUSED,
+	"UNUSED":   syscall.SIGSYS, // SIGUNUSED is SIGSYS, and loong64/riscv64 do not define it
 	"URG":      syscall.SIGURG,
 	"USR1":     syscall.SIGUSR1,
 	"USR2":     syscall.SIGUSR2,

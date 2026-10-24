@@ -149,18 +149,15 @@ bundle() {
 copy_binaries() {
 	dir="$1"
 	# Add nested executables to bundle dir so we have complete set of
-	# them available, but only if the native OS/ARCH is the same as the
-	# OS/ARCH of the build target
-	if [ "$(go env GOOS)/$(go env GOARCH)" == "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" ]; then
-		if [ -x /usr/local/bin/docker-runc ]; then
-			echo "Copying nested executables into $dir"
-			for file in containerd containerd-shim runc; do
-				cp -f `which "docker-$file"` "$dir/"
-				if [ "$2" == "hash" ]; then
-					hash_files "$dir/docker-$file"
-				fi
-			done
-		fi
+	# them available; the Dockerfile builds them for the same GOARCH as dockerd
+	if [ -x /usr/local/bin/docker-runc ]; then
+		echo "Copying nested executables into $dir"
+		for file in containerd containerd-shim runc; do
+			cp -f `which "docker-$file"` "$dir/"
+			if [ "$2" == "hash" ]; then
+				hash_files "$dir/docker-$file"
+			fi
+		done
 	fi
 }
 

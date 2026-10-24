@@ -30,15 +30,16 @@ RUN apt-get update && apt-get install -y \
 	python3 \
 	xz-utils
 
-# C cross compiler for crun and its static libraries
+# C cross compiler for crun and its static libraries, plus the target's libc
+# (libc6-dev-*-cross is only a Recommends of the cross gcc; Debian and Go arch names match)
 COPY hack/dockerfile/cross-env.sh /tmp/cross-env.sh
 RUN GOARCH="${ARCH:-$(dpkg --print-architecture)}" && . /tmp/cross-env.sh \
 	&& if ! command -v "$CC" > /dev/null; then \
 		case "$CROSS_TRIPLE" in \
 			loongarch64-*) \
-				apt-get install -y --no-install-recommends "gcc-14-$CROSS_TRIPLE" \
+				apt-get install -y --no-install-recommends "gcc-14-$CROSS_TRIPLE" "libc6-dev-$GOARCH-cross" \
 				&& ln -s "$CROSS_TRIPLE-gcc-14" "/usr/bin/$CC" ;; \
-			*) apt-get install -y --no-install-recommends "gcc-$CROSS_TRIPLE" ;; \
+			*) apt-get install -y --no-install-recommends "gcc-$CROSS_TRIPLE" "libc6-dev-$GOARCH-cross" ;; \
 		esac \
 	fi
 

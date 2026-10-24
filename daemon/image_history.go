@@ -2,8 +2,6 @@ package daemon
 
 import (
 	"fmt"
-	"runtime"
-	"time"
 
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types/image"
@@ -13,16 +11,9 @@ import (
 // ImageHistory returns a slice of ImageHistory structures for the specified image
 // name by walking the image lineage.
 func (daemon *Daemon) ImageHistory(name string) ([]*image.HistoryResponseItem, error) {
-	start := time.Now()
 	img, err := daemon.GetImage(name)
 	if err != nil {
 		return nil, err
-	}
-
-	// If the image OS isn't set, assume it's the host OS
-	platform := img.OS
-	if platform == "" {
-		platform = runtime.GOOS
 	}
 
 	history := []*image.HistoryResponseItem{}
@@ -40,12 +31,12 @@ func (daemon *Daemon) ImageHistory(name string) ([]*image.HistoryResponseItem, e
 			}
 
 			rootFS.Append(img.RootFS.DiffIDs[layerCounter])
-			l, err := daemon.stores[platform].layerStore.Get(rootFS.ChainID())
+			l, err := daemon.stores.layerStore.Get(rootFS.ChainID())
 			if err != nil {
 				return nil, err
 			}
 			layerSize, err = l.DiffSize()
-			layer.ReleaseAndLog(daemon.stores[platform].layerStore, l)
+			layer.ReleaseAndLog(daemon.stores.layerStore, l)
 			if err != nil {
 				return nil, err
 			}
@@ -69,7 +60,7 @@ func (daemon *Daemon) ImageHistory(name string) ([]*image.HistoryResponseItem, e
 		h.ID = id.String()
 
 		var tags []string
-		for _, r := range daemon.stores[platform].referenceStore.References(id.Digest()) {
+		for _, r := range daemon.stores.referenceStore.References(id.Digest()) {
 			if _, ok := r.(reference.NamedTagged); ok {
 				tags = append(tags, reference.FamiliarString(r))
 			}
@@ -86,6 +77,5 @@ func (daemon *Daemon) ImageHistory(name string) ([]*image.HistoryResponseItem, e
 			break
 		}
 	}
-	imageActions.WithValues("history").UpdateSince(start)
 	return history, nil
 }

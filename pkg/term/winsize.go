@@ -1,4 +1,5 @@
-// +build !solaris,!windows
+//go:build !windows
+// +build !windows
 
 package term
 
@@ -17,14 +18,4 @@ func GetWinsize(fd uintptr) (*Winsize, error) {
 		return ws, nil
 	}
 	return ws, err
-}
-
-// SetWinsize tries to set the specified window size for the specified file descriptor.
-func SetWinsize(fd uintptr, ws *Winsize) error {
-	_, _, err := unix.Syscall(unix.SYS_IOCTL, fd, uintptr(unix.TIOCSWINSZ), uintptr(unsafe.Pointer(ws)))
-	// Skipp errno = 0
-	if err == 0 {
-		return nil
-	}
-	return err
 }

@@ -36,12 +36,6 @@ func (cfg *EndpointIPAMConfig) Copy() *EndpointIPAMConfig {
 	return &cfgCopy
 }
 
-// PeerInfo represents one peer of an overlay network
-type PeerInfo struct {
-	Name string
-	IP   string
-}
-
 // EndpointSettings stores the network endpoint details
 type EndpointSettings struct {
 	// Configurations

@@ -38,7 +38,6 @@ func (daemon *Daemon) StateChanged(id string, e libcontainerd.StateInfo) error {
 		if runtime.GOOS == "windows" {
 			return errors.New("Received StateOOM from libcontainerd on Windows. This should never happen.")
 		}
-		daemon.updateHealthMonitor(c)
 		if err := c.CheckpointTo(daemon.containersReplica); err != nil {
 			return err
 		}
@@ -59,9 +58,6 @@ func (daemon *Daemon) StateChanged(id string, e libcontainerd.StateInfo) error {
 			defer daemon.autoRemove(c)
 		}
 
-		// cancel healthcheck here, they will be automatically
-		// restarted if/when the container is started again
-		daemon.stopHealthchecks(c)
 		attributes := map[string]string{
 			"exitCode": strconv.Itoa(int(e.ExitCode)),
 		}
@@ -76,7 +72,7 @@ func (daemon *Daemon) StateChanged(id string, e libcontainerd.StateInfo) error {
 					// But containerStart will use daemon.netController segment.
 					// So to avoid panic at startup process, here must wait util daemon restore done.
 					daemon.waitForStartupDone()
-					if err = daemon.containerStart(c, "", "", false); err != nil {
+					if err = daemon.containerStart(c, false); err != nil {
 						logrus.Debugf("failed to restart container: %+v", err)
 					}
 				}
@@ -122,7 +118,6 @@ func (daemon *Daemon) StateChanged(id string, e libcontainerd.StateInfo) error {
 		c.HasBeenStartedBefore = true
 		daemon.setStateCounter(c)
 
-		daemon.initHealthMonitor(c)
 		if err := c.CheckpointTo(daemon.containersReplica); err != nil {
 			c.Reset(false)
 			return err
@@ -133,7 +128,6 @@ func (daemon *Daemon) StateChanged(id string, e libcontainerd.StateInfo) error {
 		// Container is already locked in this case
 		c.Paused = true
 		daemon.setStateCounter(c)
-		daemon.updateHealthMonitor(c)
 		if err := c.CheckpointTo(daemon.containersReplica); err != nil {
 			return err
 		}
@@ -142,7 +136,6 @@ func (daemon *Daemon) StateChanged(id string, e libcontainerd.StateInfo) error {
 		// Container is already locked in this case
 		c.Paused = false
 		daemon.setStateCounter(c)
-		daemon.updateHealthMonitor(c)
 		if err := c.CheckpointTo(daemon.containersReplica); err != nil {
 			return err
 		}

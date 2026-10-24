@@ -5,16 +5,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"strings"
 	"sync"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/distribution"
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/pkg/idtools"
-	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/docker/pkg/system"
 	"github.com/opencontainers/go-digest"
 	"github.com/vbatts/tar-split/tar/asm"
 	"github.com/vbatts/tar-split/tar/storage"
@@ -38,8 +35,6 @@ type layerStore struct {
 	mountL sync.Mutex
 
 	useTarSplit bool
-
-	platform string
 }
 
 // StoreOptions are the options used to create a new Store instance
@@ -49,19 +44,15 @@ type StoreOptions struct {
 	GraphDriver               string
 	GraphDriverOptions        []string
 	IDMappings                *idtools.IDMappings
-	PluginGetter              plugingetter.PluginGetter
-	ExperimentalEnabled       bool
-	Platform                  string
 }
 
 // NewStoreFromOptions creates a new Store instance
 func NewStoreFromOptions(options StoreOptions) (Store, error) {
-	driver, err := graphdriver.New(options.GraphDriver, options.PluginGetter, graphdriver.Options{
-		Root:                options.StorePath,
-		DriverOptions:       options.GraphDriverOptions,
-		UIDMaps:             options.IDMappings.UIDs(),
-		GIDMaps:             options.IDMappings.GIDs(),
-		ExperimentalEnabled: options.ExperimentalEnabled,
+	driver, err := graphdriver.New(options.GraphDriver, graphdriver.Options{
+		Root:          options.StorePath,
+		DriverOptions: options.GraphDriverOptions,
+		UIDMaps:       options.IDMappings.UIDs(),
+		GIDMaps:       options.IDMappings.GIDs(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error initializing graphdriver: %v", err)
@@ -73,13 +64,13 @@ func NewStoreFromOptions(options StoreOptions) (Store, error) {
 		return nil, err
 	}
 
-	return NewStoreFromGraphDriver(fms, driver, options.Platform)
+	return NewStoreFromGraphDriver(fms, driver)
 }
 
 // NewStoreFromGraphDriver creates a new Store instance using the provided
 // metadata store and graph driver. The metadata store will be used to restore
 // the Store.
-func NewStoreFromGraphDriver(store MetadataStore, driver graphdriver.Driver, platform string) (Store, error) {
+func NewStoreFromGraphDriver(store MetadataStore, driver graphdriver.Driver) (Store, error) {
 	caps := graphdriver.Capabilities{}
 	if capDriver, ok := driver.(graphdriver.CapabilityDriver); ok {
 		caps = capDriver.Capabilities()
@@ -91,7 +82,6 @@ func NewStoreFromGraphDriver(store MetadataStore, driver graphdriver.Driver, pla
 		layerMap:    map[ChainID]*roLayer{},
 		mounts:      map[string]*mountedLayer{},
 		useTarSplit: !caps.ReproducesExactDiffs,
-		platform:    platform,
 	}
 
 	ids, mounts, err := store.List()
@@ -270,13 +260,6 @@ func (ls *layerStore) registerWithDescriptor(ts io.Reader, parent ChainID, platf
 	var err error
 	var pid string
 	var p *roLayer
-
-	// Integrity check - ensure we are creating something for the correct platform
-	if system.LCOWSupported() {
-		if strings.ToLower(ls.platform) != strings.ToLower(string(platform)) {
-			return nil, fmt.Errorf("cannot create entry for platform %q in layer store for platform %q", platform, ls.platform)
-		}
-	}
 
 	if string(parent) != "" {
 		p = ls.get(parent)
@@ -479,11 +462,9 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 	var (
 		storageOpt map[string]string
 		initFunc   MountInit
-		mountLabel string
 	)
 
 	if opts != nil {
-		mountLabel = opts.MountLabel
 		storageOpt = opts.StorageOpt
 		initFunc = opts.InitFunc
 	}
@@ -524,7 +505,7 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 	}
 
 	if initFunc != nil {
-		pid, err = ls.initMount(m.mountID, pid, mountLabel, initFunc, storageOpt)
+		pid, err = ls.initMount(m.mountID, pid, initFunc, storageOpt)
 		if err != nil {
 			return nil, err
 		}
@@ -637,7 +618,7 @@ func (ls *layerStore) saveMount(mount *mountedLayer) error {
 	return nil
 }
 
-func (ls *layerStore) initMount(graphID, parent, mountLabel string, initFunc MountInit, storageOpt map[string]string) (string, error) {
+func (ls *layerStore) initMount(graphID, parent string, initFunc MountInit, storageOpt map[string]string) (string, error) {
 	// Use "<graph-id>-init" to maintain compatibility with graph drivers
 	// which are expecting this layer with this special name. If all
 	// graph drivers can be updated to not rely on knowing about this layer
@@ -645,14 +626,13 @@ func (ls *layerStore) initMount(graphID, parent, mountLabel string, initFunc Mou
 	initID := fmt.Sprintf("%s-init", graphID)
 
 	createOpts := &graphdriver.CreateOpts{
-		MountLabel: mountLabel,
 		StorageOpt: storageOpt,
 	}
 
 	if err := ls.driver.CreateReadWrite(initID, parent, createOpts); err != nil {
 		return "", err
 	}
-	p, err := ls.driver.Get(initID, "")
+	p, err := ls.driver.Get(initID)
 	if err != nil {
 		return "", err
 	}
@@ -745,9 +725,22 @@ func (w *fileGetPutter) Close() error {
 }
 
 func (n *naiveDiffPathDriver) DiffGetter(id string) (graphdriver.FileGetCloser, error) {
-	p, err := n.Driver.Get(id, "")
+	p, err := n.Driver.Get(id)
 	if err != nil {
 		return nil, err
 	}
 	return &fileGetPutter{storage.NewPathFileGetter(p), n.Driver, id}, nil
+}
+
+type unpackSizeCounter struct {
+	unpacker storage.Unpacker
+	size     *int64
+}
+
+func (u *unpackSizeCounter) Next() (*storage.Entry, error) {
+	e, err := u.unpacker.Next()
+	if err == nil && u.size != nil {
+		*u.size += e.Size
+	}
+	return e, err
 }

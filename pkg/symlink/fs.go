@@ -39,8 +39,9 @@ func FollowSymlinkInScope(path, root string) (string, error) {
 // Trying to break out from `root` does not constitute an error.
 //
 // Example:
-//   If /foo/bar -> /outside,
-//   FollowSymlinkInScope("/foo/bar", "/foo") == "/foo/outside" instead of "/oustide"
+//
+//	If /foo/bar -> /outside,
+//	FollowSymlinkInScope("/foo/bar", "/foo") == "/foo/outside" instead of "/oustide"
 //
 // IMPORTANT: it is the caller's responsibility to call evalSymlinksInScope *after* relevant symlinks
 // are created and not to create subsequently, additional symlinks that could potentially make a
@@ -132,13 +133,4 @@ func evalSymlinksInScope(path, root string) (string, error) {
 	// see note above on "fullP := ..." for why this is double-cleaned and
 	// what's happening here
 	return filepath.Clean(root + filepath.Clean(string(filepath.Separator)+b.String())), nil
-}
-
-// EvalSymlinks returns the path name after the evaluation of any symbolic
-// links.
-// If path is relative the result will be relative to the current directory,
-// unless one of the components is an absolute symbolic link.
-// This version has been updated to support long paths prepended with `\\?\`.
-func EvalSymlinks(path string) (string, error) {
-	return evalSymlinks(path)
 }

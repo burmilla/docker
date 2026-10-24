@@ -24,21 +24,18 @@ var acceptedVolumeFilterTags = map[string]bool{
 }
 
 var acceptedPsFilterTags = map[string]bool{
-	"ancestor":  true,
-	"before":    true,
-	"exited":    true,
-	"id":        true,
-	"isolation": true,
-	"label":     true,
-	"name":      true,
-	"status":    true,
-	"health":    true,
-	"since":     true,
-	"volume":    true,
-	"network":   true,
-	"is-task":   true,
-	"publish":   true,
-	"expose":    true,
+	"ancestor": true,
+	"before":   true,
+	"exited":   true,
+	"id":       true,
+	"label":    true,
+	"name":     true,
+	"status":   true,
+	"since":    true,
+	"volume":   true,
+	"network":  true,
+	"publish":  true,
+	"expose":   true,
 }
 
 // iterationAction represents possible outcomes happening during the container iteration.
@@ -85,11 +82,6 @@ type listContext struct {
 	beforeFilter *container.Snapshot
 	// sinceFilter is a filter to stop the filtering when the iterator arrive to the given container
 	sinceFilter *container.Snapshot
-
-	// taskFilter tells if we should filter based on wether a container is part of a task
-	taskFilter bool
-	// isTask tells us if the we should filter container that are a task (true) or not (false)
-	isTask bool
 
 	// publish is a list of published ports to filter with
 	publish map[nat.Port]bool
@@ -273,30 +265,6 @@ func (daemon *Daemon) foldFilter(view container.View, config *types.ContainerLis
 		return nil, err
 	}
 
-	var taskFilter, isTask bool
-	if psFilters.Include("is-task") {
-		if psFilters.ExactMatch("is-task", "true") {
-			taskFilter = true
-			isTask = true
-		} else if psFilters.ExactMatch("is-task", "false") {
-			taskFilter = true
-			isTask = false
-		} else {
-			return nil, fmt.Errorf("Invalid filter 'is-task=%s'", psFilters.Get("is-task"))
-		}
-	}
-
-	err = psFilters.WalkValues("health", func(value string) error {
-		if !container.IsValidHealthString(value) {
-			return fmt.Errorf("Unrecognised filter value for health: %s", value)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	var beforeContFilter, sinceContFilter *container.Snapshot
 
 	err = psFilters.WalkValues("before", func(value string) error {
@@ -320,7 +288,7 @@ func (daemon *Daemon) foldFilter(view container.View, config *types.ContainerLis
 	if psFilters.Include("ancestor") {
 		ancestorFilter = true
 		psFilters.WalkValues("ancestor", func(ancestor string) error {
-			id, platform, err := daemon.GetImageIDAndPlatform(ancestor)
+			id, err := daemon.GetImageID(ancestor)
 			if err != nil {
 				logrus.Warnf("Error while looking up for image %v", ancestor)
 				return nil
@@ -330,7 +298,7 @@ func (daemon *Daemon) foldFilter(view container.View, config *types.ContainerLis
 				return nil
 			}
 			// Then walk down the graph and put the imageIds in imagesFilter
-			populateImageFilterByParents(imagesFilter, id, daemon.stores[platform].imageStore.Children)
+			populateImageFilterByParents(imagesFilter, id, daemon.stores.imageStore.Children)
 			return nil
 		})
 	}
@@ -354,8 +322,6 @@ func (daemon *Daemon) foldFilter(view container.View, config *types.ContainerLis
 		exitAllowed:          filtExited,
 		beforeFilter:         beforeContFilter,
 		sinceFilter:          sinceContFilter,
-		taskFilter:           taskFilter,
-		isTask:               isTask,
 		publish:              publishFilter,
 		expose:               exposeFilter,
 		ContainerListOptions: config,
@@ -418,19 +384,8 @@ func includeContainerInList(container *container.Snapshot, ctx *listContext) ite
 		return excludeContainer
 	}
 
-	if ctx.taskFilter {
-		if ctx.isTask != container.Managed {
-			return excludeContainer
-		}
-	}
-
 	// Do not include container if any of the labels don't match
 	if !ctx.filters.MatchKVList("label", container.Labels) {
-		return excludeContainer
-	}
-
-	// Do not include container if isolation doesn't match
-	if excludeContainer == excludeByIsolation(container, ctx) {
 		return excludeContainer
 	}
 
@@ -455,11 +410,6 @@ func includeContainerInList(container *container.Snapshot, ctx *listContext) ite
 
 	// Do not include container if its status doesn't match the filter
 	if !ctx.filters.Match("status", container.State) {
-		return excludeContainer
-	}
-
-	// Do not include container if its health doesn't match the filter
-	if !ctx.filters.ExactMatch("health", container.Health) {
 		return excludeContainer
 	}
 
@@ -564,7 +514,7 @@ func (daemon *Daemon) refreshImage(s *container.Snapshot, ctx *listContext) (*ty
 	c := s.Container
 	image := s.Image // keep the original ref if still valid (hasn't changed)
 	if image != s.ImageID {
-		id, _, err := daemon.GetImageIDAndPlatform(image)
+		id, err := daemon.GetImageID(image)
 		if _, isDNE := err.(ErrImageDoesNotExist); err != nil && !isDNE {
 			return nil, err
 		}

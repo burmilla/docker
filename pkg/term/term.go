@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 // Package term provides structures and helper functions to work with
@@ -10,8 +11,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-
-	"golang.org/x/sys/unix"
 )
 
 var (
@@ -63,29 +62,6 @@ func RestoreTerminal(fd uintptr, state *State) error {
 	if err := tcset(fd, &state.termios); err != 0 {
 		return err
 	}
-	return nil
-}
-
-// SaveState saves the state of the terminal connected to the given file descriptor.
-func SaveState(fd uintptr) (*State, error) {
-	var oldState State
-	if err := tcget(fd, &oldState.termios); err != 0 {
-		return nil, err
-	}
-
-	return &oldState, nil
-}
-
-// DisableEcho applies the specified state to the terminal connected to the file
-// descriptor, with echo disabled.
-func DisableEcho(fd uintptr, state *State) error {
-	newState := state.termios
-	newState.Lflag &^= unix.ECHO
-
-	if err := tcset(fd, &newState); err != 0 {
-		return err
-	}
-	handleInterrupt(fd, state)
 	return nil
 }
 

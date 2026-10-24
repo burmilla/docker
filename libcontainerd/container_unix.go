@@ -1,3 +1,4 @@
+//go:build linux || solaris
 // +build linux solaris
 
 package libcontainerd
@@ -90,7 +91,7 @@ func (ctr *container) spec() (*specs.Spec, error) {
 	return &spec, nil
 }
 
-func (ctr *container) start(spec *specs.Spec, checkpoint, checkpointDir string, attachStdio StdioCallback) (err error) {
+func (ctr *container) start(spec *specs.Spec, attachStdio StdioCallback) (err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ready := make(chan struct{})
@@ -135,13 +136,11 @@ func (ctr *container) start(spec *specs.Spec, checkpoint, checkpointDir string, 
 	})
 
 	r := &containerd.CreateContainerRequest{
-		Id:            ctr.containerID,
-		BundlePath:    ctr.dir,
-		Stdin:         ctr.fifo(syscall.Stdin),
-		Stdout:        ctr.fifo(syscall.Stdout),
-		Stderr:        ctr.fifo(syscall.Stderr),
-		Checkpoint:    checkpoint,
-		CheckpointDir: checkpointDir,
+		Id:         ctr.containerID,
+		BundlePath: ctr.dir,
+		Stdin:      ctr.fifo(syscall.Stdin),
+		Stdout:     ctr.fifo(syscall.Stdout),
+		Stderr:     ctr.fifo(syscall.Stderr),
 		// check to see if we are running in ramdisk to disable pivot root
 		NoPivotRoot: os.Getenv("DOCKER_RAMDISK") != "",
 		Runtime:     ctr.runtime,

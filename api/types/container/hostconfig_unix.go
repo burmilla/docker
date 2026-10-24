@@ -2,11 +2,6 @@
 
 package container
 
-// IsValid indicates if an isolation technology is valid
-func (i Isolation) IsValid() bool {
-	return i.IsDefault()
-}
-
 // NetworkName returns the name of the network stack.
 func (n NetworkMode) NetworkName() string {
 	if n.IsBridge() {

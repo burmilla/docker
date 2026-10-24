@@ -24,7 +24,7 @@ func (cli *Client) ImageList(ctx context.Context, options types.ImageListOptions
 		}
 	}
 	if optionFilters.Len() > 0 {
-		filterJSON, err := filters.ToParamWithVersion(cli.version, optionFilters)
+		filterJSON, err := filters.ToParam(optionFilters)
 		if err != nil {
 			return images, err
 		}

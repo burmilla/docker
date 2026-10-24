@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/docker/docker/api"
 	"github.com/docker/docker/api/server/httputils"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/backend"
@@ -20,7 +19,6 @@ import (
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/signal"
 	"golang.org/x/net/context"
-	"golang.org/x/net/websocket"
 )
 
 func (s *containerRouter) getContainersJSON(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
@@ -56,25 +54,6 @@ func (s *containerRouter) getContainersJSON(ctx context.Context, w http.Response
 	return httputils.WriteJSON(w, http.StatusOK, containers)
 }
 
-func (s *containerRouter) getContainersStats(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	if err := httputils.ParseForm(r); err != nil {
-		return err
-	}
-
-	stream := httputils.BoolValueOrDefault(r, "stream", true)
-	if !stream {
-		w.Header().Set("Content-Type", "application/json")
-	}
-
-	config := &backend.ContainerStatsConfig{
-		Stream:    stream,
-		OutStream: w,
-		Version:   string(httputils.VersionFromContext(ctx)),
-	}
-
-	return s.backend.ContainerStats(ctx, vars["name"], config)
-}
-
 func (s *containerRouter) getContainersLogs(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	if err := httputils.ParseForm(r); err != nil {
 		return err
@@ -101,9 +80,8 @@ func (s *containerRouter) getContainersLogs(ctx context.Context, w http.Response
 		Details:    httputils.BoolValue(r, "details"),
 	}
 
-	// doesn't matter what version the client is on, we're using this internally only
 	// also do we need size? i'm thinkin no we don't
-	raw, err := s.backend.ContainerInspect(containerName, false, api.DefaultVersion)
+	raw, err := s.backend.ContainerInspect(containerName, false)
 	if err != nil {
 		return err
 	}
@@ -124,10 +102,6 @@ func (s *containerRouter) getContainersLogs(ctx context.Context, w http.Response
 	// returned in band by WriteLogStream
 	httputils.WriteLogStream(ctx, w, msgs, logsConfig, !container.Config.Tty)
 	return nil
-}
-
-func (s *containerRouter) getContainersExport(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	return s.backend.ContainerExport(vars["name"], w)
 }
 
 func (s *containerRouter) postContainersStart(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
@@ -161,9 +135,7 @@ func (s *containerRouter) postContainersStart(ctx context.Context, w http.Respon
 		return err
 	}
 
-	checkpoint := r.Form.Get("checkpoint")
-	checkpointDir := r.Form.Get("checkpoint-dir")
-	if err := s.backend.ContainerStart(vars["name"], hostConfig, checkpoint, checkpointDir); err != nil {
+	if err := s.backend.ContainerStart(vars["name"], hostConfig); err != nil {
 		return err
 	}
 
@@ -193,10 +165,6 @@ func (s *containerRouter) postContainersStop(ctx context.Context, w http.Respons
 	return nil
 }
 
-type errContainerIsRunning interface {
-	ContainerIsRunning() bool
-}
-
 func (s *containerRouter) postContainersKill(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	if err := httputils.ParseForm(r); err != nil {
 		return err
@@ -214,18 +182,7 @@ func (s *containerRouter) postContainersKill(ctx context.Context, w http.Respons
 	}
 
 	if err := s.backend.ContainerKill(name, uint64(sig)); err != nil {
-		var isStopped bool
-		if e, ok := err.(errContainerIsRunning); ok {
-			isStopped = !e.ContainerIsRunning()
-		}
-
-		// Return error that's not caused because the container is stopped.
-		// Return error if the container is not running and the api is >= 1.20
-		// to keep backwards compatibility.
-		version := httputils.VersionFromContext(ctx)
-		if versions.GreaterThanOrEqualTo(version, "1.20") || !isStopped {
-			return fmt.Errorf("Cannot kill container %s: %v", name, err)
-		}
+		return fmt.Errorf("Cannot kill container %s: %v", name, err)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -338,19 +295,6 @@ func (s *containerRouter) getContainersChanges(ctx context.Context, w http.Respo
 	return httputils.WriteJSON(w, http.StatusOK, changes)
 }
 
-func (s *containerRouter) getContainersTop(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	if err := httputils.ParseForm(r); err != nil {
-		return err
-	}
-
-	procList, err := s.backend.ContainerTop(vars["name"], r.Form.Get("ps_args"))
-	if err != nil {
-		return err
-	}
-
-	return httputils.WriteJSON(w, http.StatusOK, procList)
-}
-
 func (s *containerRouter) postContainerRename(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	if err := httputils.ParseForm(r); err != nil {
 		return err
@@ -363,35 +307,6 @@ func (s *containerRouter) postContainerRename(ctx context.Context, w http.Respon
 	}
 	w.WriteHeader(http.StatusNoContent)
 	return nil
-}
-
-func (s *containerRouter) postContainerUpdate(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	if err := httputils.ParseForm(r); err != nil {
-		return err
-	}
-	if err := httputils.CheckForJSON(r); err != nil {
-		return err
-	}
-
-	var updateConfig container.UpdateConfig
-
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&updateConfig); err != nil {
-		return err
-	}
-
-	hostConfig := &container.HostConfig{
-		Resources:     updateConfig.Resources,
-		RestartPolicy: updateConfig.RestartPolicy,
-	}
-
-	name := vars["name"]
-	resp, err := s.backend.ContainerUpdate(name, hostConfig)
-	if err != nil {
-		return err
-	}
-
-	return httputils.WriteJSON(w, http.StatusOK, resp)
 }
 
 func (s *containerRouter) postContainersCreate(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
@@ -409,7 +324,6 @@ func (s *containerRouter) postContainersCreate(ctx context.Context, w http.Respo
 		return err
 	}
 	version := httputils.VersionFromContext(ctx)
-	adjustCPUShares := versions.LessThan(version, "1.19")
 
 	// When using API 1.24 and under, the client is responsible for removing the container
 	if hostConfig != nil && versions.LessThan(version, "1.25") {
@@ -421,7 +335,6 @@ func (s *containerRouter) postContainersCreate(ctx context.Context, w http.Respo
 		Config:           config,
 		HostConfig:       hostConfig,
 		NetworkingConfig: networkingConfig,
-		AdjustCPUShares:  adjustCPUShares,
 	})
 	if err != nil {
 		return err
@@ -530,64 +443,6 @@ func (s *containerRouter) postContainersAttach(ctx context.Context, w http.Respo
 		}
 	}
 	return nil
-}
-
-func (s *containerRouter) wsContainersAttach(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	if err := httputils.ParseForm(r); err != nil {
-		return err
-	}
-	containerName := vars["name"]
-
-	var err error
-	detachKeys := r.FormValue("detachKeys")
-
-	done := make(chan struct{})
-	started := make(chan struct{})
-
-	version := httputils.VersionFromContext(ctx)
-
-	setupStreams := func() (io.ReadCloser, io.Writer, io.Writer, error) {
-		wsChan := make(chan *websocket.Conn)
-		h := func(conn *websocket.Conn) {
-			wsChan <- conn
-			<-done
-		}
-
-		srv := websocket.Server{Handler: h, Handshake: nil}
-		go func() {
-			close(started)
-			srv.ServeHTTP(w, r)
-		}()
-
-		conn := <-wsChan
-		// In case version 1.28 and above, a binary frame will be sent.
-		// See 28176 for details.
-		if versions.GreaterThanOrEqualTo(version, "1.28") {
-			conn.PayloadType = websocket.BinaryFrame
-		}
-		return conn, conn, conn, nil
-	}
-
-	attachConfig := &backend.ContainerAttachConfig{
-		GetStreams: setupStreams,
-		Logs:       httputils.BoolValue(r, "logs"),
-		Stream:     httputils.BoolValue(r, "stream"),
-		DetachKeys: detachKeys,
-		UseStdin:   true,
-		UseStdout:  true,
-		UseStderr:  true,
-		MuxStreams: false, // TODO: this should be true since it's a single stream for both stdout and stderr
-	}
-
-	err = s.backend.ContainerAttach(containerName, attachConfig)
-	close(done)
-	select {
-	case <-started:
-		logrus.Errorf("Error attaching websocket: %s", err)
-		return nil
-	default:
-	}
-	return err
 }
 
 func (s *containerRouter) postContainersPrune(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {

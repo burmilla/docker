@@ -4,7 +4,6 @@ package ipamapi
 import (
 	"net"
 
-	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/libnetwork/discoverapi"
 	"github.com/docker/libnetwork/types"
 )
@@ -26,8 +25,6 @@ const (
 
 // Callback provides a Callback interface for registering an IPAM instance into LibNetwork
 type Callback interface {
-	// GetPluginGetter returns the pluginv2 getter.
-	GetPluginGetter() plugingetter.PluginGetter
 	// RegisterIpamDriver provides a way for Remote drivers to dynamically register with libnetwork
 	RegisterIpamDriver(name string, driver Ipam) error
 	// RegisterIpamDriverWithCapabilities provides a way for Remote drivers to dynamically register with libnetwork and specify capabilities

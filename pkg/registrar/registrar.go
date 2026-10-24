@@ -11,8 +11,6 @@ var (
 	ErrNameReserved = errors.New("name is reserved")
 	// ErrNameNotReserved is an error which is returned when trying to find a name that is not reserved
 	ErrNameNotReserved = errors.New("name is not reserved")
-	// ErrNoSuchKey is returned when trying to find the names for a key which is not known
-	ErrNoSuchKey = errors.New("provided key does not exist")
 )
 
 // Registrar stores indexes a list of keys and their registered names as well as indexes names and the key that they are registered to
@@ -87,21 +85,6 @@ func (r *Registrar) Delete(key string) {
 	}
 	delete(r.idx, key)
 	r.mu.Unlock()
-}
-
-// GetNames lists all the reserved names for the given key
-func (r *Registrar) GetNames(key string) ([]string, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	names, exists := r.idx[key]
-	if !exists {
-		return nil, ErrNoSuchKey
-	}
-
-	ls := make([]string, 0, len(names))
-	ls = append(ls, names...)
-	return ls, nil
 }
 
 // Get returns the key that the passed in name is reserved to

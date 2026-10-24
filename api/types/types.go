@@ -3,17 +3,14 @@ package types
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/go-connections/nat"
 )
 
@@ -75,12 +72,6 @@ type Container struct {
 	Mounts          []MountPoint
 }
 
-// CopyConfig contains request body of Engine API:
-// POST "/containers/"+containerID+"/copy"
-type CopyConfig struct {
-	Resource string
-}
-
 // ContainerPathStat is used to encode the header from
 // GET "/containers/{name:.*}/archive"
 // "Name" is the file or directory name.
@@ -90,13 +81,6 @@ type ContainerPathStat struct {
 	Mode       os.FileMode `json:"mode"`
 	Mtime      time.Time   `json:"mtime"`
 	LinkTarget string      `json:"linkTarget"`
-}
-
-// ContainerStats contains response of Engine API:
-// GET "/stats"
-type ContainerStats struct {
-	Body   io.ReadCloser `json:"body"`
-	OSType string        `json:"ostype"`
 }
 
 // Ping contains response of Engine API:
@@ -142,19 +126,11 @@ type Info struct {
 	DriverStatus       [][2]string
 	SystemStatus       [][2]string
 	Plugins            PluginsInfo
-	MemoryLimit        bool
-	SwapLimit          bool
-	KernelMemory       bool
-	CPUCfsPeriod       bool `json:"CpuCfsPeriod"`
-	CPUCfsQuota        bool `json:"CpuCfsQuota"`
-	CPUShares          bool
-	CPUSet             bool
 	IPv4Forwarding     bool
 	BridgeNfIptables   bool
 	BridgeNfIP6tables  bool `json:"BridgeNfIp6tables"`
 	Debug              bool
 	NFd                int
-	OomKillDisable     bool
 	NGoroutines        int
 	SystemTime         string
 	LoggingDriver      string
@@ -177,18 +153,12 @@ type Info struct {
 	ServerVersion      string
 	ClusterStore       string
 	ClusterAdvertise   string
-	Runtimes           map[string]Runtime
-	DefaultRuntime     string
-	Swarm              swarm.Info
 	// LiveRestoreEnabled determines whether containers should be kept
 	// running when the daemon is shutdown or upon daemon start if
 	// running containers are detected
 	LiveRestoreEnabled bool
-	Isolation          container.Isolation
-	InitBinary         string
 	ContainerdCommit   Commit
 	RuncCommit         Commit
-	InitCommit         Commit
 	SecurityOptions    []string
 }
 
@@ -256,29 +226,6 @@ type ExecStartCheck struct {
 	Tty bool
 }
 
-// HealthcheckResult stores information about a single run of a healthcheck probe
-type HealthcheckResult struct {
-	Start    time.Time // Start is the time this check started
-	End      time.Time // End is the time this check ended
-	ExitCode int       // ExitCode meanings: 0=healthy, 1=unhealthy, 2=reserved (considered unhealthy), else=error running probe
-	Output   string    // Output from last check
-}
-
-// Health states
-const (
-	NoHealthcheck = "none"      // Indicates there is no healthcheck
-	Starting      = "starting"  // Starting indicates that the container is not yet ready
-	Healthy       = "healthy"   // Healthy indicates that the container is running correctly
-	Unhealthy     = "unhealthy" // Unhealthy indicates that the container has a problem
-)
-
-// Health stores information about the container's healthcheck results
-type Health struct {
-	Status        string               // Status is one of Starting, Healthy or Unhealthy
-	FailingStreak int                  // FailingStreak is the number of consecutive failures
-	Log           []*HealthcheckResult // Log contains the last few results (oldest first)
-}
-
 // ContainerState stores container's running state
 // it's part of ContainerJSONBase and will return by "inspect" command
 type ContainerState struct {
@@ -293,19 +240,6 @@ type ContainerState struct {
 	Error      string
 	StartedAt  string
 	FinishedAt string
-	Health     *Health `json:",omitempty"`
-}
-
-// ContainerNode stores information about the node that a container
-// is running on.  It's only available in Docker Swarm
-type ContainerNode struct {
-	ID        string
-	IPAddress string `json:"IP"`
-	Addr      string
-	Name      string
-	Cpus      int
-	Memory    int64
-	Labels    map[string]string
 }
 
 // ContainerJSONBase contains response of Engine API:
@@ -321,7 +255,6 @@ type ContainerJSONBase struct {
 	HostnamePath    string
 	HostsPath       string
 	LogPath         string
-	Node            *ContainerNode `json:",omitempty"`
 	Name            string
 	RestartCount    int
 	Driver          string
@@ -414,7 +347,6 @@ type NetworkResource struct {
 	Containers map[string]EndpointResource    // Containers contains endpoints belonging to the network
 	Options    map[string]string              // Options holds the network specific options to use for when creating the network
 	Labels     map[string]string              // Labels holds metadata specific to the network being created
-	Peers      []network.PeerInfo             `json:",omitempty"` // List of peer nodes for an overlay network
 	Services   map[string]network.ServiceInfo `json:",omitempty"`
 }
 
@@ -480,17 +412,6 @@ type NetworkInspectOptions struct {
 	Verbose bool
 }
 
-// Checkpoint represents the details of a checkpoint
-type Checkpoint struct {
-	Name string // Name is the name of the checkpoint
-}
-
-// Runtime describes an OCI runtime
-type Runtime struct {
-	Path string   `json:"path"`
-	Args []string `json:"runtimeArgs,omitempty"`
-}
-
 // DiskUsage contains response of Engine API:
 // GET "/system/df"
 type DiskUsage struct {
@@ -522,52 +443,8 @@ type ImagesPruneReport struct {
 	SpaceReclaimed uint64
 }
 
-// BuildCachePruneReport contains the response for Engine API:
-// POST "/build/prune"
-type BuildCachePruneReport struct {
-	SpaceReclaimed uint64
-}
-
 // NetworksPruneReport contains the response for Engine API:
 // POST "/networks/prune"
 type NetworksPruneReport struct {
 	NetworksDeleted []string
-}
-
-// SecretCreateResponse contains the information returned to a client
-// on the creation of a new secret.
-type SecretCreateResponse struct {
-	// ID is the id of the created secret.
-	ID string
-}
-
-// SecretListOptions holds parameters to list secrets
-type SecretListOptions struct {
-	Filters filters.Args
-}
-
-// ConfigCreateResponse contains the information returned to a client
-// on the creation of a new config.
-type ConfigCreateResponse struct {
-	// ID is the id of the created config.
-	ID string
-}
-
-// ConfigListOptions holds parameters to list configs
-type ConfigListOptions struct {
-	Filters filters.Args
-}
-
-// PushResult contains the tag, manifest digest, and manifest size from the
-// push. It's used to signal this information to the trust code in the client
-// so it can sign the manifest if necessary.
-type PushResult struct {
-	Tag    string
-	Digest string
-	Size   int
-}
-
-// BuildResult contains the image id of a successful build
-type BuildResult struct {
-	ID string
 }

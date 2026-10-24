@@ -13,7 +13,6 @@ import (
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/idtools"
-	"github.com/docker/docker/pkg/plugingetter"
 )
 
 // FsMagic unsigned id of the filesystem in use.
@@ -36,10 +35,9 @@ var (
 	ErrIncompatibleFS = fmt.Errorf("backing file system is unsupported for this graph driver")
 )
 
-//CreateOpts contains optional arguments for Create() and CreateReadWrite()
+// CreateOpts contains optional arguments for Create() and CreateReadWrite()
 // methods.
 type CreateOpts struct {
-	MountLabel string
 	StorageOpt map[string]string
 }
 
@@ -68,7 +66,7 @@ type ProtoDriver interface {
 	// Get returns the mountpoint for the layered filesystem referred
 	// to by this id. You can optionally specify a mountLabel or "".
 	// Returns the absolute path to the mounted layered filesystem.
-	Get(id, mountLabel string) (dir string, err error)
+	Get(id string) (dir string, err error)
 	// Put releases the system resources for the specified id,
 	// e.g, unmounting layered filesystem.
 	Put(id string) error
@@ -167,16 +165,12 @@ func Register(name string, initFunc InitFunc) error {
 }
 
 // GetDriver initializes and returns the registered driver
-func GetDriver(name string, pg plugingetter.PluginGetter, config Options) (Driver, error) {
+func GetDriver(name string, config Options) (Driver, error) {
 	if initFunc, exists := drivers[name]; exists {
 		return initFunc(filepath.Join(config.Root, name), config.DriverOptions, config.UIDMaps, config.GIDMaps)
 	}
 
-	pluginDriver, err := lookupPlugin(name, pg, config)
-	if err == nil {
-		return pluginDriver, nil
-	}
-	logrus.WithError(err).WithField("driver", name).WithField("home-dir", config.Root).Error("Failed to GetDriver graph")
+	logrus.WithField("driver", name).WithField("home-dir", config.Root).Error("Failed to GetDriver graph")
 	return nil, ErrNotSupported
 }
 
@@ -191,18 +185,17 @@ func getBuiltinDriver(name, home string, options []string, uidMaps, gidMaps []id
 
 // Options is used to initialize a graphdriver
 type Options struct {
-	Root                string
-	DriverOptions       []string
-	UIDMaps             []idtools.IDMap
-	GIDMaps             []idtools.IDMap
-	ExperimentalEnabled bool
+	Root          string
+	DriverOptions []string
+	UIDMaps       []idtools.IDMap
+	GIDMaps       []idtools.IDMap
 }
 
 // New creates the driver and initializes it at the specified root.
-func New(name string, pg plugingetter.PluginGetter, config Options) (Driver, error) {
+func New(name string, config Options) (Driver, error) {
 	if name != "" {
 		logrus.Debugf("[graphdriver] trying provided driver: %s", name) // so the logs show specified driver
-		return GetDriver(name, pg, config)
+		return GetDriver(name, config)
 	}
 
 	// Guess for prior driver

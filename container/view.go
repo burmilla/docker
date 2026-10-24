@@ -32,13 +32,8 @@ type Snapshot struct {
 	ExitCode     int
 	Running      bool
 	Paused       bool
-	Managed      bool
 	ExposedPorts nat.PortSet
 	PortBindings nat.PortSet
-	Health       string
-	HostConfig   struct {
-		Isolation string
-	}
 }
 
 // ViewDB provides an in-memory transactional (ACID) container Store
@@ -169,10 +164,8 @@ func (v *memdbView) transform(container *Container) *Snapshot {
 		StartedAt:    container.StartedAt,
 		Name:         container.Name,
 		Pid:          container.Pid,
-		Managed:      container.Managed,
 		ExposedPorts: make(nat.PortSet),
 		PortBindings: make(nat.PortSet),
-		Health:       container.HealthString(),
 		Running:      container.Running,
 		Paused:       container.Paused,
 		ExitCode:     container.ExitCode(),
@@ -185,7 +178,6 @@ func (v *memdbView) transform(container *Container) *Snapshot {
 
 	if container.HostConfig != nil {
 		snapshot.Container.HostConfig.NetworkMode = string(container.HostConfig.NetworkMode)
-		snapshot.HostConfig.Isolation = string(container.HostConfig.Isolation)
 		for binding := range container.HostConfig.PortBindings {
 			snapshot.PortBindings[binding] = struct{}{}
 		}

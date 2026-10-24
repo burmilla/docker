@@ -13,7 +13,7 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/docker/docker/pkg/locker"
 	"github.com/docker/docker/volume"
-	"github.com/docker/docker/volume/drivers"
+	volumedrivers "github.com/docker/docker/volume/drivers"
 )
 
 const (
@@ -364,7 +364,9 @@ func volumeExists(v volume.Volume) (bool, error) {
 // create asks the given driver to create a volume with the name/opts.
 // If a volume with the name is already known, it will ask the stored driver for the volume.
 // If the passed in driver name does not match the driver name which is stored
-//  for the given volume name, an error is returned after checking if the reference is stale.
+//
+//	for the given volume name, an error is returned after checking if the reference is stale.
+//
 // If the reference is stale, it will be purged and this create can continue.
 // It is expected that callers of this function hold any necessary locks.
 func (s *VolumeStore) create(name, driverName string, opts, labels map[string]string) (volume.Volume, error) {
@@ -531,8 +533,10 @@ func (s *VolumeStore) getVolume(name string) (volume.Volume, error) {
 // lookupVolume gets the specified volume from the specified driver.
 // This will only return errors related to communications with the driver.
 // If the driver returns an error that is not communication related the
-//   error is logged but not returned.
-// If the volume is not found it will return `nil, nil``
+//
+//	error is logged but not returned.
+//
+// If the volume is not found it will return `nil, nil“
 func lookupVolume(driverName, volumeName string) (volume.Volume, error) {
 	vd, err := volumedrivers.GetDriver(driverName)
 	if err != nil {
@@ -604,28 +608,6 @@ func (s *VolumeStore) Refs(v volume.Volume) []string {
 	defer s.locks.Unlock(name)
 
 	return s.getRefs(name)
-}
-
-// FilterByDriver returns the available volumes filtered by driver name
-func (s *VolumeStore) FilterByDriver(name string) ([]volume.Volume, error) {
-	vd, err := volumedrivers.GetDriver(name)
-	if err != nil {
-		return nil, &OpErr{Err: err, Name: name, Op: "list"}
-	}
-	ls, err := vd.List()
-	if err != nil {
-		return nil, &OpErr{Err: err, Name: name, Op: "list"}
-	}
-	for i, v := range ls {
-		options := map[string]string{}
-		s.globalLock.RLock()
-		for key, value := range s.options[v.Name()] {
-			options[key] = value
-		}
-		ls[i] = volumeWrapper{v, s.labels[v.Name()], vd.Scope(), options}
-		s.globalLock.RUnlock()
-	}
-	return ls, nil
 }
 
 // FilterByUsed returns the available volumes filtered by if they are in use or not.

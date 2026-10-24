@@ -16,26 +16,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ErrNoSupport is an error type used for errors indicating that an operation
-// is not supported. It encapsulates a more specific error.
-type ErrNoSupport struct{ Err error }
-
-func (e ErrNoSupport) Error() string {
-	if e.Err == nil {
-		return "not supported"
-	}
-	return e.Err.Error()
-}
-
 // fallbackError wraps an error that can possibly allow fallback to a different
 // endpoint.
 type fallbackError struct {
 	// err is the error being wrapped.
 	err error
-	// confirmedV2 is set to true if it was confirmed that the registry
-	// supports the v2 protocol. This is used to limit fallbacks to the v1
-	// protocol.
-	confirmedV2 bool
 	// transportOK is set to true if we managed to speak HTTP with the
 	// registry. This confirms that we're using appropriate TLS settings
 	// (or lack of TLS).
@@ -51,7 +36,7 @@ func (f fallbackError) Cause() error {
 	return f.err
 }
 
-// shouldV2Fallback returns true if this error is a reason to fall back to v1.
+// shouldV2Fallback returns true if this error is a reason to fall back to the next endpoint.
 func shouldV2Fallback(err errcode.Error) bool {
 	switch err.Code {
 	case errcode.ErrorCodeUnauthorized, v2.ErrorCodeManifestUnknown, v2.ErrorCodeNameUnknown:
@@ -104,8 +89,6 @@ func continueOnError(err error) bool {
 			return true
 		}
 		return continueOnError(v[0])
-	case ErrNoSupport:
-		return continueOnError(v.Err)
 	case errcode.Error:
 		return shouldV2Fallback(v)
 	case *client.UnexpectedHTTPResponseError:

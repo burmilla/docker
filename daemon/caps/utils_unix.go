@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package caps
@@ -47,17 +48,6 @@ type (
 // String returns <key> of CapabilityMapping
 func (c *CapabilityMapping) String() string {
 	return c.Key
-}
-
-// GetCapability returns CapabilityMapping which contains specific key
-func GetCapability(key string) *CapabilityMapping {
-	for _, capp := range capabilityList {
-		if capp.Key == key {
-			cpy := *capp
-			return &cpy
-		}
-	}
-	return nil
 }
 
 // GetAllCapabilities returns all of the capabilities

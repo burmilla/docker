@@ -37,23 +37,10 @@ var (
 	// used for creation.
 	ErrMountNameConflict = errors.New("mount already exists with name")
 
-	// ErrActiveMount is used when an operation on a
-	// mount is attempted but the layer is still
-	// mounted and the operation cannot be performed.
-	ErrActiveMount = errors.New("mount still active")
-
-	// ErrNotMounted is used when requesting an active
-	// mount but the layer is not mounted.
-	ErrNotMounted = errors.New("not mounted")
-
 	// ErrMaxDepthExceeded is used when a layer is attempted
 	// to be created which would result in a layer depth
 	// greater than the 125 max.
 	ErrMaxDepthExceeded = errors.New("max depth exceeded")
-
-	// ErrNotSupported is used when the action is not supported
-	// on the current platform
-	ErrNotSupported = errors.New("not support on this platform")
 )
 
 // ChainID is the content-addressable ID of a layer.
@@ -137,7 +124,7 @@ type RWLayer interface {
 
 	// Mount mounts the RWLayer and returns the filesystem path
 	// the to the writable layer.
-	Mount(mountLabel string) (string, error)
+	Mount() (string, error)
 
 	// Unmount unmounts the RWLayer. This should be called
 	// for every mount. If there are multiple mount calls
@@ -182,7 +169,6 @@ type MountInit func(root string) error
 
 // CreateRWLayerOpts contains optional arguments to be passed to CreateRWLayer
 type CreateRWLayerOpts struct {
-	MountLabel string
 	InitFunc   MountInit
 	StorageOpt map[string]string
 }

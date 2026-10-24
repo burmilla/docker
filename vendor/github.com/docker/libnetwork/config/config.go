@@ -3,13 +3,9 @@ package config
 import (
 	"strings"
 
-	"github.com/BurntSushi/toml"
 	"github.com/Sirupsen/logrus"
-	"github.com/docker/docker/pkg/discovery"
-	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/go-connections/tlsconfig"
 	"github.com/docker/libkv/store"
-	"github.com/docker/libnetwork/cluster"
 	"github.com/docker/libnetwork/datastore"
 	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/osl"
@@ -21,24 +17,21 @@ type Config struct {
 	Cluster         ClusterCfg
 	Scopes          map[string]*datastore.ScopeCfg
 	ActiveSandboxes map[string]interface{}
-	PluginGetter    plugingetter.PluginGetter
 }
 
 // DaemonCfg represents libnetwork core configuration
 type DaemonCfg struct {
-	Debug           bool
-	Experimental    bool
-	DataDir         string
-	DefaultNetwork  string
-	DefaultDriver   string
-	Labels          []string
-	DriverCfg       map[string]interface{}
-	ClusterProvider cluster.Provider
+	Debug          bool
+	Experimental   bool
+	DataDir        string
+	DefaultNetwork string
+	DefaultDriver  string
+	Labels         []string
+	DriverCfg      map[string]interface{}
 }
 
 // ClusterCfg represents cluster configuration
 type ClusterCfg struct {
-	Watcher   discovery.Watcher
 	Address   string
 	Discovery string
 	Heartbeat uint64
@@ -52,20 +45,6 @@ func (c *Config) LoadDefaultScopes(dataDir string) {
 			c.Scopes[k] = v
 		}
 	}
-}
-
-// ParseConfig parses the libnetwork configuration file
-func ParseConfig(tomlCfgFile string) (*Config, error) {
-	cfg := &Config{
-		Scopes: map[string]*datastore.ScopeCfg{},
-	}
-
-	if _, err := toml.DecodeFile(tomlCfgFile, cfg); err != nil {
-		return nil, err
-	}
-
-	cfg.LoadDefaultScopes(cfg.Daemon.DataDir)
-	return cfg, nil
 }
 
 // ParseConfigOptions parses the configuration options and returns
@@ -178,13 +157,6 @@ func OptionKVOpts(opts map[string]string) Option {
 	}
 }
 
-// OptionDiscoveryWatcher function returns an option setter for discovery watcher
-func OptionDiscoveryWatcher(watcher discovery.Watcher) Option {
-	return func(c *Config) {
-		c.Cluster.Watcher = watcher
-	}
-}
-
 // OptionDiscoveryAddress function returns an option setter for self discovery address
 func OptionDiscoveryAddress(address string) Option {
 	return func(c *Config) {
@@ -203,13 +175,6 @@ func OptionDataDir(dataDir string) Option {
 func OptionExecRoot(execRoot string) Option {
 	return func(c *Config) {
 		osl.SetBasePath(execRoot)
-	}
-}
-
-// OptionPluginGetter returns a plugingetter for remote drivers.
-func OptionPluginGetter(pg plugingetter.PluginGetter) Option {
-	return func(c *Config) {
-		c.PluginGetter = pg
 	}
 }
 

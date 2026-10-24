@@ -23,7 +23,6 @@ func (ef *Filter) Include(ev events.Message) bool {
 		ef.matchScope(ev.Scope) &&
 		ef.matchDaemon(ev) &&
 		ef.matchContainer(ev) &&
-		ef.matchPlugin(ev) &&
 		ef.matchVolume(ev) &&
 		ef.matchNetwork(ev) &&
 		ef.matchImage(ev) &&
@@ -31,9 +30,9 @@ func (ef *Filter) Include(ev events.Message) bool {
 }
 
 func (ef *Filter) matchEvent(ev events.Message) bool {
-	// #25798 if an event filter contains either health_status, exec_create or exec_start without a colon
+	// #25798 if an event filter contains either exec_create or exec_start without a colon
 	// Let's to a FuzzyMatch instead of an ExactMatch.
-	if ef.filterContains("event", map[string]struct{}{"health_status": {}, "exec_create": {}, "exec_start": {}}) {
+	if ef.filterContains("event", map[string]struct{}{"exec_create": {}, "exec_start": {}}) {
 		return ef.filter.FuzzyMatch("event", ev.Action)
 	}
 	return ef.filter.ExactMatch("event", ev.Action)
@@ -70,28 +69,12 @@ func (ef *Filter) matchContainer(ev events.Message) bool {
 	return ef.fuzzyMatchName(ev, events.ContainerEventType)
 }
 
-func (ef *Filter) matchPlugin(ev events.Message) bool {
-	return ef.fuzzyMatchName(ev, events.PluginEventType)
-}
-
 func (ef *Filter) matchVolume(ev events.Message) bool {
 	return ef.fuzzyMatchName(ev, events.VolumeEventType)
 }
 
 func (ef *Filter) matchNetwork(ev events.Message) bool {
 	return ef.fuzzyMatchName(ev, events.NetworkEventType)
-}
-
-func (ef *Filter) matchService(ev events.Message) bool {
-	return ef.fuzzyMatchName(ev, events.ServiceEventType)
-}
-
-func (ef *Filter) matchNode(ev events.Message) bool {
-	return ef.fuzzyMatchName(ev, events.NodeEventType)
-}
-
-func (ef *Filter) matchSecret(ev events.Message) bool {
-	return ef.fuzzyMatchName(ev, events.SecretEventType)
 }
 
 func (ef *Filter) fuzzyMatchName(ev events.Message, eventType string) bool {

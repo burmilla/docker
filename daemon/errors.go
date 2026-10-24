@@ -21,10 +21,6 @@ func (e errNotRunning) Error() string {
 	return fmt.Sprintf("Container %s is not running", e.containerID)
 }
 
-func (e errNotRunning) ContainerIsRunning() bool {
-	return false
-}
-
 func errContainerIsRestarting(containerID string) error {
 	err := fmt.Errorf("Container %s is restarting, wait until the container is running", containerID)
 	return errors.NewRequestConflictError(err)

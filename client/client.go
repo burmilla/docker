@@ -8,7 +8,7 @@ be used by your own Go applications to do anything the command-line interface do
 For more information about the Engine API, see the documentation:
 https://docs.docker.com/engine/reference/api/
 
-Usage
+# Usage
 
 You use the library by creating a client object and calling methods on it. The
 client can be created either from environment variables with NewEnvClient, or
@@ -41,7 +41,6 @@ For example, to list running containers (the equivalent of "docker ps"):
 			fmt.Printf("%s %s\n", container.ID[:10], container.Image)
 		}
 	}
-
 */
 package client
 
@@ -50,15 +49,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/docker/docker/api"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/versions"
 	"github.com/docker/go-connections/sockets"
-	"github.com/docker/go-connections/tlsconfig"
 	"golang.org/x/net/context"
 )
 
@@ -103,52 +98,6 @@ func CheckRedirect(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
 	return ErrRedirect
-}
-
-// NewEnvClient initializes a new API client based on environment variables.
-// Use DOCKER_HOST to set the url to the docker server.
-// Use DOCKER_API_VERSION to set the version of the API to reach, leave empty for latest.
-// Use DOCKER_CERT_PATH to load the TLS certificates from.
-// Use DOCKER_TLS_VERIFY to enable or disable TLS verification, off by default.
-func NewEnvClient() (*Client, error) {
-	var client *http.Client
-	if dockerCertPath := os.Getenv("DOCKER_CERT_PATH"); dockerCertPath != "" {
-		options := tlsconfig.Options{
-			CAFile:             filepath.Join(dockerCertPath, "ca.pem"),
-			CertFile:           filepath.Join(dockerCertPath, "cert.pem"),
-			KeyFile:            filepath.Join(dockerCertPath, "key.pem"),
-			InsecureSkipVerify: os.Getenv("DOCKER_TLS_VERIFY") == "",
-		}
-		tlsc, err := tlsconfig.Client(options)
-		if err != nil {
-			return nil, err
-		}
-
-		client = &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: tlsc,
-			},
-			CheckRedirect: CheckRedirect,
-		}
-	}
-
-	host := os.Getenv("DOCKER_HOST")
-	if host == "" {
-		host = DefaultDockerHost
-	}
-	version := os.Getenv("DOCKER_API_VERSION")
-	if version == "" {
-		version = api.DefaultVersion
-	}
-
-	cli, err := NewClient(host, version, client, nil)
-	if err != nil {
-		return cli, err
-	}
-	if os.Getenv("DOCKER_API_VERSION") != "" {
-		cli.manualOverride = true
-	}
-	return cli, nil
 }
 
 // NewClient initializes a new API client for the given host and API version.
@@ -290,20 +239,4 @@ func ParseHost(host string) (string, string, string, error) {
 		basePath = parsed.Path
 	}
 	return proto, addr, basePath, nil
-}
-
-// CustomHTTPHeaders returns the custom http headers associated with this
-// instance of the Client. This operation doesn't acquire a mutex.
-func (cli *Client) CustomHTTPHeaders() map[string]string {
-	m := make(map[string]string)
-	for k, v := range cli.customHTTPHeaders {
-		m[k] = v
-	}
-	return m
-}
-
-// SetCustomHTTPHeaders updates the custom http headers associated with this
-// instance of the Client. This operation doesn't acquire a mutex.
-func (cli *Client) SetCustomHTTPHeaders(headers map[string]string) {
-	cli.customHTTPHeaders = headers
 }

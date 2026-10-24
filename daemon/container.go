@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/docker/docker/api/errors"
@@ -72,12 +73,6 @@ func (daemon *Daemon) Exists(id string) bool {
 	return c != nil
 }
 
-// IsPaused returns a bool indicating if the specified container is paused.
-func (daemon *Daemon) IsPaused(id string) bool {
-	c, _ := daemon.GetContainer(id)
-	return c.State.IsPaused()
-}
-
 func (daemon *Daemon) containerRoot(id string) string {
 	return filepath.Join(daemon.repository, id)
 }
@@ -117,7 +112,7 @@ func (daemon *Daemon) Register(c *container.Container) error {
 	return c.CheckpointTo(daemon.containersReplica)
 }
 
-func (daemon *Daemon) newContainer(name string, platform string, config *containertypes.Config, hostConfig *containertypes.HostConfig, imgID image.ID, managed bool) (*container.Container, error) {
+func (daemon *Daemon) newContainer(name string, config *containertypes.Config, hostConfig *containertypes.HostConfig, imgID image.ID) (*container.Container, error) {
 	var (
 		id             string
 		err            error
@@ -142,7 +137,6 @@ func (daemon *Daemon) newContainer(name string, platform string, config *contain
 
 	base := daemon.newBaseContainer(id)
 	base.Created = time.Now().UTC()
-	base.Managed = managed
 	base.Path = entrypoint
 	base.Args = args //FIXME: de-duplicate from config
 	base.Config = config
@@ -150,8 +144,8 @@ func (daemon *Daemon) newContainer(name string, platform string, config *contain
 	base.ImageID = imgID
 	base.NetworkSettings = &network.Settings{IsAnonymousEndpoint: noExplicitName}
 	base.Name = name
-	base.Driver = daemon.GraphDriverName(platform)
-	base.Platform = platform
+	base.Driver = daemon.GraphDriverName()
+	base.Platform = runtime.GOOS
 	return base, err
 }
 
@@ -211,9 +205,8 @@ func (daemon *Daemon) setHostConfig(container *container.Container, hostConfig *
 	container.Lock()
 	defer container.Unlock()
 
-	// Register any links from the host config before starting the container
-	if err := daemon.registerLinks(container, hostConfig); err != nil {
-		return err
+	if len(hostConfig.Links) > 0 {
+		return fmt.Errorf("legacy container links (--link) are not supported by system-docker")
 	}
 
 	runconfig.SetDefaultNetModeIfBlank(hostConfig)
@@ -245,25 +238,6 @@ func (daemon *Daemon) verifyContainerSettings(hostConfig *containertypes.HostCon
 		for _, env := range config.Env {
 			if _, err := opts.ValidateEnv(env); err != nil {
 				return nil, err
-			}
-		}
-
-		// Validate the healthcheck params of Config
-		if config.Healthcheck != nil {
-			if config.Healthcheck.Interval != 0 && config.Healthcheck.Interval < containertypes.MinimumDuration {
-				return nil, fmt.Errorf("Interval in Healthcheck cannot be less than %s", containertypes.MinimumDuration)
-			}
-
-			if config.Healthcheck.Timeout != 0 && config.Healthcheck.Timeout < containertypes.MinimumDuration {
-				return nil, fmt.Errorf("Timeout in Healthcheck cannot be less than %s", containertypes.MinimumDuration)
-			}
-
-			if config.Healthcheck.Retries < 0 {
-				return nil, fmt.Errorf("Retries in Healthcheck cannot be negative")
-			}
-
-			if config.Healthcheck.StartPeriod != 0 && config.Healthcheck.StartPeriod < containertypes.MinimumDuration {
-				return nil, fmt.Errorf("StartPeriod in Healthcheck cannot be less than %s", containertypes.MinimumDuration)
 			}
 		}
 	}

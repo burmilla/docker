@@ -103,11 +103,6 @@ func (info *Info) ID() string {
 	return info.ContainerID[:12]
 }
 
-// FullID is an alias of ContainerID.
-func (info *Info) FullID() string {
-	return info.ContainerID
-}
-
 // Name returns the ContainerName without a preceding '/'.
 func (info *Info) Name() string {
 	return strings.TrimPrefix(info.ContainerName, "/")
@@ -116,14 +111,4 @@ func (info *Info) Name() string {
 // ImageID returns the ContainerImageID shortened to 12 characters.
 func (info *Info) ImageID() string {
 	return info.ContainerImageID[:12]
-}
-
-// ImageFullID is an alias of ContainerImageID.
-func (info *Info) ImageFullID() string {
-	return info.ContainerImageID
-}
-
-// ImageName is an alias of ContainerImageName
-func (info *Info) ImageName() string {
-	return info.ContainerImageName
 }

@@ -4,7 +4,6 @@
 package daemon
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -14,21 +13,16 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"syscall"
-	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/blkiodev"
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/config"
 	"github.com/docker/docker/image"
-	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/parsers/kernel"
 	"github.com/docker/docker/pkg/sysinfo"
-	"github.com/docker/docker/runconfig"
 	"github.com/docker/docker/volume"
 	"github.com/docker/libnetwork"
 	nwconfig "github.com/docker/libnetwork/config"
@@ -37,123 +31,18 @@ import (
 	"github.com/docker/libnetwork/netutils"
 	"github.com/docker/libnetwork/options"
 	lntypes "github.com/docker/libnetwork/types"
-	"github.com/golang/protobuf/ptypes"
 	rsystem "github.com/opencontainers/runc/libcontainer/system"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 )
 
 const (
 	// See https://git.kernel.org/cgit/linux/kernel/git/tip/tip.git/tree/kernel/sched/sched.h?id=8cd9234c64c584432f6992fe944ca9e46ca8ea76#n269
-	linuxMinCPUShares = 2
-	linuxMaxCPUShares = 262144
 	platformSupported = true
-	// It's not kernel limit, we want this 4M limit to supply a reasonable functional container
-	linuxMinMemory = 4194304
 	// constants for remapped root settings
 	defaultIDSpecifier string = "default"
 	defaultRemappedID  string = "dockremap"
 )
-
-func getMemoryResources(config containertypes.Resources) *specs.LinuxMemory {
-	memory := specs.LinuxMemory{}
-
-	if config.Memory > 0 {
-		limit := uint64(config.Memory)
-		memory.Limit = &limit
-	}
-
-	if config.MemoryReservation > 0 {
-		reservation := uint64(config.MemoryReservation)
-		memory.Reservation = &reservation
-	}
-
-	if config.MemorySwap > 0 {
-		swap := uint64(config.MemorySwap)
-		memory.Swap = &swap
-	}
-
-	if config.MemorySwappiness != nil {
-		swappiness := uint64(*config.MemorySwappiness)
-		memory.Swappiness = &swappiness
-	}
-
-	if config.KernelMemory != 0 {
-		kernelMemory := uint64(config.KernelMemory)
-		memory.Kernel = &kernelMemory
-	}
-
-	return &memory
-}
-
-func getCPUResources(config containertypes.Resources) (*specs.LinuxCPU, error) {
-	cpu := specs.LinuxCPU{}
-
-	if config.CPUShares < 0 {
-		return nil, fmt.Errorf("shares: invalid argument")
-	}
-	if config.CPUShares >= 0 {
-		shares := uint64(config.CPUShares)
-		cpu.Shares = &shares
-	}
-
-	if config.CpusetCpus != "" {
-		cpu.Cpus = config.CpusetCpus
-	}
-
-	if config.CpusetMems != "" {
-		cpu.Mems = config.CpusetMems
-	}
-
-	if config.NanoCPUs > 0 {
-		// https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt
-		period := uint64(100 * time.Millisecond / time.Microsecond)
-		quota := config.NanoCPUs * int64(period) / 1e9
-		cpu.Period = &period
-		cpu.Quota = &quota
-	}
-
-	if config.CPUPeriod != 0 {
-		period := uint64(config.CPUPeriod)
-		cpu.Period = &period
-	}
-
-	if config.CPUQuota != 0 {
-		q := config.CPUQuota
-		cpu.Quota = &q
-	}
-
-	if config.CPURealtimePeriod != 0 {
-		period := uint64(config.CPURealtimePeriod)
-		cpu.RealtimePeriod = &period
-	}
-
-	if config.CPURealtimeRuntime != 0 {
-		c := config.CPURealtimeRuntime
-		cpu.RealtimeRuntime = &c
-	}
-
-	return &cpu, nil
-}
-
-func getBlkioWeightDevices(config containertypes.Resources) ([]specs.LinuxWeightDevice, error) {
-	var stat syscall.Stat_t
-	var blkioWeightDevices []specs.LinuxWeightDevice
-
-	for _, weightDevice := range config.BlkioWeightDevice {
-		if err := syscall.Stat(weightDevice.Path, &stat); err != nil {
-			return nil, err
-		}
-		weight := weightDevice.Weight
-		d := specs.LinuxWeightDevice{Weight: &weight}
-		d.Major = int64(stat.Rdev / 256)
-		d.Minor = int64(stat.Rdev % 256)
-		blkioWeightDevices = append(blkioWeightDevices, d)
-	}
-
-	return blkioWeightDevices, nil
-}
 
 func (daemon *Daemon) parseSecurityOpt(container *container.Container, hostConfig *containertypes.HostConfig) error {
 	container.NoNewPrivileges = daemon.configStore.NoNewPrivileges
@@ -161,18 +50,9 @@ func (daemon *Daemon) parseSecurityOpt(container *container.Container, hostConfi
 }
 
 func parseSecurityOpt(container *container.Container, config *containertypes.HostConfig) error {
-	var (
-		labelOpts []string
-		err       error
-	)
-
 	for _, opt := range config.SecurityOpt {
 		if opt == "no-new-privileges" {
 			container.NoNewPrivileges = true
-			continue
-		}
-		if opt == "disable" {
-			labelOpts = append(labelOpts, "disable")
 			continue
 		}
 
@@ -188,12 +68,11 @@ func parseSecurityOpt(container *container.Container, config *containertypes.Hos
 		}
 
 		switch con[0] {
-		case "label":
-			labelOpts = append(labelOpts, con[1])
-		case "apparmor":
-			container.AppArmorProfile = con[1]
 		case "seccomp":
-			container.SeccompProfile = con[1]
+			// System Docker has no seccomp support; only accept the matching no-op
+			if con[1] != "unconfined" {
+				return fmt.Errorf("seccomp profiles are not supported: %q", opt)
+			}
 		case "no-new-privileges":
 			noNewPrivileges, err := strconv.ParseBool(con[1])
 			if err != nil {
@@ -205,25 +84,7 @@ func parseSecurityOpt(container *container.Container, config *containertypes.Hos
 		}
 	}
 
-	container.ProcessLabel, container.MountLabel, err = "", "", nil
-	return err
-}
-
-func getBlkioThrottleDevices(devs []*blkiodev.ThrottleDevice) ([]specs.LinuxThrottleDevice, error) {
-	var throttleDevices []specs.LinuxThrottleDevice
-	var stat syscall.Stat_t
-
-	for _, d := range devs {
-		if err := syscall.Stat(d.Path, &stat); err != nil {
-			return nil, err
-		}
-		d := specs.LinuxThrottleDevice{Rate: d.Rate}
-		d.Major = int64(stat.Rdev / 256)
-		d.Minor = int64(stat.Rdev % 256)
-		throttleDevices = append(throttleDevices, d)
-	}
-
-	return throttleDevices, nil
+	return nil
 }
 
 func checkKernel() error {
@@ -247,70 +108,14 @@ func checkKernel() error {
 
 // adaptContainerSettings is called during container creation to modify any
 // settings necessary in the HostConfig structure.
-func (daemon *Daemon) adaptContainerSettings(hostConfig *containertypes.HostConfig, adjustCPUShares bool) error {
-	if adjustCPUShares && hostConfig.CPUShares > 0 {
-		// Handle unsupported CPUShares
-		if hostConfig.CPUShares < linuxMinCPUShares {
-			logrus.Warnf("Changing requested CPUShares of %d to minimum allowed of %d", hostConfig.CPUShares, linuxMinCPUShares)
-			hostConfig.CPUShares = linuxMinCPUShares
-		} else if hostConfig.CPUShares > linuxMaxCPUShares {
-			logrus.Warnf("Changing requested CPUShares of %d to maximum allowed of %d", hostConfig.CPUShares, linuxMaxCPUShares)
-			hostConfig.CPUShares = linuxMaxCPUShares
-		}
-	}
-	if hostConfig.Memory > 0 && hostConfig.MemorySwap == 0 {
-		// By default, MemorySwap is set to twice the size of Memory.
-		hostConfig.MemorySwap = hostConfig.Memory * 2
-	}
+func (daemon *Daemon) adaptContainerSettings(hostConfig *containertypes.HostConfig) error {
 	if hostConfig.ShmSize == 0 {
 		hostConfig.ShmSize = config.DefaultShmSize
 		if daemon.configStore != nil {
 			hostConfig.ShmSize = int64(daemon.configStore.ShmSize)
 		}
 	}
-	var err error
-	opts, err := daemon.generateSecurityOpt(hostConfig)
-	if err != nil {
-		return err
-	}
-	hostConfig.SecurityOpt = append(hostConfig.SecurityOpt, opts...)
-	if hostConfig.MemorySwappiness == nil {
-		defaultSwappiness := int64(-1)
-		hostConfig.MemorySwappiness = &defaultSwappiness
-	}
-	if hostConfig.OomKillDisable == nil {
-		defaultOomKillDisable := false
-		hostConfig.OomKillDisable = &defaultOomKillDisable
-	}
-
 	return nil
-}
-
-func verifyContainerResources(resources *containertypes.Resources, sysInfo *sysinfo.SysInfo, update bool) ([]string, error) {
-	warnings := []string{}
-
-	// Remove all limits which would require cgroups
-	resources.Memory = 0
-	resources.MemorySwap = -1
-	resources.MemoryReservation = 0
-	// resources.KernelMemory = 0
-	// resources.PidsLimit = 0
-	resources.CPUShares = 0
-	resources.CPUPeriod = 0
-	resources.CPUQuota = 0
-	resources.CPUPercent = 0
-	resources.CpusetCpus = ""
-	resources.CpusetMems = ""
-	resources.BlkioWeight = 0
-	/*
-		resources.BlkioWeightDevice = []*pblkiodev.WeightDevice{}
-		resources.BlkioDeviceReadBps = []*pblkiodev.ThrottleDevice{}
-		resources.BlkioDeviceWriteBps = []*pblkiodev.ThrottleDevice{}
-		resources.BlkioDeviceReadIOps = []*pblkiodev.ThrottleDevice{}
-		resources.BlkioDeviceWriteIOps = []*pblkiodev.ThrottleDevice{}
-	*/
-
-	return warnings, nil
 }
 
 // verifyPlatformContainerSettings performs platform-specific validation of the
@@ -318,20 +123,6 @@ func verifyContainerResources(resources *containertypes.Resources, sysInfo *sysi
 func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.HostConfig, config *containertypes.Config, update bool) ([]string, error) {
 	var warnings []string
 	sysInfo := sysinfo.New(true)
-
-	warnings, err := daemon.verifyExperimentalContainerSettings(hostConfig, config)
-	if err != nil {
-		return warnings, err
-	}
-
-	w, err := verifyContainerResources(&hostConfig.Resources, sysInfo, update)
-
-	// no matter err is nil or not, w could have data in itself.
-	warnings = append(warnings, w...)
-
-	if err != nil {
-		return warnings, err
-	}
 
 	if hostConfig.ShmSize < 0 {
 		return warnings, fmt.Errorf("SHM size can not be less than 0")
@@ -358,14 +149,6 @@ func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.
 			return warnings, fmt.Errorf("Cannot share the host PID namespace when user namespaces are enabled")
 		}
 	}
-	if hostConfig.Runtime == "" {
-		hostConfig.Runtime = daemon.configStore.GetDefaultRuntimeName()
-	}
-
-	if rt := daemon.configStore.GetRuntime(hostConfig.Runtime); rt == nil {
-		return warnings, fmt.Errorf("Unknown runtime specified %s", hostConfig.Runtime)
-	}
-
 	for dest := range hostConfig.Tmpfs {
 		if err := volume.ValidateTmpfsMountDestination(dest); err != nil {
 			return warnings, err
@@ -373,37 +156,6 @@ func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.
 	}
 
 	return warnings, nil
-}
-
-// reloadPlatform updates configuration with platform specific options
-// and updates the passed attributes
-func (daemon *Daemon) reloadPlatform(conf *config.Config, attributes map[string]string) {
-	if conf.IsValueSet("runtimes") {
-		daemon.configStore.Runtimes = conf.Runtimes
-		// Always set the default one
-		daemon.configStore.Runtimes[config.StockRuntimeName] = types.Runtime{Path: DefaultRuntimeBinary}
-	}
-
-	if conf.DefaultRuntime != "" {
-		daemon.configStore.DefaultRuntime = conf.DefaultRuntime
-	}
-
-	if conf.IsValueSet("default-shm-size") {
-		daemon.configStore.ShmSize = conf.ShmSize
-	}
-
-	// Update attributes
-	var runtimeList bytes.Buffer
-	for name, rt := range daemon.configStore.Runtimes {
-		if runtimeList.Len() > 0 {
-			runtimeList.WriteRune(' ')
-		}
-		runtimeList.WriteString(fmt.Sprintf("%s:%s", name, rt))
-	}
-
-	attributes["runtimes"] = runtimeList.String()
-	attributes["default-runtime"] = daemon.configStore.DefaultRuntime
-	attributes["default-shm-size"] = fmt.Sprintf("%d", daemon.configStore.ShmSize)
 }
 
 // verifyDaemonSettings performs validation of daemon config struct
@@ -418,14 +170,6 @@ func verifyDaemonSettings(conf *config.Config) error {
 	if !conf.BridgeConfig.EnableIPTables && conf.BridgeConfig.EnableIPMasq {
 		conf.BridgeConfig.EnableIPMasq = false
 	}
-
-	if conf.DefaultRuntime == "" {
-		conf.DefaultRuntime = config.StockRuntimeName
-	}
-	if conf.Runtimes == nil {
-		conf.Runtimes = make(map[string]types.Runtime)
-	}
-	conf.Runtimes[config.StockRuntimeName] = types.Runtime{Path: DefaultRuntimeBinary}
 
 	return nil
 }
@@ -456,7 +200,7 @@ func configureMaxThreads(config *config.Config) error {
 }
 
 func (daemon *Daemon) initNetworkController(config *config.Config, activeSandboxes map[string]interface{}) (libnetwork.NetworkController, error) {
-	netOptions, err := daemon.networkOptions(config, daemon.PluginStore, activeSandboxes)
+	netOptions, err := daemon.networkOptions(config, activeSandboxes)
 	if err != nil {
 		return nil, err
 	}
@@ -508,8 +252,7 @@ func driverOptions(config *config.Config) []nwconfig.Option {
 	bridgeConfig := options.Generic{
 		"EnableIPForwarding":  config.BridgeConfig.EnableIPForward,
 		"EnableIPTables":      config.BridgeConfig.EnableIPTables,
-		"EnableUserlandProxy": config.BridgeConfig.EnableUserlandProxy,
-		"UserlandProxyPath":   config.BridgeConfig.UserlandProxyPath}
+		"EnableUserlandProxy": config.BridgeConfig.EnableUserlandProxy}
 	bridgeOption := options.Generic{netlabel.GenericData: bridgeConfig}
 
 	dOptions := []nwconfig.Option{}
@@ -779,7 +522,7 @@ func setupRemappedRoot(config *config.Config) (*idtools.IDMappings, error) {
 
 		mappings, err := idtools.NewIDMappings(username, groupname)
 		if err != nil {
-			return nil, errors.Wrapf(err, "Can't create ID mappings: %v")
+			return nil, errors.Wrap(err, "Can't create ID mappings")
 		}
 		return mappings, nil
 	}
@@ -835,42 +578,6 @@ func setupDaemonRoot(config *config.Config, rootDir string, rootIDs idtools.IDPa
 	return nil
 }
 
-// registerLinks writes the links to a file.
-func (daemon *Daemon) registerLinks(container *container.Container, hostConfig *containertypes.HostConfig) error {
-	if hostConfig == nil || hostConfig.NetworkMode.IsUserDefined() {
-		return nil
-	}
-
-	for _, l := range hostConfig.Links {
-		name, alias, err := opts.ParseLink(l)
-		if err != nil {
-			return err
-		}
-		child, err := daemon.GetContainer(name)
-		if err != nil {
-			return fmt.Errorf("Could not get container for %s", name)
-		}
-		for child.HostConfig.NetworkMode.IsContainer() {
-			parts := strings.SplitN(string(child.HostConfig.NetworkMode), ":", 2)
-			child, err = daemon.GetContainer(parts[1])
-			if err != nil {
-				return fmt.Errorf("Could not get container for %s", parts[1])
-			}
-		}
-		if child.HostConfig.NetworkMode.IsHost() {
-			return runconfig.ErrConflictHostNetworkAndLinks
-		}
-		if err := daemon.registerLink(container, child, alias); err != nil {
-			return err
-		}
-	}
-
-	// After we load all the links into the daemon
-	// set them to nil on the hostconfig
-	_, err := container.WriteHostConfig()
-	return err
-}
-
 // conditionalMountOnStart is a platform specific helper function during the
 // container start to call mount.
 func (daemon *Daemon) conditionalMountOnStart(container *container.Container) error {
@@ -881,28 +588,6 @@ func (daemon *Daemon) conditionalMountOnStart(container *container.Container) er
 // during the cleanup of a container to unmount.
 func (daemon *Daemon) conditionalUnmountOnCleanup(container *container.Container) error {
 	return daemon.Unmount(container)
-}
-
-func (daemon *Daemon) stats(c *container.Container) (*types.StatsJSON, error) {
-	if !c.IsRunning() {
-		return nil, errNotRunning{c.ID}
-	}
-	stats, err := daemon.containerd.Stats(c.ID)
-	if err != nil {
-		return nil, err
-	}
-	s := &types.StatsJSON{}
-	s.Read, err = ptypes.Timestamp(stats.Timestamp)
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
-// setDefaultIsolation determines the default isolation mode for the
-// daemon to run in. This is only applicable on Windows
-func (daemon *Daemon) setDefaultIsolation() error {
-	return nil
 }
 
 func rootFSToAPIType(rootfs *image.RootFS) types.RootFS {
@@ -941,28 +626,4 @@ func setupOOMScoreAdj(score int) error {
 	}
 
 	return err
-}
-
-func maybeCreateCPURealTimeFile(sysinfoPresent bool, configValue int64, file string, path string) error {
-	if sysinfoPresent && configValue != 0 {
-		if err := os.MkdirAll(path, 0755); err != nil && !os.IsExist(err) {
-			return err
-		}
-		if err := ioutil.WriteFile(filepath.Join(path, file), []byte(strconv.FormatInt(configValue, 10)), 0700); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (daemon *Daemon) setupSeccompProfile() error {
-	if daemon.configStore.SeccompProfile != "" {
-		daemon.seccompProfilePath = daemon.configStore.SeccompProfile
-		b, err := ioutil.ReadFile(daemon.configStore.SeccompProfile)
-		if err != nil {
-			return fmt.Errorf("opening seccomp profile (%s) failed: %v", daemon.configStore.SeccompProfile, err)
-		}
-		daemon.seccompProfile = b
-	}
-	return nil
 }

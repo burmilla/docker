@@ -11,8 +11,7 @@ import (
 func (s *containerRouter) getContainersByName(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	displaySize := httputils.BoolValue(r, "size")
 
-	version := httputils.VersionFromContext(ctx)
-	json, err := s.backend.ContainerInspect(vars["name"], displaySize, version)
+	json, err := s.backend.ContainerInspect(vars["name"], displaySize)
 	if err != nil {
 		return err
 	}

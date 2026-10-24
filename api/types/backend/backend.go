@@ -4,9 +4,6 @@ package backend
 import (
 	"io"
 	"time"
-
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
 )
 
 // ContainerAttachConfig holds the streams to use when connecting to a container to view logs.
@@ -48,24 +45,6 @@ type LogMessage struct {
 // Primarily used for converting the map type to string and sorting.
 type LogAttributes map[string]string
 
-// LogSelector is a list of services and tasks that should be returned as part
-// of a log stream. It is similar to swarmapi.LogSelector, with the difference
-// that the names don't have to be resolved to IDs; this is mostly to avoid
-// accidents later where a swarmapi LogSelector might have been incorrectly
-// used verbatim (and to avoid the handler having to import swarmapi types)
-type LogSelector struct {
-	Services []string
-	Tasks    []string
-}
-
-// ContainerStatsConfig holds information for configuring the runtime
-// behavior of a backend.ContainerStats() call.
-type ContainerStatsConfig struct {
-	Stream    bool
-	OutStream io.Writer
-	Version   string
-}
-
 // ExecInspect holds information about a running process started
 // with docker exec.
 type ExecInspect struct {
@@ -90,15 +69,4 @@ type ExecProcessConfig struct {
 	Arguments  []string `json:"arguments"`
 	Privileged *bool    `json:"privileged,omitempty"`
 	User       string   `json:"user,omitempty"`
-}
-
-// ContainerCommitConfig is a wrapper around
-// types.ContainerCommitConfig that also
-// transports configuration changes for a container.
-type ContainerCommitConfig struct {
-	types.ContainerCommitConfig
-	Changes []string
-	// TODO: ContainerConfig is only used by the dockerfile Builder, so remove it
-	// once the Builder has been updated to use a different interface
-	ContainerConfig *container.Config
 }

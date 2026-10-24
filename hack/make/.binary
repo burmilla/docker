@@ -12,24 +12,11 @@ source "${MAKEDIR}/.go-autogen"
 (
 export GOGC=${DOCKER_BUILD_GOGC:-1000}
 
-if [ "$(go env GOOS)/$(go env GOARCH)" != "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" ]; then
-	# must be cross-compiling!
-	case "$(go env GOOS)/$(go env GOARCH)" in
-		windows/amd64)
-			export CC=x86_64-w64-mingw32-gcc
-			export CGO_ENABLED=1
-			;;
-	esac
-fi
-
 echo "Building: $DEST/$BINARY_FULLNAME"
 go build \
 	-o "$DEST/$BINARY_FULLNAME" \
 	"${BUILDFLAGS[@]}" \
-	-ldflags "
-		$LDFLAGS
-		$LDFLAGS_STATIC_DOCKER
-	" \
+	-ldflags "$LDFLAGS" \
 	$GO_PACKAGE
 )
 

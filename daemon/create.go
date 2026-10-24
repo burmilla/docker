@@ -5,7 +5,6 @@ import (
 	"net"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -19,22 +18,11 @@ import (
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/runconfig"
 )
 
-// CreateManagedContainer creates a container that is managed by a Service
-func (daemon *Daemon) CreateManagedContainer(params types.ContainerCreateConfig) (containertypes.ContainerCreateCreatedBody, error) {
-	return daemon.containerCreate(params, true)
-}
-
 // ContainerCreate creates a regular container
 func (daemon *Daemon) ContainerCreate(params types.ContainerCreateConfig) (containertypes.ContainerCreateCreatedBody, error) {
-	return daemon.containerCreate(params, false)
-}
-
-func (daemon *Daemon) containerCreate(params types.ContainerCreateConfig, managed bool) (containertypes.ContainerCreateCreatedBody, error) {
-	start := time.Now()
 	if params.Config == nil {
 		return containertypes.ContainerCreateCreatedBody{}, fmt.Errorf("Config cannot be empty in order to create a container")
 	}
@@ -52,38 +40,27 @@ func (daemon *Daemon) containerCreate(params types.ContainerCreateConfig, manage
 	if params.HostConfig == nil {
 		params.HostConfig = &containertypes.HostConfig{}
 	}
-	err = daemon.adaptContainerSettings(params.HostConfig, params.AdjustCPUShares)
+	err = daemon.adaptContainerSettings(params.HostConfig)
 	if err != nil {
 		return containertypes.ContainerCreateCreatedBody{Warnings: warnings}, err
 	}
 
-	container, err := daemon.create(params, managed)
+	container, err := daemon.create(params)
 	if err != nil {
 		return containertypes.ContainerCreateCreatedBody{Warnings: warnings}, daemon.imageNotExistToErrcode(err)
 	}
-	containerActions.WithValues("create").UpdateSince(start)
 
 	return containertypes.ContainerCreateCreatedBody{ID: container.ID, Warnings: warnings}, nil
 }
 
 // Create creates a new container from the given configuration with a given name.
-func (daemon *Daemon) create(params types.ContainerCreateConfig, managed bool) (retC *container.Container, retErr error) {
+func (daemon *Daemon) create(params types.ContainerCreateConfig) (retC *container.Container, retErr error) {
 	var (
 		container *container.Container
 		img       *image.Image
 		imgID     image.ID
 		err       error
 	)
-
-	// TODO: @jhowardmsft LCOW support - at a later point, can remove the hard-coding
-	// to force the platform to be linux.
-	// Default the platform if not supplied
-	if params.Platform == "" {
-		params.Platform = runtime.GOOS
-	}
-	if system.LCOWSupported() {
-		params.Platform = "linux"
-	}
 
 	if params.Config.Image != "" {
 		img, err = daemon.GetImage(params.Config.Image)
@@ -96,18 +73,8 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig, managed bool) (
 		}
 		imgID = img.ID()
 
-		if runtime.GOOS == "windows" && img.OS == "linux" && !system.LCOWSupported() {
-			return nil, errors.New("platform on which parent image was created is not Windows")
-		}
-	}
-
-	// Make sure the platform requested matches the image
-	if img != nil {
-		if params.Platform != img.Platform() {
-			// Ignore this in LCOW mode. @jhowardmsft TODO - This will need revisiting later.
-			if !system.LCOWSupported() {
-				return nil, fmt.Errorf("cannot create a %s container from a %s image", params.Platform, img.Platform())
-			}
+		if img.Platform() != runtime.GOOS {
+			return nil, fmt.Errorf("cannot create a %s container from a %s image", runtime.GOOS, img.Platform())
 		}
 	}
 
@@ -119,7 +86,7 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig, managed bool) (
 		return nil, err
 	}
 
-	if container, err = daemon.newContainer(params.Name, params.Platform, params.Config, params.HostConfig, imgID, managed); err != nil {
+	if container, err = daemon.newContainer(params.Name, params.Config, params.HostConfig, imgID); err != nil {
 		return nil, err
 	}
 	defer func() {
@@ -143,9 +110,6 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig, managed bool) (
 
 	rootIDs := daemon.idMappings.RootPair()
 	if err := idtools.MkdirAndChown(container.Root, 0700, rootIDs); err != nil {
-		return nil, err
-	}
-	if err := idtools.MkdirAndChown(container.CheckpointDir(), 0700, rootIDs); err != nil {
 		return nil, err
 	}
 
@@ -174,41 +138,10 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig, managed bool) (
 	return container, nil
 }
 
-func (daemon *Daemon) generateSecurityOpt(hostConfig *containertypes.HostConfig) ([]string, error) {
-	for _, opt := range hostConfig.SecurityOpt {
-		con := strings.Split(opt, "=")
-		if con[0] == "label" {
-			// Caller overrode SecurityOpts
-			return nil, nil
-		}
-	}
-	ipcMode := hostConfig.IpcMode
-	pidMode := hostConfig.PidMode
-	privileged := hostConfig.Privileged
-	if ipcMode.IsHost() || pidMode.IsHost() || privileged {
-		return []string{}, nil
-	}
-
-	ipcContainer := ipcMode.Container()
-	pidContainer := pidMode.Container()
-	if ipcContainer != "" {
-		if pidContainer == "" {
-			return []string{}, nil
-		}
-	}
-	if pidContainer != "" {
-		if ipcContainer == "" {
-			return []string{}, nil
-		}
-	}
-
-	return nil, nil
-}
-
 func (daemon *Daemon) setRWLayer(container *container.Container) error {
 	var layerID layer.ChainID
 	if container.ImageID != "" {
-		img, err := daemon.stores[container.Platform].imageStore.Get(container.ImageID)
+		img, err := daemon.stores.imageStore.Get(container.ImageID)
 		if err != nil {
 			return err
 		}
@@ -216,12 +149,11 @@ func (daemon *Daemon) setRWLayer(container *container.Container) error {
 	}
 
 	rwLayerOpts := &layer.CreateRWLayerOpts{
-		MountLabel: container.MountLabel,
 		InitFunc:   daemon.getLayerInit(),
 		StorageOpt: container.HostConfig.StorageOpt,
 	}
 
-	rwLayer, err := daemon.stores[container.Platform].layerStore.CreateRWLayer(container.ID, layerID, rwLayerOpts)
+	rwLayer, err := daemon.stores.layerStore.CreateRWLayer(container.ID, layerID, rwLayerOpts)
 	if err != nil {
 		return err
 	}
@@ -294,4 +226,78 @@ func (daemon *Daemon) verifyNetworkingConfig(nwConfig *networktypes.NetworkingCo
 	}
 	err := fmt.Errorf("Container cannot be connected to network endpoints: %s", strings.Join(l, ", "))
 	return apierrors.NewBadRequestError(err)
+}
+
+// merge merges two Config, the image container configuration (defaults values),
+// and the user container configuration, either passed by the API or generated
+// by the cli.
+// It will mutate the specified user configuration (userConf) with the image
+// configuration where the user configuration is incomplete.
+func merge(userConf, imageConf *containertypes.Config) error {
+	if userConf.User == "" {
+		userConf.User = imageConf.User
+	}
+	if len(userConf.ExposedPorts) == 0 {
+		userConf.ExposedPorts = imageConf.ExposedPorts
+	} else if imageConf.ExposedPorts != nil {
+		for port := range imageConf.ExposedPorts {
+			if _, exists := userConf.ExposedPorts[port]; !exists {
+				userConf.ExposedPorts[port] = struct{}{}
+			}
+		}
+	}
+
+	if len(userConf.Env) == 0 {
+		userConf.Env = imageConf.Env
+	} else {
+		for _, imageEnv := range imageConf.Env {
+			found := false
+			imageEnvKey := strings.Split(imageEnv, "=")[0]
+			for _, userEnv := range userConf.Env {
+				userEnvKey := strings.Split(userEnv, "=")[0]
+				if imageEnvKey == userEnvKey {
+					found = true
+					break
+				}
+			}
+			if !found {
+				userConf.Env = append(userConf.Env, imageEnv)
+			}
+		}
+	}
+
+	if userConf.Labels == nil {
+		userConf.Labels = map[string]string{}
+	}
+	for l, v := range imageConf.Labels {
+		if _, ok := userConf.Labels[l]; !ok {
+			userConf.Labels[l] = v
+		}
+	}
+
+	if len(userConf.Entrypoint) == 0 {
+		if len(userConf.Cmd) == 0 {
+			userConf.Cmd = imageConf.Cmd
+			userConf.ArgsEscaped = imageConf.ArgsEscaped
+		}
+
+		if userConf.Entrypoint == nil {
+			userConf.Entrypoint = imageConf.Entrypoint
+		}
+	}
+	if userConf.WorkingDir == "" {
+		userConf.WorkingDir = imageConf.WorkingDir
+	}
+	if len(userConf.Volumes) == 0 {
+		userConf.Volumes = imageConf.Volumes
+	} else {
+		for k, v := range imageConf.Volumes {
+			userConf.Volumes[k] = v
+		}
+	}
+
+	if userConf.StopSignal == "" {
+		userConf.StopSignal = imageConf.StopSignal
+	}
+	return nil
 }

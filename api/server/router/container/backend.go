@@ -25,8 +25,6 @@ type execBackend interface {
 // copyBackend includes functions to implement to provide container copy functionality.
 type copyBackend interface {
 	ContainerArchivePath(name string, path string) (content io.ReadCloser, stat *types.ContainerPathStat, err error)
-	ContainerCopy(name string, res string) (io.ReadCloser, error)
-	ContainerExport(name string, out io.Writer) error
 	ContainerExtractToDir(name, path string, copyUIDGID, noOverwriteDirNonDir bool, content io.Reader) error
 	ContainerStatPath(name string, path string) (stat *types.ContainerPathStat, err error)
 }
@@ -40,20 +38,17 @@ type stateBackend interface {
 	ContainerResize(name string, height, width int) error
 	ContainerRestart(name string, seconds *int) error
 	ContainerRm(name string, config *types.ContainerRmConfig) error
-	ContainerStart(name string, hostConfig *container.HostConfig, checkpoint string, checkpointDir string) error
+	ContainerStart(name string, hostConfig *container.HostConfig) error
 	ContainerStop(name string, seconds *int) error
 	ContainerUnpause(name string) error
-	ContainerUpdate(name string, hostConfig *container.HostConfig) (container.ContainerUpdateOKBody, error)
 	ContainerWait(ctx context.Context, name string, condition containerpkg.WaitCondition) (<-chan containerpkg.StateStatus, error)
 }
 
 // monitorBackend includes functions to implement to provide containers monitoring functionality.
 type monitorBackend interface {
 	ContainerChanges(name string) ([]archive.Change, error)
-	ContainerInspect(name string, size bool, version string) (interface{}, error)
+	ContainerInspect(name string, size bool) (interface{}, error)
 	ContainerLogs(ctx context.Context, name string, config *types.ContainerLogsOptions) (<-chan *backend.LogMessage, error)
-	ContainerStats(ctx context.Context, name string, config *backend.ContainerStatsConfig) error
-	ContainerTop(name string, psArgs string) (*container.ContainerTopOKBody, error)
 
 	Containers(config *types.ContainerListOptions) ([]*types.Container, error)
 }

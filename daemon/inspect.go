@@ -1,14 +1,11 @@
 package daemon
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/backend"
 	networktypes "github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/api/types/versions"
-	"github.com/docker/docker/api/types/versions/v1p20"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/network"
 	"github.com/docker/go-connections/nat"
@@ -17,13 +14,7 @@ import (
 // ContainerInspect returns low-level information about a
 // container. Returns an error if the container cannot be found, or if
 // there is an error getting the data.
-func (daemon *Daemon) ContainerInspect(name string, size bool, version string) (interface{}, error) {
-	switch {
-	case versions.LessThan(version, "1.20"):
-		return daemon.containerInspectPre120(name)
-	case versions.Equal(version, "1.20"):
-		return daemon.containerInspect120(name)
-	}
+func (daemon *Daemon) ContainerInspect(name string, size bool) (interface{}, error) {
 	return daemon.ContainerInspectCurrent(name, size)
 }
 
@@ -89,60 +80,12 @@ func (daemon *Daemon) ContainerInspectCurrent(name string, size bool) (*types.Co
 	}, nil
 }
 
-// containerInspect120 serializes the master version of a container into a json type.
-func (daemon *Daemon) containerInspect120(name string) (*v1p20.ContainerJSON, error) {
-	container, err := daemon.GetContainer(name)
-	if err != nil {
-		return nil, err
-	}
-
-	container.Lock()
-	defer container.Unlock()
-
-	base, err := daemon.getInspectData(container)
-	if err != nil {
-		return nil, err
-	}
-
-	mountPoints := container.GetMountPoints()
-	config := &v1p20.ContainerConfig{
-		Config:          container.Config,
-		MacAddress:      container.Config.MacAddress,
-		NetworkDisabled: container.Config.NetworkDisabled,
-		ExposedPorts:    container.Config.ExposedPorts,
-		VolumeDriver:    container.HostConfig.VolumeDriver,
-	}
-	networkSettings := daemon.getBackwardsCompatibleNetworkSettings(container.NetworkSettings)
-
-	return &v1p20.ContainerJSON{
-		ContainerJSONBase: base,
-		Mounts:            mountPoints,
-		Config:            config,
-		NetworkSettings:   networkSettings,
-	}, nil
-}
-
 func (daemon *Daemon) getInspectData(container *container.Container) (*types.ContainerJSONBase, error) {
 	// make a copy to play with
 	hostConfig := *container.HostConfig
 
-	children := daemon.children(container)
-	hostConfig.Links = nil // do not expose the internal structure
-	for linkAlias, child := range children {
-		hostConfig.Links = append(hostConfig.Links, fmt.Sprintf("%s:%s", child.Name, linkAlias))
-	}
-
 	// We merge the Ulimits from hostConfig with daemon default
 	daemon.mergeUlimits(&hostConfig)
-
-	var containerHealth *types.Health
-	if container.State.Health != nil {
-		containerHealth = &types.Health{
-			Status:        container.State.Health.Status,
-			FailingStreak: container.State.Health.FailingStreak,
-			Log:           append([]*types.HealthcheckResult{}, container.State.Health.Log...),
-		}
-	}
 
 	containerState := &types.ContainerState{
 		Status:     container.State.StateString(),
@@ -156,7 +99,6 @@ func (daemon *Daemon) getInspectData(container *container.Container) (*types.Con
 		Error:      container.State.ErrorMsg,
 		StartedAt:  container.State.StartedAt.Format(time.RFC3339Nano),
 		FinishedAt: container.State.FinishedAt.Format(time.RFC3339Nano),
-		Health:     containerHealth,
 	}
 
 	contJSONBase := &types.ContainerJSONBase{
@@ -171,8 +113,6 @@ func (daemon *Daemon) getInspectData(container *container.Container) (*types.Con
 		RestartCount: container.RestartCount,
 		Driver:       container.Driver,
 		Platform:     container.Platform,
-		MountLabel:   container.MountLabel,
-		ProcessLabel: container.ProcessLabel,
 		ExecIDs:      container.GetExecIDs(),
 		HostConfig:   &hostConfig,
 	}
@@ -230,25 +170,6 @@ func (daemon *Daemon) VolumeInspect(name string) (*types.Volume, error) {
 	apiV.Mountpoint = v.Path()
 	apiV.Status = v.Status()
 	return apiV, nil
-}
-
-func (daemon *Daemon) getBackwardsCompatibleNetworkSettings(settings *network.Settings) *v1p20.NetworkSettings {
-	result := &v1p20.NetworkSettings{
-		NetworkSettingsBase: types.NetworkSettingsBase{
-			Bridge:                 settings.Bridge,
-			SandboxID:              settings.SandboxID,
-			HairpinMode:            settings.HairpinMode,
-			LinkLocalIPv6Address:   settings.LinkLocalIPv6Address,
-			LinkLocalIPv6PrefixLen: settings.LinkLocalIPv6PrefixLen,
-			Ports:                  settings.Ports,
-			SandboxKey:             settings.SandboxKey,
-			SecondaryIPAddresses:   settings.SecondaryIPAddresses,
-			SecondaryIPv6Addresses: settings.SecondaryIPv6Addresses,
-		},
-		DefaultNetworkSettings: daemon.getDefaultNetworkSettings(settings.Networks),
-	}
-
-	return result
 }
 
 // getDefaultNetworkSettings creates the deprecated structure that holds the information

@@ -1,7 +1,6 @@
 package libcontainerd
 
 import (
-	containerd "github.com/containerd/containerd/api/grpc/types"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -33,15 +32,3 @@ type StateInfo struct {
 	// Platform specific StateInfo
 	OOMKilled bool
 }
-
-// Stats contains a stats properties from containerd.
-type Stats containerd.StatsResponse
-
-// Summary contains a container summary from containerd
-type Summary struct{}
-
-// Resources defines updatable container resource values.
-type Resources containerd.UpdateResource
-
-// Checkpoints contains the details of a checkpoint
-type Checkpoints containerd.ListCheckpointResponse

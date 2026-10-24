@@ -123,11 +123,7 @@ func (d *Daemon) ContainerExecCreate(name string, config *types.ExecConfig) (str
 	execConfig.Privileged = config.Privileged
 	execConfig.User = config.User
 
-	linkedEnv, err := d.setupLinkedContainers(cntr)
-	if err != nil {
-		return "", err
-	}
-	execConfig.Env = container.ReplaceOrAppendEnvValues(cntr.CreateDaemonEnvironment(config.Tty, linkedEnv), config.Env)
+	execConfig.Env = container.ReplaceOrAppendEnvValues(cntr.CreateDaemonEnvironment(config.Tty), config.Env)
 	if len(execConfig.User) == 0 {
 		execConfig.User = cntr.Config.User
 	}

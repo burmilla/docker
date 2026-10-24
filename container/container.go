@@ -19,7 +19,6 @@ import (
 	containertypes "github.com/docker/docker/api/types/container"
 	mounttypes "github.com/docker/docker/api/types/mount"
 	networktypes "github.com/docker/docker/api/types/network"
-	swarmtypes "github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/container/stream"
 	"github.com/docker/docker/daemon/exec"
 	"github.com/docker/docker/daemon/logger"
@@ -68,7 +67,6 @@ type Container struct {
 	RWLayer         layer.RWLayer  `json:"-"`
 	ID              string
 	Created         time.Time
-	Managed         bool
 	Path            string
 	Args            []string
 	Config          *containertypes.Config
@@ -78,18 +76,13 @@ type Container struct {
 	Name            string
 	Driver          string
 	Platform        string
-	// MountLabel contains the options for the 'mount' command
-	MountLabel             string
-	ProcessLabel           string
+
 	RestartCount           int
 	HasBeenStartedBefore   bool
 	HasBeenManuallyStopped bool // used for unless-stopped restart policy
 	MountPoints            map[string]*volume.MountPoint
 	HostConfig             *containertypes.HostConfig `json:"-"` // do not serialize the host config in the json, otherwise we'll make the container unportable
 	ExecCommands           *exec.Store                `json:"-"`
-	DependencyStore        interface{}                `json:"-"`
-	SecretReferences       []*swarmtypes.SecretReference
-	ConfigReferences       []*swarmtypes.ConfigReference
 	// logDriver for closing
 	LogDriver      logger.Logger  `json:"-"`
 	LogCopier      *logger.Copier `json:"-"`
@@ -97,12 +90,10 @@ type Container struct {
 	attachContext  *attachContext
 
 	// Fields here are specific to Unix platforms
-	AppArmorProfile string
 	HostnamePath    string
 	HostsPath       string
 	ShmPath         string
 	ResolvConfPath  string
-	SeccompProfile  string
 	NoNewPrivileges bool
 
 	// Fields here are specific to Windows
@@ -291,9 +282,10 @@ func (container *Container) SetupWorkingDirectory(rootIDs idtools.IDPair) error 
 // container.
 //
 // NOTE: The returned path is *only* safely scoped inside the container's BaseFS
-//       if no component of the returned path changes (such as a component
-//       symlinking to a different path) between using this method and using the
-//       path. See symlink.FollowSymlinkInScope for more details.
+//
+//	if no component of the returned path changes (such as a component
+//	symlinking to a different path) between using this method and using the
+//	path. See symlink.FollowSymlinkInScope for more details.
 func (container *Container) GetResourcePath(path string) (string, error) {
 	// IMPORTANT - These are paths on the OS where the daemon is running, hence
 	// any filepath operations must be done in an OS agnostic way.
@@ -319,9 +311,10 @@ func (container *Container) GetResourcePath(path string) (string, error) {
 // other metadata files. If in doubt, use container.GetResourcePath.
 //
 // NOTE: The returned path is *only* safely scoped inside the container's root
-//       if no component of the returned path changes (such as a component
-//       symlinking to a different path) between using this method and using the
-//       path. See symlink.FollowSymlinkInScope for more details.
+//
+//	if no component of the returned path changes (such as a component
+//	symlinking to a different path) between using this method and using the
+//	path. See symlink.FollowSymlinkInScope for more details.
 func (container *Container) GetRootResourcePath(path string) (string, error) {
 	// IMPORTANT - These are paths on the OS where the daemon is running, hence
 	// any filepath operations must be done in an OS agnostic way.
@@ -343,11 +336,6 @@ func (container *Container) HostConfigPath() (string, error) {
 // ConfigPath returns the path to the container's JSON config
 func (container *Container) ConfigPath() (string, error) {
 	return container.GetRootResourcePath(configFileName)
-}
-
-// CheckpointDir returns the directory checkpoints are stored in
-func (container *Container) CheckpointDir() string {
-	return filepath.Join(container.Root, "checkpoints")
 }
 
 // StartLogger starts a new logger driver for the container.
@@ -395,22 +383,6 @@ func (container *Container) StartLogger() (logger.Logger, error) {
 		l = logger.NewRingLogger(l, info, bufferSize)
 	}
 	return l, nil
-}
-
-// GetProcessLabel returns the process label for the container.
-func (container *Container) GetProcessLabel() string {
-	// even if we have a process label return "" if we are running
-	// in privileged mode
-	if container.HostConfig.Privileged {
-		return ""
-	}
-	return container.ProcessLabel
-}
-
-// GetMountLabel returns the mounting label for the container.
-// This label is empty if the container is privileged.
-func (container *Container) GetMountLabel() string {
-	return container.MountLabel
 }
 
 // GetExecIDs returns the list of exec commands running on the container.
@@ -511,12 +483,6 @@ func (container *Container) InitDNSHostConfig() {
 	if container.HostConfig.DNSOptions == nil {
 		container.HostConfig.DNSOptions = make([]string, 0)
 	}
-}
-
-// GetEndpointInNetwork returns the container's endpoint to the provided network.
-func (container *Container) GetEndpointInNetwork(n libnetwork.Network) (libnetwork.Endpoint, error) {
-	endpointName := strings.TrimPrefix(container.Name, "/")
-	return n.EndpointByName(endpointName)
 }
 
 func (container *Container) buildPortMapInfo(ep libnetwork.Endpoint) error {
@@ -745,27 +711,6 @@ func (container *Container) BuildCreateEndpointOptions(n libnetwork.Network, epC
 		}
 	}
 
-	if container.NetworkSettings.Service != nil {
-		svcCfg := container.NetworkSettings.Service
-
-		var vip string
-		if svcCfg.VirtualAddresses[n.ID()] != nil {
-			vip = svcCfg.VirtualAddresses[n.ID()].IPv4
-		}
-
-		var portConfigs []*libnetwork.PortConfig
-		for _, portConfig := range svcCfg.ExposedPorts {
-			portConfigs = append(portConfigs, &libnetwork.PortConfig{
-				Name:          portConfig.Name,
-				Protocol:      libnetwork.PortConfig_Protocol(portConfig.Protocol),
-				TargetPort:    portConfig.TargetPort,
-				PublishedPort: portConfig.PublishedPort,
-			})
-		}
-
-		createOptions = append(createOptions, libnetwork.CreateOptionService(svcCfg.Name, svcCfg.ID, net.ParseIP(vip), portConfigs, svcCfg.Aliases[n.ID()]))
-	}
-
 	if !containertypes.NetworkMode(n.Name()).IsUserDefined() {
 		createOptions = append(createOptions, libnetwork.CreateOptionDisableResolution())
 	}
@@ -869,17 +814,6 @@ func (container *Container) BuildCreateEndpointOptions(n libnetwork.Network, epC
 	return createOptions, nil
 }
 
-// UpdateMonitor updates monitor configure for running container
-func (container *Container) UpdateMonitor(restartPolicy containertypes.RestartPolicy) {
-	type policySetter interface {
-		SetPolicy(containertypes.RestartPolicy)
-	}
-
-	if rm, ok := container.RestartManager().(policySetter); ok {
-		rm.SetPolicy(restartPolicy)
-	}
-}
-
 // FullHostname returns hostname and optional domain appended to it.
 func (container *Container) FullHostname() string {
 	fullHostname := container.Config.Hostname
@@ -959,11 +893,6 @@ func (container *Container) startLogging() error {
 	return nil
 }
 
-// StdinPipe gets the stdin stream of the container
-func (container *Container) StdinPipe() io.WriteCloser {
-	return container.StreamConfig.StdinPipe()
-}
-
 // StdoutPipe gets the stdout stream of the container
 func (container *Container) StdoutPipe() io.ReadCloser {
 	return container.StreamConfig.StdoutPipe()
@@ -999,53 +928,15 @@ func (container *Container) InitializeStdio(iop libcontainerd.IOPipe) error {
 	return nil
 }
 
-// SecretMountPath returns the path of the secret mount for the container
-func (container *Container) SecretMountPath() string {
-	return filepath.Join(container.Root, "secrets")
-}
-
-// SecretFilePath returns the path to the location of a secret on the host.
-func (container *Container) SecretFilePath(secretRef swarmtypes.SecretReference) string {
-	return filepath.Join(container.SecretMountPath(), secretRef.SecretID)
-}
-
-func getSecretTargetPath(r *swarmtypes.SecretReference) string {
-	if filepath.IsAbs(r.File.Name) {
-		return r.File.Name
-	}
-
-	return filepath.Join(containerSecretMountPath, r.File.Name)
-}
-
-// ConfigsDirPath returns the path to the directory where configs are stored on
-// disk.
-func (container *Container) ConfigsDirPath() string {
-	return filepath.Join(container.Root, "configs")
-}
-
-// ConfigFilePath returns the path to the on-disk location of a config.
-func (container *Container) ConfigFilePath(configRef swarmtypes.ConfigReference) string {
-	return filepath.Join(container.ConfigsDirPath(), configRef.ConfigID)
-}
-
 // CreateDaemonEnvironment creates a new environment variable slice for this container.
-func (container *Container) CreateDaemonEnvironment(tty bool, linkedEnv []string) []string {
+func (container *Container) CreateDaemonEnvironment(tty bool) []string {
 	// Setup environment
-	// TODO @jhowardmsft LCOW Support. This will need revisiting later.
-	platform := container.Platform
-	if platform == "" {
-		platform = runtime.GOOS
+	env := []string{
+		"PATH=" + system.DefaultPathEnv(),
+		"HOSTNAME=" + container.Config.Hostname,
 	}
-	env := []string{}
-	if runtime.GOOS != "windows" || (system.LCOWSupported() && platform == "linux") {
-		env = []string{
-			"PATH=" + system.DefaultPathEnv(platform),
-			"HOSTNAME=" + container.Config.Hostname,
-		}
-		if tty {
-			env = append(env, "TERM=xterm")
-		}
-		env = append(env, linkedEnv...)
+	if tty {
+		env = append(env, "TERM=xterm")
 	}
 
 	// because the env on the container can override certain default values

@@ -57,14 +57,6 @@ echo
 # List of bundles to create when no argument is passed
 DEFAULT_BUNDLES=(
 	binary-daemon
-	dynbinary
-
-	test-unit
-	test-integration-cli
-	test-docker-py
-
-	cross
-	tgz
 )
 
 VERSION=$(< ./VERSION)
@@ -98,12 +90,6 @@ if [ "$AUTO_GOPATH" ]; then
 	ln -sf ../../../.. .gopath/src/"${DOCKER_PKG}"
 	export GOPATH="${PWD}/.gopath"
 
-	if [ "$(go env GOOS)" = 'solaris' ]; then
-		# sys/unix is installed outside the standard library on solaris
-		# TODO need to allow for version change, need to get version from go
-		export GO_VERSION=${GO_VERSION:-"1.8.1"}
-		export GOPATH="${GOPATH}:/usr/lib/gocode/${GO_VERSION}"
-	fi
 fi
 
 if [ ! "$GOPATH" ]; then
@@ -112,84 +98,19 @@ if [ ! "$GOPATH" ]; then
 	exit 1
 fi
 
-if ${PKG_CONFIG} 'libsystemd >= 209' 2> /dev/null ; then
-	DOCKER_BUILDTAGS+=" journald"
-elif ${PKG_CONFIG} 'libsystemd-journal' 2> /dev/null ; then
-	DOCKER_BUILDTAGS+=" journald journald_compat"
-fi
-
-# test whether "btrfs/version.h" exists and apply btrfs_noversion appropriately
-if \
-	command -v gcc &> /dev/null \
-	&& ! gcc -E - -o /dev/null &> /dev/null <<<'#include <btrfs/version.h>' \
-; then
-	DOCKER_BUILDTAGS+=' btrfs_noversion'
-fi
-
-# test whether "libdevmapper.h" is new enough to support deferred remove
-# functionality.
-if \
-	command -v gcc &> /dev/null \
-	&& ! ( echo -e  '#include <libdevmapper.h>\nint main() { dm_task_deferred_remove(NULL); }'| gcc -xc - -o /dev/null -ldevmapper &> /dev/null ) \
-; then
-       DOCKER_BUILDTAGS+=' libdm_no_deferred_remove'
-fi
-
 # Use these flags when compiling the tests and final binary
 
 IAMSTATIC='true'
 if [ -z "$DOCKER_DEBUG" ]; then
-	LDFLAGS='-w'
+	LDFLAGS='-s -w'
 fi
 
-LDFLAGS_STATIC=''
-EXTLDFLAGS_STATIC='-static'
-# ORIG_BUILDFLAGS is necessary for the cross target which cannot always build
-# with options like -race.
-ORIG_BUILDFLAGS=( -tags "autogen netgo static_build $DOCKER_BUILDTAGS" -installsuffix netgo )
-# see https://github.com/golang/go/issues/9369#issuecomment-69864440 for why -installsuffix is necessary here
-
-# When $DOCKER_INCREMENTAL_BINARY is set in the environment, enable incremental
-# builds by installing dependent packages to the GOPATH.
-REBUILD_FLAG="-a"
-if [ "$DOCKER_INCREMENTAL_BINARY" == "1" ] || [ "$DOCKER_INCREMENTAL_BINARY" == "true" ]; then
-	REBUILD_FLAG="-i"
-fi
-ORIG_BUILDFLAGS+=( $REBUILD_FLAG )
+# Pure Go, statically linked: no cgo, so no glibc NSS lookups at runtime
+# (osusergo reads /etc/passwd and /etc/group directly, netgo resolves DNS in Go)
+export CGO_ENABLED=0
+ORIG_BUILDFLAGS=( -tags "autogen netgo osusergo static_build $DOCKER_BUILDTAGS" -trimpath )
 
 BUILDFLAGS=( $BUILDFLAGS "${ORIG_BUILDFLAGS[@]}" )
-# Test timeout.
-
-if [ "${DOCKER_ENGINE_GOARCH}" == "arm" ]; then
-	: ${TIMEOUT:=10m}
-elif [ "${DOCKER_ENGINE_GOARCH}" == "windows" ]; then
-	: ${TIMEOUT:=8m}
-else
-	: ${TIMEOUT:=5m}
-fi
-
-LDFLAGS_STATIC_DOCKER="
-	$LDFLAGS_STATIC
-	-extldflags \"$EXTLDFLAGS_STATIC\"
-"
-
-if [ "$(uname -s)" = 'FreeBSD' ]; then
-	# Tell cgo the compiler is Clang, not GCC
-	# https://code.google.com/p/go/source/browse/src/cmd/cgo/gcc.go?spec=svne77e74371f2340ee08622ce602e9f7b15f29d8d3&r=e6794866ebeba2bf8818b9261b54e2eef1c9e588#752
-	export CC=clang
-
-	# "-extld clang" is a workaround for
-	# https://code.google.com/p/go/issues/detail?id=6845
-	LDFLAGS="$LDFLAGS -extld clang"
-fi
-
-HAVE_GO_TEST_COVER=
-if \
-	go help testflag | grep -- -cover > /dev/null \
-	&& go tool -n cover > /dev/null 2>&1 \
-; then
-	HAVE_GO_TEST_COVER=1
-fi
 
 # a helper to provide ".exe" when it's appropriate
 binary_extension() {
@@ -233,7 +154,7 @@ copy_binaries() {
 	if [ "$(go env GOOS)/$(go env GOARCH)" == "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" ]; then
 		if [ -x /usr/local/bin/docker-runc ]; then
 			echo "Copying nested executables into $dir"
-			for file in containerd containerd-shim containerd-ctr runc init proxy; do
+			for file in containerd containerd-shim runc; do
 				cp -f `which "docker-$file"` "$dir/"
 				if [ "$2" == "hash" ]; then
 					hash_files "$dir/docker-$file"

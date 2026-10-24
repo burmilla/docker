@@ -3,20 +3,13 @@ package config
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"reflect"
-	"runtime"
 	"strings"
 	"sync"
 
 	"github.com/Sirupsen/logrus"
-	daemondiscovery "github.com/docker/docker/daemon/discovery"
 	"github.com/docker/docker/opts"
-	"github.com/docker/docker/pkg/authorization"
-	"github.com/docker/docker/pkg/discovery"
 	"github.com/docker/docker/registry"
 	"github.com/imdario/mergo"
 	"github.com/spf13/pflag"
@@ -27,32 +20,26 @@ const (
 	// maximum number of downloads that
 	// may take place at a time for each pull.
 	DefaultMaxConcurrentDownloads = 3
-	// DefaultMaxConcurrentUploads is the default value for
-	// maximum number of uploads that
-	// may take place at a time for each push.
-	DefaultMaxConcurrentUploads = 5
-	// StockRuntimeName is the reserved name/alias used to represent the
-	// OCI runtime being shipped with the docker daemon package.
-	StockRuntimeName = "runc"
 	// DefaultShmSize is the default value for container's shm size
 	DefaultShmSize = int64(67108864)
 	// DefaultNetworkMtu is the default value for network MTU
 	DefaultNetworkMtu = 1500
 	// DisableNetworkBridge is the default value of the option to disable network bridge
 	DisableNetworkBridge = "none"
-	// DefaultInitBinary is the name of the default init binary
-	DefaultInitBinary = "system-docker-init"
 )
 
 // flatOptions contains configuration keys
 // that MUST NOT be parsed as deep structures.
 // Use this to differentiate these options
-// with others like the ones in CommonTLSOptions.
 var flatOptions = map[string]bool{
-	"cluster-store-opts": true,
-	"log-opts":           true,
-	"runtimes":           true,
-	"default-ulimits":    true,
+	"log-opts":        true,
+	"default-ulimits": true,
+}
+
+// ignoredOptions are config file keys from earlier releases that no longer
+// do anything. They are dropped with a warning instead of failing startup.
+var ignoredOptions = map[string]bool{
+	"userland-proxy-path": true,
 }
 
 // LogConfig represents the default log configuration.
@@ -70,145 +57,57 @@ type commonBridgeConfig struct {
 	FixedCIDR string `json:"fixed-cidr,omitempty"`
 }
 
-// CommonTLSOptions defines TLS configuration for the daemon server.
-// It includes json tags to deserialize configuration from a file
-// using the same names that the flags in the command line use.
-type CommonTLSOptions struct {
-	CAFile   string `json:"tlscacert,omitempty"`
-	CertFile string `json:"tlscert,omitempty"`
-	KeyFile  string `json:"tlskey,omitempty"`
-}
-
 // CommonConfig defines the configuration of a docker daemon which is
 // common across platforms.
 // It includes json tags to deserialize configuration from a file
 // using the same names that the flags in the command line use.
 type CommonConfig struct {
-	AuthzMiddleware      *authorization.Middleware `json:"-"`
-	AuthorizationPlugins []string                  `json:"authorization-plugins,omitempty"` // AuthorizationPlugins holds list of authorization plugins
-	AutoRestart          bool                      `json:"-"`
-	Context              map[string][]string       `json:"-"`
-	DisableBridge        bool                      `json:"-"`
-	DNS                  []string                  `json:"dns,omitempty"`
-	DNSOptions           []string                  `json:"dns-opts,omitempty"`
-	DNSSearch            []string                  `json:"dns-search,omitempty"`
-	ExecOptions          []string                  `json:"exec-opts,omitempty"`
-	GraphDriver          string                    `json:"storage-driver,omitempty"`
-	GraphOptions         []string                  `json:"storage-opts,omitempty"`
-	Labels               []string                  `json:"labels,omitempty"`
-	Mtu                  int                       `json:"mtu,omitempty"`
-	Pidfile              string                    `json:"pidfile,omitempty"`
-	RawLogs              bool                      `json:"raw-logs,omitempty"`
-	RootDeprecated       string                    `json:"graph,omitempty"`
-	Root                 string                    `json:"data-root,omitempty"`
-	SocketGroup          string                    `json:"group,omitempty"`
-	CorsHeaders          string                    `json:"api-cors-header,omitempty"`
-	EnableCors           bool                      `json:"api-enable-cors,omitempty"`
-
-	// TrustKeyPath is used to generate the daemon ID and for signing schema 1 manifests
-	// when pushing to a registry which does not support schema 2. This field is marked as
-	// deprecated because schema 1 manifests are deprecated in favor of schema 2 and the
-	// daemon ID will use a dedicated identifier not shared with exported signatures.
-	TrustKeyPath string `json:"deprecated-key-path,omitempty"`
+	AutoRestart   bool                `json:"-"`
+	Context       map[string][]string `json:"-"`
+	DisableBridge bool                `json:"-"`
+	DNS           []string            `json:"dns,omitempty"`
+	DNSOptions    []string            `json:"dns-opts,omitempty"`
+	DNSSearch     []string            `json:"dns-search,omitempty"`
+	GraphDriver   string              `json:"storage-driver,omitempty"`
+	GraphOptions  []string            `json:"storage-opts,omitempty"`
+	Labels        []string            `json:"labels,omitempty"`
+	Mtu           int                 `json:"mtu,omitempty"`
+	Pidfile       string              `json:"pidfile,omitempty"`
+	RawLogs       bool                `json:"raw-logs,omitempty"`
+	Root          string              `json:"data-root,omitempty"`
+	SocketGroup   string              `json:"group,omitempty"`
 
 	// LiveRestoreEnabled determines whether we should keep containers
 	// alive upon daemon shutdown/start
 	LiveRestoreEnabled bool `json:"live-restore,omitempty"`
 
-	// ClusterStore is the storage backend used for the cluster information. It is used by both
-	// multihost networking (to store networks and endpoints information) and by the node discovery
-	// mechanism.
-	ClusterStore string `json:"cluster-store,omitempty"`
-
-	// ClusterOpts is used to pass options to the discovery package for tuning libkv settings, such
-	// as TLS configuration settings.
-	ClusterOpts map[string]string `json:"cluster-store-opts,omitempty"`
-
-	// ClusterAdvertise is the network endpoint that the Engine advertises for the purpose of node
-	// discovery. This should be a 'host:port' combination on which that daemon instance is
-	// reachable by other hosts.
-	ClusterAdvertise string `json:"cluster-advertise,omitempty"`
-
 	// MaxConcurrentDownloads is the maximum number of downloads that
 	// may take place at a time for each pull.
 	MaxConcurrentDownloads *int `json:"max-concurrent-downloads,omitempty"`
-
-	// MaxConcurrentUploads is the maximum number of uploads that
-	// may take place at a time for each push.
-	MaxConcurrentUploads *int `json:"max-concurrent-uploads,omitempty"`
 
 	// ShutdownTimeout is the timeout value (in seconds) the daemon will wait for the container
 	// to stop when daemon is being shutdown
 	ShutdownTimeout int `json:"shutdown-timeout,omitempty"`
 
-	Debug     bool     `json:"debug,omitempty"`
-	Hosts     []string `json:"hosts,omitempty"`
-	LogLevel  string   `json:"log-level,omitempty"`
-	TLS       bool     `json:"tls,omitempty"`
-	TLSVerify bool     `json:"tlsverify,omitempty"`
+	Debug    bool     `json:"debug,omitempty"`
+	Hosts    []string `json:"hosts,omitempty"`
+	LogLevel string   `json:"log-level,omitempty"`
 
 	// Embedded structs that allow config
 	// deserialization without the full struct.
-	CommonTLSOptions
-
-	// SwarmDefaultAdvertiseAddr is the default host/IP or network interface
-	// to use if a wildcard address is specified in the ListenAddr value
-	// given to the /swarm/init endpoint and no advertise address is
-	// specified.
-	SwarmDefaultAdvertiseAddr string `json:"swarm-default-advertise-addr"`
-	MetricsAddress            string `json:"metrics-addr"`
 
 	LogConfig
 	BridgeConfig // bridgeConfig holds bridge network specific configuration.
 	registry.ServiceOptions
 
 	sync.Mutex
-	// FIXME(vdemeester) This part is not that clear and is mainly dependent on cli flags
-	// It should probably be handled outside this package.
-	ValuesSet map[string]interface{}
-
-	Experimental bool `json:"experimental"` // Experimental indicates whether experimental features should be exposed or not
-}
-
-// IsValueSet returns true if a configuration value
-// was explicitly set in the configuration file.
-func (conf *Config) IsValueSet(name string) bool {
-	if conf.ValuesSet == nil {
-		return false
-	}
-	_, ok := conf.ValuesSet[name]
-	return ok
 }
 
 // New returns a new fully initialized Config struct
 func New() *Config {
 	config := Config{}
 	config.LogConfig.Config = make(map[string]string)
-	config.ClusterOpts = make(map[string]string)
-
-	if runtime.GOOS != "linux" {
-		config.V2Only = true
-	}
 	return &config
-}
-
-// ParseClusterAdvertiseSettings parses the specified advertise settings
-func ParseClusterAdvertiseSettings(clusterStore, clusterAdvertise string) (string, error) {
-	if runtime.GOOS == "solaris" && (clusterAdvertise != "" || clusterStore != "") {
-		return "", errors.New("Cluster Advertise Settings not supported on Solaris")
-	}
-	if clusterAdvertise == "" {
-		return "", daemondiscovery.ErrDiscoveryDisabled
-	}
-	if clusterStore == "" {
-		return "", errors.New("invalid cluster configuration. --cluster-advertise must be accompanied by --cluster-store configuration")
-	}
-
-	advertise, err := discovery.ParseAdvertise(clusterAdvertise)
-	if err != nil {
-		return "", fmt.Errorf("discovery advertise parsing failed (%v)", err)
-	}
-	return advertise, nil
 }
 
 // GetConflictFreeLabels validates Labels for conflict
@@ -233,39 +132,6 @@ func GetConflictFreeLabels(labels []string) ([]string, error) {
 		newLabels = append(newLabels, fmt.Sprintf("%s=%s", k, v))
 	}
 	return newLabels, nil
-}
-
-// Reload reads the configuration in the host and reloads the daemon and server.
-func Reload(configFile string, flags *pflag.FlagSet, reload func(*Config)) error {
-	logrus.Infof("Got signal to reload configuration, reloading from: %s", configFile)
-	newConfig, err := getConflictFreeConfiguration(configFile, flags)
-	if err != nil {
-		return err
-	}
-
-	if err := Validate(newConfig); err != nil {
-		return fmt.Errorf("file configuration validation failed (%v)", err)
-	}
-
-	// Labels of the docker engine used to allow multiple values associated with the same key.
-	// This is deprecated in 1.13, and, be removed after 3 release cycles.
-	// The following will check the conflict of labels, and report a warning for deprecation.
-	//
-	// TODO: After 3 release cycles (17.12) an error will be returned, and labels will be
-	// sanitized to consolidate duplicate key-value pairs (config.Labels = newLabels):
-	//
-	// newLabels, err := GetConflictFreeLabels(newConfig.Labels)
-	// if err != nil {
-	//      return err
-	// }
-	// newConfig.Labels = newLabels
-	//
-	if _, err := GetConflictFreeLabels(newConfig.Labels); err != nil {
-		logrus.Warnf("Engine labels with duplicate keys and conflicting values have been deprecated: %s", err)
-	}
-
-	reload(newConfig)
-	return nil
 }
 
 // boolValue is an interface that boolean value flags implement
@@ -311,15 +177,31 @@ func getConflictFreeConfiguration(configFile string, flags *pflag.FlagSet) (*Con
 		return nil, err
 	}
 
-	var config Config
-	var reader io.Reader
-	if flags != nil {
-		var jsonConfig map[string]interface{}
-		reader = bytes.NewReader(b)
-		if err := json.NewDecoder(reader).Decode(&jsonConfig); err != nil {
-			return nil, err
+	var jsonConfig map[string]interface{}
+	if err := json.NewDecoder(bytes.NewReader(b)).Decode(&jsonConfig); err != nil {
+		return nil, err
+	}
+	for key := range jsonConfig {
+		if ignoredOptions[key] {
+			logrus.Warnf("The %q config file option is no longer supported and is ignored", key)
+			delete(jsonConfig, key)
 		}
+	}
+	if v, ok := jsonConfig["graph"]; ok {
+		logrus.Warn(`The "graph" config file option is deprecated. Please use "data-root" instead.`)
+		if _, both := jsonConfig["data-root"]; both {
+			return nil, fmt.Errorf(`cannot specify both "graph" and "data-root" config file options`)
+		}
+		jsonConfig["data-root"] = v
+		delete(jsonConfig, "graph")
+	}
+	b, err = json.Marshal(jsonConfig)
+	if err != nil {
+		return nil, err
+	}
 
+	var config Config
+	if flags != nil {
 		configSet := configValuesSet(jsonConfig)
 
 		if err := findConfigurationConflicts(configSet, flags); err != nil {
@@ -356,22 +238,10 @@ func getConflictFreeConfiguration(configFile string, flags *pflag.FlagSet) (*Con
 			})
 		}
 
-		config.ValuesSet = configSet
 	}
 
-	reader = bytes.NewReader(b)
-	if err := json.NewDecoder(reader).Decode(&config); err != nil {
+	if err := json.NewDecoder(bytes.NewReader(b)).Decode(&config); err != nil {
 		return nil, err
-	}
-
-	if config.RootDeprecated != "" {
-		logrus.Warn(`The "graph" config file option is deprecated. Please use "data-root" instead.`)
-
-		if config.Root != "" {
-			return nil, fmt.Errorf(`cannot specify both "graph" and "data-root" config file options`)
-		}
-
-		config.Root = config.RootDeprecated
 	}
 
 	return &config, nil
@@ -459,7 +329,7 @@ func findConfigurationConflicts(config map[string]interface{}, flags *pflag.Flag
 
 // Validate validates some specific configs.
 // such as config.DNS, config.Labels, config.DNSSearch,
-// as well as config.MaxConcurrentDownloads, config.MaxConcurrentUploads.
+// as well as config.MaxConcurrentDownloads
 func Validate(config *Config) error {
 	// validate DNS
 	for _, dns := range config.DNS {
@@ -485,39 +355,6 @@ func Validate(config *Config) error {
 	if config.MaxConcurrentDownloads != nil && *config.MaxConcurrentDownloads < 0 {
 		return fmt.Errorf("invalid max concurrent downloads: %d", *config.MaxConcurrentDownloads)
 	}
-	// validate MaxConcurrentUploads
-	if config.MaxConcurrentUploads != nil && *config.MaxConcurrentUploads < 0 {
-		return fmt.Errorf("invalid max concurrent uploads: %d", *config.MaxConcurrentUploads)
-	}
-
-	// validate that "default" runtime is not reset
-	if runtimes := config.GetAllRuntimes(); len(runtimes) > 0 {
-		if _, ok := runtimes[StockRuntimeName]; ok {
-			return fmt.Errorf("runtime name '%s' is reserved", StockRuntimeName)
-		}
-	}
-
-	if defaultRuntime := config.GetDefaultRuntimeName(); defaultRuntime != "" && defaultRuntime != StockRuntimeName {
-		runtimes := config.GetAllRuntimes()
-		if _, ok := runtimes[defaultRuntime]; !ok {
-			return fmt.Errorf("specified default runtime '%s' does not exist", defaultRuntime)
-		}
-	}
 
 	return nil
-}
-
-// ModifiedDiscoverySettings returns whether the discovery configuration has been modified or not.
-func ModifiedDiscoverySettings(config *Config, backendType, advertise string, clusterOpts map[string]string) bool {
-	if config.ClusterStore != backendType || config.ClusterAdvertise != advertise {
-		return true
-	}
-
-	if (config.ClusterOpts == nil && clusterOpts == nil) ||
-		(config.ClusterOpts == nil && len(clusterOpts) == 0) ||
-		(len(config.ClusterOpts) == 0 && clusterOpts == nil) {
-		return false
-	}
-
-	return !reflect.DeepEqual(config.ClusterOpts, clusterOpts)
 }

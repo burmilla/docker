@@ -3,21 +3,15 @@ package distribution
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"runtime"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/distribution/metadata"
 	"github.com/docker/docker/distribution/xfer"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/progress"
-	"github.com/docker/docker/pkg/system"
 	refstore "github.com/docker/docker/reference"
 	"github.com/docker/docker/registry"
-	"github.com/docker/libtrust"
 	"github.com/opencontainers/go-digest"
 	"golang.org/x/net/context"
 )
@@ -46,8 +40,6 @@ type Config struct {
 	// ReferenceStore manages tags. This value is optional, when excluded
 	// content will not be tagged.
 	ReferenceStore refstore.Store
-	// RequireSchema2 ensures that only schema2 manifests are used.
-	RequireSchema2 bool
 }
 
 // ImagePullConfig stores pull configuration.
@@ -59,25 +51,6 @@ type ImagePullConfig struct {
 	// Schema2Types is the valid schema2 configuration types allowed
 	// by the pull operation.
 	Schema2Types []string
-	// Platform is the requested platform of the image being pulled to ensure it can be validated
-	// when the host platform supports multiple image operating systems.
-	Platform string
-}
-
-// ImagePushConfig stores push configuration.
-type ImagePushConfig struct {
-	Config
-
-	// ConfigMediaType is the configuration media type for
-	// schema2 manifests.
-	ConfigMediaType string
-	// LayerStore manages layers.
-	LayerStore PushLayerProvider
-	// TrustKey is the private key for legacy signatures. This is typically
-	// an ephemeral key, since these signatures are no longer verified.
-	TrustKey libtrust.PrivateKey
-	// UploadManager dispatches uploads.
-	UploadManager *xfer.LayerUploadManager
 }
 
 // ImageConfigStore handles storing and getting image configurations
@@ -86,24 +59,7 @@ type ImagePushConfig struct {
 type ImageConfigStore interface {
 	Put([]byte) (digest.Digest, error)
 	Get(digest.Digest) ([]byte, error)
-	RootFSAndPlatformFromConfig([]byte) (*image.RootFS, layer.Platform, error)
-}
-
-// PushLayerProvider provides layers to be pushed by ChainID.
-type PushLayerProvider interface {
-	Get(layer.ChainID) (PushLayer, error)
-}
-
-// PushLayer is a pushable layer with metadata about the layer
-// and access to the content of the layer.
-type PushLayer interface {
-	ChainID() layer.ChainID
-	DiffID() layer.DiffID
-	Parent() PushLayer
-	Open() (io.ReadCloser, error)
-	Size() (int64, error)
-	MediaType() string
-	Release()
+	RootFSFromConfig([]byte) (*image.RootFS, error)
 }
 
 // RootFSDownloadManager handles downloading of the rootfs
@@ -140,113 +96,14 @@ func (s *imageConfigStore) Get(d digest.Digest) ([]byte, error) {
 	return img.RawJSON(), nil
 }
 
-func (s *imageConfigStore) RootFSAndPlatformFromConfig(c []byte) (*image.RootFS, layer.Platform, error) {
+func (s *imageConfigStore) RootFSFromConfig(c []byte) (*image.RootFS, error) {
 	var unmarshalledConfig image.Image
 	if err := json.Unmarshal(c, &unmarshalledConfig); err != nil {
-		return nil, "", err
-	}
-
-	// fail immediately on Windows when downloading a non-Windows image
-	// and vice versa. Exception on Windows if Linux Containers are enabled.
-	if runtime.GOOS == "windows" && unmarshalledConfig.OS == "linux" && !system.LCOWSupported() {
-		return nil, "", fmt.Errorf("image operating system %q cannot be used on this platform", unmarshalledConfig.OS)
-	} else if runtime.GOOS != "windows" && unmarshalledConfig.OS == "windows" {
-		return nil, "", fmt.Errorf("image operating system %q cannot be used on this platform", unmarshalledConfig.OS)
-	}
-
-	platform := ""
-	if runtime.GOOS == "windows" {
-		platform = unmarshalledConfig.OS
-	}
-	return unmarshalledConfig.RootFS, layer.Platform(platform), nil
-}
-
-type storeLayerProvider struct {
-	ls layer.Store
-}
-
-// NewLayerProviderFromStore returns a layer provider backed by
-// an instance of LayerStore. Only getting layers as gzipped
-// tars is supported.
-func NewLayerProviderFromStore(ls layer.Store) PushLayerProvider {
-	return &storeLayerProvider{
-		ls: ls,
-	}
-}
-
-func (p *storeLayerProvider) Get(lid layer.ChainID) (PushLayer, error) {
-	if lid == "" {
-		return &storeLayer{
-			Layer: layer.EmptyLayer,
-		}, nil
-	}
-	l, err := p.ls.Get(lid)
-	if err != nil {
 		return nil, err
 	}
 
-	sl := storeLayer{
-		Layer: l,
-		ls:    p.ls,
+	if unmarshalledConfig.OS == "windows" {
+		return nil, fmt.Errorf("image operating system %q cannot be used on this platform", unmarshalledConfig.OS)
 	}
-	if d, ok := l.(distribution.Describable); ok {
-		return &describableStoreLayer{
-			storeLayer:  sl,
-			describable: d,
-		}, nil
-	}
-
-	return &sl, nil
-}
-
-type storeLayer struct {
-	layer.Layer
-	ls layer.Store
-}
-
-func (l *storeLayer) Parent() PushLayer {
-	p := l.Layer.Parent()
-	if p == nil {
-		return nil
-	}
-	sl := storeLayer{
-		Layer: p,
-		ls:    l.ls,
-	}
-	if d, ok := p.(distribution.Describable); ok {
-		return &describableStoreLayer{
-			storeLayer:  sl,
-			describable: d,
-		}
-	}
-
-	return &sl
-}
-
-func (l *storeLayer) Open() (io.ReadCloser, error) {
-	return l.Layer.TarStream()
-}
-
-func (l *storeLayer) Size() (int64, error) {
-	return l.Layer.DiffSize()
-}
-
-func (l *storeLayer) MediaType() string {
-	// layer store always returns uncompressed tars
-	return schema2.MediaTypeUncompressedLayer
-}
-
-func (l *storeLayer) Release() {
-	if l.ls != nil {
-		layer.ReleaseAndLog(l.ls, l.Layer)
-	}
-}
-
-type describableStoreLayer struct {
-	storeLayer
-	describable distribution.Describable
-}
-
-func (l *describableStoreLayer) Descriptor() distribution.Descriptor {
-	return l.describable.Descriptor()
+	return unmarshalledConfig.RootFS, nil
 }

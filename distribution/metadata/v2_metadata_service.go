@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/layer"
 	"github.com/opencontainers/go-digest"
 )
@@ -38,24 +37,6 @@ type V2Metadata struct {
 	HMAC string
 }
 
-// CheckV2MetadataHMAC returns true if the given "meta" is tagged with a hmac hashed by the given "key".
-func CheckV2MetadataHMAC(meta *V2Metadata, key []byte) bool {
-	if len(meta.HMAC) == 0 || len(key) == 0 {
-		return len(meta.HMAC) == 0 && len(key) == 0
-	}
-	mac := hmac.New(sha256.New, key)
-	mac.Write([]byte(meta.Digest))
-	mac.Write([]byte(meta.SourceRepository))
-	expectedMac := mac.Sum(nil)
-
-	storedMac, err := hex.DecodeString(meta.HMAC)
-	if err != nil {
-		return false
-	}
-
-	return hmac.Equal(storedMac, expectedMac)
-}
-
 // ComputeV2MetadataHMAC returns a hmac for the given "meta" hash by the given key.
 func ComputeV2MetadataHMAC(key []byte, meta *V2Metadata) string {
 	if len(key) == 0 || meta == nil {
@@ -65,37 +46,6 @@ func ComputeV2MetadataHMAC(key []byte, meta *V2Metadata) string {
 	mac.Write([]byte(meta.Digest))
 	mac.Write([]byte(meta.SourceRepository))
 	return hex.EncodeToString(mac.Sum(nil))
-}
-
-// ComputeV2MetadataHMACKey returns a key for the given "authConfig" that can be used to hash v2 metadata
-// entries.
-func ComputeV2MetadataHMACKey(authConfig *types.AuthConfig) ([]byte, error) {
-	if authConfig == nil {
-		return nil, nil
-	}
-	key := authConfigKeyInput{
-		Username:      authConfig.Username,
-		Password:      authConfig.Password,
-		Auth:          authConfig.Auth,
-		IdentityToken: authConfig.IdentityToken,
-		RegistryToken: authConfig.RegistryToken,
-	}
-	buf, err := json.Marshal(&key)
-	if err != nil {
-		return nil, err
-	}
-	return []byte(digest.FromBytes([]byte(buf))), nil
-}
-
-// authConfigKeyInput is a reduced AuthConfig structure holding just relevant credential data eligible for
-// hmac key creation.
-type authConfigKeyInput struct {
-	Username string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
-	Auth     string `json:"auth,omitempty"`
-
-	IdentityToken string `json:"identitytoken,omitempty"`
-	RegistryToken string `json:"registrytoken,omitempty"`
 }
 
 // maxMetadata is the number of metadata entries to keep per layer DiffID.

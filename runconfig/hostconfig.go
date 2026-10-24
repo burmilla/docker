@@ -53,10 +53,6 @@ func validateNetContainerMode(c *container.Config, hc *container.HostConfig) err
 		return ErrConflictNetworkHostname
 	}
 
-	if hc.NetworkMode.IsContainer() && len(hc.Links) > 0 {
-		return ErrConflictContainerNetworkAndLinks
-	}
-
 	if hc.NetworkMode.IsContainer() && len(hc.DNS) > 0 {
 		return ErrConflictNetworkAndDNS
 	}

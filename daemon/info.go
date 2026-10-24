@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"fmt"
 	"os"
 	"runtime"
 	"strings"
@@ -48,36 +47,13 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 	cRunning, cPaused, cStopped := stateCtr.get()
 
 	securityOptions := []string{}
-	if sysInfo.AppArmor {
-		securityOptions = append(securityOptions, "name=apparmor")
-	}
-	if sysInfo.Seccomp && supportsSeccomp {
-		profile := daemon.seccompProfilePath
-		if profile == "" {
-			profile = "default"
-		}
-		securityOptions = append(securityOptions, fmt.Sprintf("name=seccomp,profile=%s", profile))
-	}
 	rootIDs := daemon.idMappings.RootPair()
 	if rootIDs.UID != 0 || rootIDs.GID != 0 {
 		securityOptions = append(securityOptions, "name=userns")
 	}
 
-	imageCount := 0
-	drivers := ""
-	for p, ds := range daemon.stores {
-		imageCount += len(ds.imageStore.Map())
-		drivers += daemon.GraphDriverName(p)
-		if len(daemon.stores) > 1 {
-			drivers += fmt.Sprintf(" (%s) ", p)
-		}
-	}
-
-	// TODO @jhowardmsft LCOW support. For now, hard-code the platform shown for the driver status
-	p := runtime.GOOS
-	if system.LCOWSupported() {
-		p = "linux"
-	}
+	imageCount := len(daemon.stores.imageStore.Map())
+	drivers := daemon.GraphDriverName()
 
 	drivers = strings.TrimSpace(drivers)
 	v := &types.Info{
@@ -88,7 +64,7 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 		ContainersStopped:  int(cStopped),
 		Images:             imageCount,
 		Driver:             drivers,
-		DriverStatus:       daemon.stores[p].layerStore.DriverStatus(),
+		DriverStatus:       daemon.stores.layerStore.DriverStatus(),
 		Plugins:            daemon.showPluginsInfo(),
 		IPv4Forwarding:     !sysInfo.IPv4ForwardingDisabled,
 		BridgeNfIptables:   !sysInfo.BridgeNFCallIPTablesDisabled,
@@ -109,16 +85,12 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 		MemTotal:           meminfo.MemTotal,
 		DockerRootDir:      daemon.configStore.Root,
 		Labels:             daemon.configStore.Labels,
-		ExperimentalBuild:  daemon.configStore.Experimental,
 		ServerVersion:      dockerversion.Version,
-		ClusterStore:       daemon.configStore.ClusterStore,
-		ClusterAdvertise:   daemon.configStore.ClusterAdvertise,
 		HTTPProxy:          sockets.GetProxyEnv("http_proxy"),
 		HTTPSProxy:         sockets.GetProxyEnv("https_proxy"),
 		NoProxy:            sockets.GetProxyEnv("no_proxy"),
 		LiveRestoreEnabled: daemon.configStore.LiveRestoreEnabled,
 		SecurityOptions:    securityOptions,
-		Isolation:          daemon.defaultIsolation,
 	}
 
 	// Retrieve platform specific info
@@ -145,7 +117,6 @@ func (daemon *Daemon) SystemVersion() types.Version {
 		Os:            runtime.GOOS,
 		Arch:          runtime.GOARCH,
 		BuildTime:     dockerversion.BuildTime,
-		Experimental:  daemon.configStore.Experimental,
 	}
 
 	kernelVersion := "<unknown>"

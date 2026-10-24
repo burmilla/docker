@@ -49,17 +49,6 @@ func ChanOutput(progressChan chan<- Progress) Output {
 	return chanOutput(progressChan)
 }
 
-type discardOutput struct{}
-
-func (discardOutput) WriteProgress(Progress) error {
-	return nil
-}
-
-// DiscardOutput returns an Output that discards progress
-func DiscardOutput() Output {
-	return discardOutput{}
-}
-
 // Update is a convenience function to write a progress update to the channel.
 func Update(out Output, id, action string) {
 	out.WriteProgress(Progress{ID: id, Action: action})
@@ -74,12 +63,6 @@ func Updatef(out Output, id, format string, a ...interface{}) {
 // Message is a convenience function to write a progress message to the channel.
 func Message(out Output, id, message string) {
 	out.WriteProgress(Progress{ID: id, Message: message})
-}
-
-// Messagef is a convenience function to write a printf-formatted progress
-// message to the channel.
-func Messagef(out Output, id, format string, a ...interface{}) {
-	Message(out, id, fmt.Sprintf(format, a...))
 }
 
 // Aux sends auxiliary information over a progress interface, which will not be

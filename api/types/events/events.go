@@ -9,16 +9,8 @@ const (
 	ImageEventType = "image"
 	// NetworkEventType is the event type that networks generate
 	NetworkEventType = "network"
-	// PluginEventType is the event type that plugins generate
-	PluginEventType = "plugin"
 	// VolumeEventType is the event type that volumes generate
 	VolumeEventType = "volume"
-	// ServiceEventType is the event type that services generate
-	ServiceEventType = "service"
-	// NodeEventType is the event type that nodes generate
-	NodeEventType = "node"
-	// SecretEventType is the event type that secrets generate
-	SecretEventType = "secret"
 )
 
 // Actor describes something that generates events,

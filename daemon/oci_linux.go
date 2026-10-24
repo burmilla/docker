@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -13,69 +12,22 @@ import (
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/caps"
-	daemonconfig "github.com/docker/docker/daemon/config"
 	"github.com/docker/docker/oci"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/stringutils"
 	"github.com/docker/docker/pkg/symlink"
 	"github.com/docker/docker/volume"
-	"github.com/opencontainers/runc/libcontainer/apparmor"
 	"github.com/opencontainers/runc/libcontainer/devices"
 	"github.com/opencontainers/runc/libcontainer/user"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 func setResources(s *specs.Spec, r containertypes.Resources) error {
-	weightDevices, err := getBlkioWeightDevices(r)
-	if err != nil {
-		return err
-	}
-	readBpsDevice, err := getBlkioThrottleDevices(r.BlkioDeviceReadBps)
-	if err != nil {
-		return err
-	}
-	writeBpsDevice, err := getBlkioThrottleDevices(r.BlkioDeviceWriteBps)
-	if err != nil {
-		return err
-	}
-	readIOpsDevice, err := getBlkioThrottleDevices(r.BlkioDeviceReadIOps)
-	if err != nil {
-		return err
-	}
-	writeIOpsDevice, err := getBlkioThrottleDevices(r.BlkioDeviceWriteIOps)
-	if err != nil {
-		return err
-	}
-
-	memoryRes := getMemoryResources(r)
-	cpuRes, err := getCPUResources(r)
-	if err != nil {
-		return err
-	}
-	blkioWeight := r.BlkioWeight
-
-	specResources := &specs.LinuxResources{
-		Memory: memoryRes,
-		CPU:    cpuRes,
-		BlockIO: &specs.LinuxBlockIO{
-			Weight:                  &blkioWeight,
-			WeightDevice:            weightDevices,
-			ThrottleReadBpsDevice:   readBpsDevice,
-			ThrottleWriteBpsDevice:  writeBpsDevice,
-			ThrottleReadIOPSDevice:  readIOpsDevice,
-			ThrottleWriteIOPSDevice: writeIOpsDevice,
-		},
-		DisableOOMKiller: r.OomKillDisable,
-		Pids: &specs.LinuxPids{
-			Limit: r.PidsLimit,
-		},
-	}
-
+	specResources := &specs.LinuxResources{}
 	if s.Linux.Resources != nil && len(s.Linux.Resources.Devices) > 0 {
 		specResources.Devices = s.Linux.Resources.Devices
 	}
-
 	s.Linux.Resources = specResources
 	return nil
 }
@@ -540,10 +492,6 @@ func setMounts(daemon *Daemon, s *specs.Spec, c *container.Container, mounts []c
 }
 
 func (daemon *Daemon) populateCommonSpec(s *specs.Spec, c *container.Container) error {
-	linkedEnv, err := daemon.setupLinkedContainers(c)
-	if err != nil {
-		return err
-	}
 	s.Root = specs.Root{
 		Path:     c.BaseFS,
 		Readonly: c.HostConfig.ReadonlyRootfs,
@@ -557,33 +505,11 @@ func (daemon *Daemon) populateCommonSpec(s *specs.Spec, c *container.Container) 
 	}
 	s.Process.Args = append([]string{c.Path}, c.Args...)
 
-	// only add the custom init if it is specified and the container is running in its
-	// own private pid namespace.  It does not make sense to add if it is running in the
-	// host namespace or another container's pid namespace where we already have an init
-	if c.HostConfig.PidMode.IsPrivate() {
-		if (c.HostConfig.Init != nil && *c.HostConfig.Init) ||
-			(c.HostConfig.Init == nil && daemon.configStore.Init) {
-			s.Process.Args = append([]string{"/dev/init", "--", c.Path}, c.Args...)
-			var path string
-			if daemon.configStore.InitPath == "" {
-				path, err = exec.LookPath(daemonconfig.DefaultInitBinary)
-				if err != nil {
-					return err
-				}
-			}
-			if daemon.configStore.InitPath != "" {
-				path = daemon.configStore.InitPath
-			}
-			s.Mounts = append(s.Mounts, specs.Mount{
-				Destination: "/dev/init",
-				Type:        "bind",
-				Source:      path,
-				Options:     []string{"bind", "ro"},
-			})
-		}
+	if c.HostConfig.Init != nil && *c.HostConfig.Init {
+		return fmt.Errorf("--init is not supported by system-docker")
 	}
 	s.Process.Cwd = cwd
-	s.Process.Env = c.CreateDaemonEnvironment(c.Config.Tty, linkedEnv)
+	s.Process.Env = c.CreateDaemonEnvironment(c.Config.Tty)
 	s.Process.Terminal = c.Config.Tty
 	s.Hostname = c.FullHostname()
 
@@ -617,19 +543,8 @@ func (daemon *Daemon) createSpec(c *container.Container) (*specs.Spec, error) {
 	if err := setCapabilities(&s, c); err != nil {
 		return nil, fmt.Errorf("linux spec capabilities: %v", err)
 	}
-	if err := setSeccomp(daemon, &s, c); err != nil {
-		return nil, fmt.Errorf("linux seccomp: %v", err)
-	}
 
 	if err := daemon.setupIpcDirs(c); err != nil {
-		return nil, err
-	}
-
-	if err := daemon.setupSecretDir(c); err != nil {
-		return nil, err
-	}
-
-	if err := daemon.setupConfigDir(c); err != nil {
 		return nil, err
 	}
 
@@ -645,12 +560,6 @@ func (daemon *Daemon) createSpec(c *container.Container) (*specs.Spec, error) {
 		return nil, err
 	}
 	ms = append(ms, tmpfsMounts...)
-
-	if m := c.SecretMounts(); m != nil {
-		ms = append(ms, m...)
-	}
-
-	ms = append(ms, c.ConfigMounts()...)
 
 	sort.Sort(mounts(ms))
 	if err := setMounts(daemon, &s, c, ms); err != nil {
@@ -673,32 +582,7 @@ func (daemon *Daemon) createSpec(c *container.Container) (*specs.Spec, error) {
 		}
 	}
 
-	if apparmor.IsEnabled() {
-		var appArmorProfile string
-		if c.AppArmorProfile != "" {
-			appArmorProfile = c.AppArmorProfile
-		} else if c.HostConfig.Privileged {
-			appArmorProfile = "unconfined"
-		} else {
-			appArmorProfile = "docker-default"
-		}
-
-		if appArmorProfile == "docker-default" {
-			// Unattended upgrades and other fun services can unload AppArmor
-			// profiles inadvertently. Since we cannot store our profile in
-			// /etc/apparmor.d, nor can we practically add other ways of
-			// telling the system to keep our profile loaded, in order to make
-			// sure that we keep the default profile enabled we dynamically
-			// reload it if necessary.
-			if err := ensureDefaultAppArmorProfile(); err != nil {
-				return nil, err
-			}
-		}
-
-		s.Process.ApparmorProfile = appArmorProfile
-	}
 	s.Process.NoNewPrivileges = c.NoNewPrivileges
-	s.Linux.MountLabel = c.MountLabel
 
 	return (*specs.Spec)(&s), nil
 }

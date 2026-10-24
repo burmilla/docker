@@ -21,12 +21,6 @@ type ListOpts struct {
 	validator ValidatorFctType
 }
 
-// NewListOpts creates a new ListOpts with the specified validator.
-func NewListOpts(validator ValidatorFctType) ListOpts {
-	var values []string
-	return *NewListOptsRef(&values, validator)
-}
-
 // NewListOptsRef creates a new ListOpts with the specified values and validator.
 func NewListOptsRef(values *[]string, validator ValidatorFctType) *ListOpts {
 	return &ListOpts{
@@ -109,12 +103,6 @@ func (opts *ListOpts) Len() int {
 // Type returns a string name for this Option type
 func (opts *ListOpts) Type() string {
 	return "list"
-}
-
-// WithValidator returns the ListOpts with validator set.
-func (opts *ListOpts) WithValidator(validator ValidatorFctType) *ListOpts {
-	opts.validator = validator
-	return opts
 }
 
 // NamedOption is an interface that list and map options
@@ -221,9 +209,6 @@ func (o *NamedMapOpts) Name() string {
 
 // ValidatorFctType defines a validator function that returns a validated string and/or an error.
 type ValidatorFctType func(val string) (string, error)
-
-// ValidatorFctListType defines a validator function that returns a validated list of string and/or an error
-type ValidatorFctListType func(val string) ([]string, error)
 
 // ValidateIPAddress validates an Ip address.
 func ValidateIPAddress(val string) (string, error) {

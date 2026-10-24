@@ -210,14 +210,6 @@ func (clnt *client) Resume(containerID string) error {
 	return clnt.setState(containerID, StateResume)
 }
 
-func (clnt *client) Stats(containerID string) (*Stats, error) {
-	resp, err := clnt.remote.apiClient.Stats(context.Background(), &containerd.StatsRequest{containerID})
-	if err != nil {
-		return nil, err
-	}
-	return (*Stats)(resp), nil
-}
-
 // Take care of the old 1.11.0 behavior in case the version upgrade
 // happened without a clean daemon shutdown
 func (clnt *client) cleanupOldRootfs(containerID string) {
@@ -249,24 +241,6 @@ func (clnt *client) setExited(containerID string, exitCode uint32) error {
 	return err
 }
 
-func (clnt *client) GetPidsForContainer(containerID string) ([]int, error) {
-	cont, err := clnt.getContainerdContainer(containerID)
-	if err != nil {
-		return nil, err
-	}
-	pids := make([]int, len(cont.Pids))
-	for i, p := range cont.Pids {
-		pids[i] = int(p)
-	}
-	return pids, nil
-}
-
-// Summary returns a summary of the processes running in a container.
-// This is a no-op on Linux.
-func (clnt *client) Summary(containerID string) ([]Summary, error) {
-	return nil, nil
-}
-
 func (clnt *client) getContainerdContainer(containerID string) (*containerd.Container, error) {
 	resp, err := clnt.remote.apiClient.State(context.Background(), &containerd.StateRequest{Id: containerID})
 	if err != nil {
@@ -278,27 +252,6 @@ func (clnt *client) getContainerdContainer(containerID string) (*containerd.Cont
 		}
 	}
 	return nil, fmt.Errorf("invalid state response")
-}
-
-func (clnt *client) UpdateResources(containerID string, resources Resources) error {
-	clnt.lock(containerID)
-	defer clnt.unlock(containerID)
-	container, err := clnt.getContainer(containerID)
-	if err != nil {
-		return err
-	}
-	if container.systemPid == 0 {
-		return fmt.Errorf("No active process for container %s", containerID)
-	}
-	_, err = clnt.remote.apiClient.UpdateContainer(context.Background(), &containerd.UpdateContainerRequest{
-		Id:        containerID,
-		Pid:       InitFriendlyName,
-		Resources: (*containerd.UpdateResource)(&resources),
-	})
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (clnt *client) getExitNotifier(containerID string) *exitNotifier {
@@ -561,58 +514,4 @@ func (clnt *client) Restore(containerID string, attachStdio StdioCallback, optio
 	clnt.deleteContainer(containerID)
 
 	return clnt.setExited(containerID, uint32(255))
-}
-
-func (clnt *client) CreateCheckpoint(containerID string, checkpointID string, checkpointDir string, exit bool) error {
-	clnt.lock(containerID)
-	defer clnt.unlock(containerID)
-	if _, err := clnt.getContainer(containerID); err != nil {
-		return err
-	}
-
-	_, err := clnt.remote.apiClient.CreateCheckpoint(context.Background(), &containerd.CreateCheckpointRequest{
-		Id: containerID,
-		Checkpoint: &containerd.Checkpoint{
-			Name:        checkpointID,
-			Exit:        exit,
-			Tcp:         true,
-			UnixSockets: true,
-			Shell:       false,
-			EmptyNS:     []string{"network"},
-		},
-		CheckpointDir: checkpointDir,
-	})
-	return err
-}
-
-func (clnt *client) DeleteCheckpoint(containerID string, checkpointID string, checkpointDir string) error {
-	clnt.lock(containerID)
-	defer clnt.unlock(containerID)
-	if _, err := clnt.getContainer(containerID); err != nil {
-		return err
-	}
-
-	_, err := clnt.remote.apiClient.DeleteCheckpoint(context.Background(), &containerd.DeleteCheckpointRequest{
-		Id:            containerID,
-		Name:          checkpointID,
-		CheckpointDir: checkpointDir,
-	})
-	return err
-}
-
-func (clnt *client) ListCheckpoints(containerID string, checkpointDir string) (*Checkpoints, error) {
-	clnt.lock(containerID)
-	defer clnt.unlock(containerID)
-	if _, err := clnt.getContainer(containerID); err != nil {
-		return nil, err
-	}
-
-	resp, err := clnt.remote.apiClient.ListCheckpoint(context.Background(), &containerd.ListCheckpointRequest{
-		Id:            containerID,
-		CheckpointDir: checkpointDir,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return (*Checkpoints)(resp), nil
 }

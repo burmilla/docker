@@ -2,8 +2,6 @@ package daemon
 
 import (
 	"fmt"
-	"regexp"
-	"runtime"
 	"sync/atomic"
 	"time"
 
@@ -15,7 +13,6 @@ import (
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/directory"
-	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/docker/volume"
 	"github.com/docker/libnetwork"
@@ -159,12 +156,6 @@ func (daemon *Daemon) VolumesPrune(ctx context.Context, pruneFilters filters.Arg
 
 // ImagesPrune removes unused images
 func (daemon *Daemon) ImagesPrune(ctx context.Context, pruneFilters filters.Args) (*types.ImagesPruneReport, error) {
-	// TODO @jhowardmsft LCOW Support: This will need revisiting later.
-	platform := runtime.GOOS
-	if system.LCOWSupported() {
-		platform = "linux"
-	}
-
 	if !atomic.CompareAndSwapInt32(&daemon.pruneRunning, 0, 1) {
 		return nil, errPruneRunning
 	}
@@ -194,9 +185,9 @@ func (daemon *Daemon) ImagesPrune(ctx context.Context, pruneFilters filters.Args
 
 	var allImages map[image.ID]*image.Image
 	if danglingOnly {
-		allImages = daemon.stores[platform].imageStore.Heads()
+		allImages = daemon.stores.imageStore.Heads()
 	} else {
-		allImages = daemon.stores[platform].imageStore.Map()
+		allImages = daemon.stores.imageStore.Map()
 	}
 	allContainers := daemon.List()
 	imageRefs := map[string]bool{}
@@ -210,7 +201,7 @@ func (daemon *Daemon) ImagesPrune(ctx context.Context, pruneFilters filters.Args
 	}
 
 	// Filter intermediary images and get their unique size
-	allLayers := daemon.stores[platform].layerStore.Map()
+	allLayers := daemon.stores.layerStore.Map()
 	topImages := map[image.ID]*image.Image{}
 	for id, img := range allImages {
 		select {
@@ -218,7 +209,7 @@ func (daemon *Daemon) ImagesPrune(ctx context.Context, pruneFilters filters.Args
 			return nil, ctx.Err()
 		default:
 			dgst := digest.Digest(id)
-			if len(daemon.stores[platform].referenceStore.References(dgst)) == 0 && len(daemon.stores[platform].imageStore.Children(id)) != 0 {
+			if len(daemon.stores.referenceStore.References(dgst)) == 0 && len(daemon.stores.imageStore.Children(id)) != 0 {
 				continue
 			}
 			if !until.IsZero() && img.Created.After(until) {
@@ -249,7 +240,7 @@ deleteImagesLoop:
 		}
 
 		deletedImages := []types.ImageDeleteResponseItem{}
-		refs := daemon.stores[platform].referenceStore.References(dgst)
+		refs := daemon.stores.referenceStore.References(dgst)
 		if len(refs) > 0 {
 			shouldDelete := !danglingOnly
 			if !shouldDelete {
@@ -348,56 +339,6 @@ func (daemon *Daemon) localNetworksPrune(ctx context.Context, pruneFilters filte
 	}
 	daemon.netController.WalkNetworks(l)
 	return rep
-}
-
-// clusterNetworksPrune removes unused cluster networks
-func (daemon *Daemon) clusterNetworksPrune(ctx context.Context, pruneFilters filters.Args) (*types.NetworksPruneReport, error) {
-	rep := &types.NetworksPruneReport{}
-
-	until, _ := getUntilFromPruneFilters(pruneFilters)
-
-	cluster := daemon.GetCluster()
-
-	if !cluster.IsManager() {
-		return rep, nil
-	}
-
-	networks, err := cluster.GetNetworks()
-	if err != nil {
-		return rep, err
-	}
-	networkIsInUse := regexp.MustCompile(`network ([[:alnum:]]+) is in use`)
-	for _, nw := range networks {
-		select {
-		case <-ctx.Done():
-			return rep, ctx.Err()
-		default:
-			if nw.Ingress {
-				// Routing-mesh network removal has to be explicitly invoked by user
-				continue
-			}
-			if !until.IsZero() && nw.Created.After(until) {
-				continue
-			}
-			if !matchLabels(pruneFilters, nw.Labels) {
-				continue
-			}
-			// https://github.com/docker/docker/issues/24186
-			// `docker network inspect` unfortunately displays ONLY those containers that are local to that node.
-			// So we try to remove it anyway and check the error
-			err = cluster.RemoveNetwork(nw.ID)
-			if err != nil {
-				// we can safely ignore the "network .. is in use" error
-				match := networkIsInUse.FindStringSubmatch(err.Error())
-				if len(match) != 2 || match[1] != nw.ID {
-					logrus.Warnf("could not remove cluster network %s: %v", nw.Name, err)
-				}
-				continue
-			}
-			rep.NetworksDeleted = append(rep.NetworksDeleted, nw.Name)
-		}
-	}
-	return rep, nil
 }
 
 // NetworksPrune removes unused networks

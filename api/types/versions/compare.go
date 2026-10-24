@@ -41,11 +41,6 @@ func LessThan(v, other string) bool {
 	return compare(v, other) == -1
 }
 
-// LessThanOrEqualTo checks if a version is less than or equal to another
-func LessThanOrEqualTo(v, other string) bool {
-	return compare(v, other) <= 0
-}
-
 // GreaterThan checks if a version is greater than another
 func GreaterThan(v, other string) bool {
 	return compare(v, other) == 1

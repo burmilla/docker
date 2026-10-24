@@ -71,29 +71,6 @@ func (sf *jsonProgressFormatter) formatProgress(id, action string, progress *jso
 	return appendNewline(b)
 }
 
-type rawProgressFormatter struct{}
-
-func (sf *rawProgressFormatter) formatStatus(id, format string, a ...interface{}) []byte {
-	return []byte(fmt.Sprintf(format, a...) + streamNewline)
-}
-
-func (sf *rawProgressFormatter) formatProgress(id, action string, progress *jsonmessage.JSONProgress, aux interface{}) []byte {
-	if progress == nil {
-		progress = &jsonmessage.JSONProgress{}
-	}
-	endl := "\r"
-	if progress.String() == "" {
-		endl += "\n"
-	}
-	return []byte(action + " " + progress.String() + endl)
-}
-
-// NewProgressOutput returns a progress.Output object that can be passed to
-// progress.NewProgressReader.
-func NewProgressOutput(out io.Writer) progress.Output {
-	return &progressOutput{sf: &rawProgressFormatter{}, out: out, newLines: true}
-}
-
 // NewJSONProgressOutput returns a progress.Output that that formats output
 // using JSON objects
 func NewJSONProgressOutput(out io.Writer, newLines bool) progress.Output {
@@ -115,7 +92,7 @@ type progressOutput struct {
 func (out *progressOutput) WriteProgress(prog progress.Progress) error {
 	var formatted []byte
 	if prog.Message != "" {
-		formatted = out.sf.formatStatus(prog.ID, prog.Message)
+		formatted = out.sf.formatStatus(prog.ID, "%s", prog.Message)
 	} else {
 		jsonProgress := jsonmessage.JSONProgress{Current: prog.Current, Total: prog.Total, HideCounts: prog.HideCounts, Units: prog.Units}
 		formatted = out.sf.formatProgress(prog.ID, prog.Action, &jsonProgress, prog.Aux)
@@ -131,29 +108,4 @@ func (out *progressOutput) WriteProgress(prog progress.Progress) error {
 	}
 
 	return nil
-}
-
-// AuxFormatter is a streamFormatter that writes aux progress messages
-type AuxFormatter struct {
-	io.Writer
-}
-
-// Emit emits the given interface as an aux progress message
-func (sf *AuxFormatter) Emit(aux interface{}) error {
-	auxJSONBytes, err := json.Marshal(aux)
-	if err != nil {
-		return err
-	}
-	auxJSON := new(json.RawMessage)
-	*auxJSON = auxJSONBytes
-	msgJSON, err := json.Marshal(&jsonmessage.JSONMessage{Aux: auxJSON})
-	if err != nil {
-		return err
-	}
-	msgJSON = appendNewline(msgJSON)
-	n, err := sf.Writer.Write(msgJSON)
-	if n != len(msgJSON) {
-		return io.ErrShortWrite
-	}
-	return err
 }

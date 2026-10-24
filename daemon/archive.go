@@ -20,26 +20,6 @@ import (
 // path does not refer to a directory.
 var ErrExtractPointNotDirectory = errors.New("extraction point is not a directory")
 
-// ContainerCopy performs a deprecated operation of archiving the resource at
-// the specified path in the container identified by the given name.
-func (daemon *Daemon) ContainerCopy(name string, res string) (io.ReadCloser, error) {
-	container, err := daemon.GetContainer(name)
-	if err != nil {
-		return nil, err
-	}
-
-	if res[0] == '/' || res[0] == '\\' {
-		res = res[1:]
-	}
-
-	// Make sure an online file-system operation is permitted.
-	if err := daemon.isOnlineFSOperationPermitted(container); err != nil {
-		return nil, err
-	}
-
-	return daemon.containerCopy(container, res)
-}
-
 // ContainerStatPath stats the filesystem resource at the specified path in the
 // container identified by the given name.
 func (daemon *Daemon) ContainerStatPath(name string, path string) (stat *types.ContainerPathStat, err error) {
@@ -294,69 +274,4 @@ func (daemon *Daemon) containerExtractToDir(container *container.Container, path
 	daemon.LogContainerEvent(container, "extract-to-dir")
 
 	return nil
-}
-
-func (daemon *Daemon) containerCopy(container *container.Container, resource string) (rc io.ReadCloser, err error) {
-	container.Lock()
-
-	defer func() {
-		if err != nil {
-			// Wait to unlock the container until the archive is fully read
-			// (see the ReadCloseWrapper func below) or if there is an error
-			// before that occurs.
-			container.Unlock()
-		}
-	}()
-
-	if err := daemon.Mount(container); err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		if err != nil {
-			// unmount any volumes
-			container.DetachAndUnmount(daemon.LogVolumeEvent)
-			// unmount the container's rootfs
-			daemon.Unmount(container)
-		}
-	}()
-
-	if err := daemon.mountVolumes(container); err != nil {
-		return nil, err
-	}
-
-	basePath, err := container.GetResourcePath(resource)
-	if err != nil {
-		return nil, err
-	}
-	stat, err := os.Stat(basePath)
-	if err != nil {
-		return nil, err
-	}
-	var filter []string
-	if !stat.IsDir() {
-		d, f := filepath.Split(basePath)
-		basePath = d
-		filter = []string{f}
-	} else {
-		filter = []string{filepath.Base(basePath)}
-		basePath = filepath.Dir(basePath)
-	}
-	archive, err := archive.TarWithOptions(basePath, &archive.TarOptions{
-		Compression:  archive.Uncompressed,
-		IncludeFiles: filter,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	reader := ioutils.NewReadCloserWrapper(archive, func() error {
-		err := archive.Close()
-		container.DetachAndUnmount(daemon.LogVolumeEvent)
-		daemon.Unmount(container)
-		container.Unlock()
-		return err
-	})
-	daemon.LogContainerEvent(container, "copy")
-	return reader, nil
 }

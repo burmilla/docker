@@ -395,8 +395,6 @@ func (d *driver) configure(option map[string]interface{}) error {
 		if err != nil {
 			return err
 		}
-		// Make sure on firewall reload, first thing being re-played is chains creation
-		iptables.OnReloaded(func() { logrus.Debugf("Recreating iptables chains on firewall reload"); setupIPChains(config) })
 	}
 
 	if config.EnableIPForwarding {
@@ -739,10 +737,6 @@ func (d *driver) createNetwork(config *networkConfiguration) error {
 
 		// Setup IPTables.
 		{d.config.EnableIPTables, network.setupIPTables},
-
-		//We want to track firewalld configuration so that
-		//if it is started/reloaded, the rules can be applied correctly
-		{d.config.EnableIPTables, network.setupFirewalld},
 
 		// Setup DefaultGatewayIPv4
 		{config.DefaultGatewayIPv4 != nil, setupGatewayIPv4},

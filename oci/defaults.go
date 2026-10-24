@@ -206,10 +206,7 @@ func DefaultLinuxSpec() specs.Spec {
 		},
 	}
 
-	// For LCOW support, don't mask /sys/firmware
-	if runtime.GOOS != "windows" {
-		s.Linux.MaskedPaths = append(s.Linux.MaskedPaths, "/sys/firmware")
-	}
+	s.Linux.MaskedPaths = append(s.Linux.MaskedPaths, "/sys/firmware")
 
 	return s
 }

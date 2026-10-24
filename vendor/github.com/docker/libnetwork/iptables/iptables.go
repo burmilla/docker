@@ -79,12 +79,6 @@ func probe() {
 	}
 }
 
-func initFirewalld() {
-	if err := FirewalldInit(); err != nil {
-		logrus.Debugf("Fail to initialize firewalld: %v, using raw iptables instead", err)
-	}
-}
-
 func detectIptables() {
 	path, err := exec.LookPath("iptables")
 	if err != nil {
@@ -102,7 +96,6 @@ func detectIptables() {
 
 func initDependencies() {
 	probe()
-	initFirewalld()
 	detectIptables()
 }
 
@@ -408,12 +401,6 @@ func existsRaw(table Table, chain string, rule ...string) bool {
 
 // Raw calls 'iptables' system command, passing supplied arguments.
 func Raw(args ...string) ([]byte, error) {
-	if firewalldRunning {
-		output, err := Passthrough(Iptables, args...)
-		if err == nil || !strings.Contains(err.Error(), "was not provided by any .service files") {
-			return output, err
-		}
-	}
 	return raw(args...)
 }
 

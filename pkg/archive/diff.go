@@ -218,39 +218,3 @@ func UnpackLayer(dest string, layer io.Reader, options *TarOptions) (size int64,
 
 	return size, nil
 }
-
-// ApplyLayer parses a diff in the standard layer format from `layer`,
-// and applies it to the directory `dest`. The stream `layer` can be
-// compressed or uncompressed.
-// Returns the size in bytes of the contents of the layer.
-func ApplyLayer(dest string, layer io.Reader) (int64, error) {
-	return applyLayerHandler(dest, layer, &TarOptions{}, true)
-}
-
-// ApplyUncompressedLayer parses a diff in the standard layer format from
-// `layer`, and applies it to the directory `dest`. The stream `layer`
-// can only be uncompressed.
-// Returns the size in bytes of the contents of the layer.
-func ApplyUncompressedLayer(dest string, layer io.Reader, options *TarOptions) (int64, error) {
-	return applyLayerHandler(dest, layer, options, false)
-}
-
-// do the bulk load of ApplyLayer, but allow for not calling DecompressStream
-func applyLayerHandler(dest string, layer io.Reader, options *TarOptions, decompress bool) (int64, error) {
-	dest = filepath.Clean(dest)
-
-	// We need to be able to set any perms
-	oldmask, err := system.Umask(0)
-	if err != nil {
-		return 0, err
-	}
-	defer system.Umask(oldmask) // ignore err, ErrNotSupportedPlatform
-
-	if decompress {
-		layer, err = DecompressStream(layer)
-		if err != nil {
-			return 0, err
-		}
-	}
-	return UnpackLayer(dest, layer, options)
-}

@@ -13,18 +13,11 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/registry"
 	timetypes "github.com/docker/docker/api/types/time"
 	"github.com/docker/docker/api/types/versions"
 	"github.com/docker/docker/pkg/ioutils"
-	pkgerrors "github.com/pkg/errors"
 	"golang.org/x/net/context"
 )
-
-func optionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	w.WriteHeader(http.StatusOK)
-	return nil
-}
 
 func pingHandler(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	_, err := w.Write([]byte{'O', 'K'})
@@ -73,12 +66,6 @@ func (s *systemRouter) getDiskUsage(ctx context.Context, w http.ResponseWriter, 
 	if err != nil {
 		return err
 	}
-	builderSize, err := s.builder.DiskUsage()
-	if err != nil {
-		return pkgerrors.Wrap(err, "error getting build cache usage")
-	}
-	du.BuilderSize = builderSize
-
 	return httputils.WriteJSON(w, http.StatusOK, du)
 }
 
@@ -158,23 +145,6 @@ func (s *systemRouter) getEvents(ctx context.Context, w http.ResponseWriter, r *
 			return nil
 		}
 	}
-}
-
-func (s *systemRouter) postAuth(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	var config *types.AuthConfig
-	err := json.NewDecoder(r.Body).Decode(&config)
-	r.Body.Close()
-	if err != nil {
-		return err
-	}
-	status, token, err := s.backend.AuthenticateToRegistry(ctx, config)
-	if err != nil {
-		return err
-	}
-	return httputils.WriteJSON(w, http.StatusOK, &registry.AuthenticateOKBody{
-		Status:        status,
-		IdentityToken: token,
-	})
 }
 
 func eventTime(formTime string) (time.Time, error) {

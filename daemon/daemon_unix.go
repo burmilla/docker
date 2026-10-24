@@ -199,8 +199,8 @@ func configureMaxThreads(config *config.Config) error {
 	return nil
 }
 
-func (daemon *Daemon) initNetworkController(config *config.Config, activeSandboxes map[string]interface{}) (libnetwork.NetworkController, error) {
-	netOptions, err := daemon.networkOptions(config, activeSandboxes)
+func (daemon *Daemon) initNetworkController(config *config.Config) (libnetwork.NetworkController, error) {
+	netOptions, err := daemon.networkOptions(config)
 	if err != nil {
 		return nil, err
 	}
@@ -208,11 +208,6 @@ func (daemon *Daemon) initNetworkController(config *config.Config, activeSandbox
 	controller, err := libnetwork.New(netOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("error obtaining controller instance: %v", err)
-	}
-
-	if len(activeSandboxes) > 0 {
-		logrus.Info("There are old running containers, the network config will not take affect")
-		return controller, nil
 	}
 
 	// Initialize default network on "null"

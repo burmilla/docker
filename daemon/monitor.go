@@ -111,7 +111,7 @@ func (daemon *Daemon) StateChanged(id string, e libcontainerd.StateInfo) error {
 		} else {
 			logrus.Warnf("Ignoring StateExitProcess for %v but no exec command found", e)
 		}
-	case libcontainerd.StateStart, libcontainerd.StateRestore:
+	case libcontainerd.StateStart:
 		// Container is already locked in this case
 		c.SetRunning(int(e.Pid), e.State == libcontainerd.StateStart)
 		c.HasBeenManuallyStopped = false

@@ -144,7 +144,6 @@ func (daemon *Daemon) restore() error {
 
 	removeContainers := make(map[string]*container.Container)
 	restartContainers := make(map[*container.Container]chan struct{})
-	activeSandboxes := make(map[string]interface{})
 	for id, c := range containers {
 		if err := daemon.registerName(c); err != nil {
 			logrus.Errorf("Failed to register container name %s: %s", c.ID, err)
@@ -208,15 +207,6 @@ func (daemon *Daemon) restore() error {
 				}
 
 				c.ResetRestartManager(false)
-				if !c.HostConfig.NetworkMode.IsContainer() && c.IsRunning() {
-					options, err := daemon.buildSandboxOptions(c)
-					if err != nil {
-						logrus.Warnf("Failed build sandbox option to restore container %s: %v", c.ID, err)
-					}
-					mapLock.Lock()
-					activeSandboxes[c.NetworkSettings.SandboxID] = options
-					mapLock.Unlock()
-				}
 
 			}
 			// fixme: only if not running
@@ -254,7 +244,7 @@ func (daemon *Daemon) restore() error {
 		}(c)
 	}
 	wg.Wait()
-	daemon.netController, err = daemon.initNetworkController(daemon.configStore, activeSandboxes)
+	daemon.netController, err = daemon.initNetworkController(daemon.configStore)
 	if err != nil {
 		return fmt.Errorf("Error initializing network controller: %v", err)
 	}
@@ -579,15 +569,6 @@ func (daemon *Daemon) ShutdownTimeout() int {
 // Shutdown stops the daemon.
 func (daemon *Daemon) Shutdown() error {
 	daemon.shutdown = true
-	// Keep mounts and networking running on daemon shutdown if
-	// we are to keep containers running and restore them.
-
-	if daemon.configStore.LiveRestoreEnabled && daemon.containers != nil {
-		// check if there are any running containers, if none we should do some cleanup
-		if ls, err := daemon.Containers(&types.ContainerListOptions{}); len(ls) != 0 || err != nil {
-			return nil
-		}
-	}
 
 	if daemon.containers != nil {
 		logrus.Debugf("start clean shutdown of all containers with a %d seconds timeout...", daemon.configStore.ShutdownTimeout)
@@ -729,7 +710,7 @@ func isBridgeNetworkDisabled(conf *config.Config) bool {
 	return conf.BridgeConfig.Iface == config.DisableNetworkBridge
 }
 
-func (daemon *Daemon) networkOptions(dconfig *config.Config, activeSandboxes map[string]interface{}) ([]nwconfig.Option, error) {
+func (daemon *Daemon) networkOptions(dconfig *config.Config) ([]nwconfig.Option, error) {
 	options := []nwconfig.Option{}
 	if dconfig == nil {
 		return options, nil
@@ -745,10 +726,6 @@ func (daemon *Daemon) networkOptions(dconfig *config.Config, activeSandboxes map
 
 	options = append(options, nwconfig.OptionLabels(dconfig.Labels))
 	options = append(options, driverOptions(dconfig)...)
-
-	if daemon.configStore != nil && daemon.configStore.LiveRestoreEnabled && len(activeSandboxes) != 0 {
-		options = append(options, nwconfig.OptionActiveSandboxes(activeSandboxes))
-	}
 
 	return options, nil
 }

@@ -34,7 +34,9 @@ func installConfigFlags(conf *config.Config, flags *pflag.FlagSet) {
 	flags.BoolVar(&conf.BridgeConfig.EnableUserlandProxy, "userland-proxy", false, "Use userland proxy for loopback traffic")
 	flags.StringVar(&conf.RemappedRoot, "userns-remap", "", "User/Group setting for user namespaces")
 	flags.StringVar(&conf.ContainerdAddr, "containerd", "", "Path to containerd socket")
-	flags.BoolVar(&conf.LiveRestoreEnabled, "live-restore", false, "Enable live restore of docker when containers are still running")
+	// Accepted for compatibility with older cloud-configs; it no longer does anything.
+	flags.Bool("live-restore", false, "Ignored")
+	flags.MarkHidden("live-restore")
 	flags.IntVar(&conf.OOMScoreAdjust, "oom-score-adjust", -500, "Set the oom_score_adj for the daemon")
 	flags.Var(&conf.ShmSize, "default-shm-size", "Default shm size for containers")
 	flags.BoolVar(&conf.NoNewPrivileges, "no-new-privileges", false, "Set no-new-privileges by default for new containers")

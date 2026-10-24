@@ -112,30 +112,16 @@ func (s *containerRouter) postContainersStart(ctx context.Context, w http.Respon
 	// including r.TransferEncoding
 	// allow a nil body for backwards compatibility
 
-	version := httputils.VersionFromContext(ctx)
-	var hostConfig *container.HostConfig
 	// A non-nil json object is at least 7 characters.
 	if r.ContentLength > 7 || r.ContentLength == -1 {
-		if versions.GreaterThanOrEqualTo(version, "1.24") {
-			return validationError{fmt.Errorf("starting container with non-empty request body was deprecated since v1.10 and removed in v1.12")}
-		}
-
-		if err := httputils.CheckForJSON(r); err != nil {
-			return err
-		}
-
-		c, err := s.decoder.DecodeHostConfig(r.Body)
-		if err != nil {
-			return err
-		}
-		hostConfig = c
+		return validationError{fmt.Errorf("starting container with non-empty request body was deprecated since v1.10 and removed in v1.12")}
 	}
 
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
 
-	if err := s.backend.ContainerStart(vars["name"], hostConfig); err != nil {
+	if err := s.backend.ContainerStart(vars["name"], nil); err != nil {
 		return err
 	}
 

@@ -13,10 +13,9 @@ import (
 
 // Config encapsulates configurations of various Libnetwork components
 type Config struct {
-	Daemon          DaemonCfg
-	Cluster         ClusterCfg
-	Scopes          map[string]*datastore.ScopeCfg
-	ActiveSandboxes map[string]interface{}
+	Daemon  DaemonCfg
+	Cluster ClusterCfg
+	Scopes  map[string]*datastore.ScopeCfg
 }
 
 // DaemonCfg represents libnetwork core configuration
@@ -233,13 +232,5 @@ func OptionLocalKVProviderConfig(config *store.Config) Option {
 			c.Scopes[datastore.LocalScope] = &datastore.ScopeCfg{}
 		}
 		c.Scopes[datastore.LocalScope].Client.Config = config
-	}
-}
-
-// OptionActiveSandboxes function returns an option setter for passing the sandboxes
-// which were active during previous daemon life
-func OptionActiveSandboxes(sandboxes map[string]interface{}) Option {
-	return func(c *Config) {
-		c.ActiveSandboxes = sandboxes
 	}
 }

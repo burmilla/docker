@@ -14,7 +14,6 @@ const (
 	StatePause       = "pause"
 	StateResume      = "resume"
 	StateExit        = "exit"
-	StateRestore     = "restore"
 	StateExitProcess = "exit-process"
 	StateOOM         = "oom" // fake state
 )

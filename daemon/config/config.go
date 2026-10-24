@@ -39,6 +39,7 @@ var flatOptions = map[string]bool{
 // ignoredOptions are config file keys from earlier releases that no longer
 // do anything. They are dropped with a warning instead of failing startup.
 var ignoredOptions = map[string]bool{
+	"live-restore":        true,
 	"userland-proxy-path": true,
 }
 
@@ -76,10 +77,6 @@ type CommonConfig struct {
 	RawLogs       bool                `json:"raw-logs,omitempty"`
 	Root          string              `json:"data-root,omitempty"`
 	SocketGroup   string              `json:"group,omitempty"`
-
-	// LiveRestoreEnabled determines whether we should keep containers
-	// alive upon daemon shutdown/start
-	LiveRestoreEnabled bool `json:"live-restore,omitempty"`
 
 	// MaxConcurrentDownloads is the maximum number of downloads that
 	// may take place at a time for each pull.

@@ -193,14 +193,9 @@ func GenerateKey(containerID string) string {
 
 // NewSandbox provides a new sandbox instance created in an os specific way
 // provided a key which uniquely identifies the sandbox
-func NewSandbox(key string, osCreate, isRestore bool) (Sandbox, error) {
-	if !isRestore {
-		err := createNetworkNamespace(key, osCreate)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		once.Do(createBasePath)
+func NewSandbox(key string, osCreate bool) (Sandbox, error) {
+	if err := createNetworkNamespace(key, osCreate); err != nil {
+		return nil, err
 	}
 
 	n := &networkNamespace{path: key, isDefault: !osCreate, nextIfIndex: make(map[string]int)}
@@ -423,108 +418,6 @@ func (n *networkNamespace) Destroy() error {
 
 	// Stash it into the garbage collection list
 	addToGarbagePaths(n.path)
-	return nil
-}
-
-// Restore restore the network namespace
-func (n *networkNamespace) Restore(ifsopt map[string][]IfaceOption, routes []*types.StaticRoute, gw net.IP, gw6 net.IP) error {
-	// restore interfaces
-	for name, opts := range ifsopt {
-		if !strings.Contains(name, "+") {
-			return fmt.Errorf("wrong iface name in restore osl sandbox interface: %s", name)
-		}
-		seps := strings.Split(name, "+")
-		srcName := seps[0]
-		dstPrefix := seps[1]
-		i := &nwIface{srcName: srcName, dstName: dstPrefix, ns: n}
-		i.processInterfaceOptions(opts...)
-		if i.master != "" {
-			i.dstMaster = n.findDst(i.master, true)
-			if i.dstMaster == "" {
-				return fmt.Errorf("could not find an appropriate master %q for %q",
-					i.master, i.srcName)
-			}
-		}
-		if n.isDefault {
-			i.dstName = i.srcName
-		} else {
-			links, err := n.nlHandle.LinkList()
-			if err != nil {
-				return fmt.Errorf("failed to retrieve list of links in network namespace %q during restore", n.path)
-			}
-			// due to the docker network connect/disconnect, so the dstName should
-			// restore from the namespace
-			for _, link := range links {
-				addrs, err := n.nlHandle.AddrList(link, netlink.FAMILY_V4)
-				if err != nil {
-					return err
-				}
-				ifaceName := link.Attrs().Name
-				if strings.HasPrefix(ifaceName, "vxlan") {
-					if i.dstName == "vxlan" {
-						i.dstName = ifaceName
-						break
-					}
-				}
-				// find the interface name by ip
-				if i.address != nil {
-					for _, addr := range addrs {
-						if addr.IPNet.String() == i.address.String() {
-							i.dstName = ifaceName
-							break
-						}
-						continue
-					}
-					if i.dstName == ifaceName {
-						break
-					}
-				}
-				// This is to find the interface name of the pair in overlay sandbox
-				if strings.HasPrefix(ifaceName, "veth") {
-					if i.master != "" && i.dstName == "veth" {
-						i.dstName = ifaceName
-					}
-				}
-			}
-
-			var index int
-			indexStr := strings.TrimPrefix(i.dstName, dstPrefix)
-			if indexStr != "" {
-				index, err = strconv.Atoi(indexStr)
-				if err != nil {
-					return err
-				}
-			}
-			index++
-			n.Lock()
-			if index > n.nextIfIndex[dstPrefix] {
-				n.nextIfIndex[dstPrefix] = index
-			}
-			n.iFaces = append(n.iFaces, i)
-			n.Unlock()
-		}
-	}
-
-	// restore routes
-	for _, r := range routes {
-		n.Lock()
-		n.staticRoutes = append(n.staticRoutes, r)
-		n.Unlock()
-	}
-
-	// restore gateway
-	if len(gw) > 0 {
-		n.Lock()
-		n.gw = gw
-		n.Unlock()
-	}
-
-	if len(gw6) > 0 {
-		n.Lock()
-		n.gwv6 = gw6
-		n.Unlock()
-	}
-
 	return nil
 }
 

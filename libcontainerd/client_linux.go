@@ -26,7 +26,6 @@ type client struct {
 	remote        *remote
 	q             queue
 	exitNotifiers map[string]*exitNotifier
-	liveRestore   bool
 }
 
 // GetServerVersion returns the connected server version information
@@ -271,88 +270,6 @@ func (clnt *client) getOrCreateExitNotifier(containerID string) *exitNotifier {
 	return w
 }
 
-func (clnt *client) restore(cont *containerd.Container, lastEvent *containerd.Event, attachStdio StdioCallback, options ...CreateOption) (err error) {
-	clnt.lock(cont.Id)
-	defer clnt.unlock(cont.Id)
-
-	logrus.Debugf("libcontainerd: restore container %s state %s", cont.Id, cont.Status)
-
-	containerID := cont.Id
-	if _, err := clnt.getContainer(containerID); err == nil {
-		return fmt.Errorf("container %s is already active", containerID)
-	}
-
-	defer func() {
-		if err != nil {
-			clnt.deleteContainer(cont.Id)
-		}
-	}()
-
-	container := clnt.newContainer(cont.BundlePath, options...)
-	container.systemPid = systemPid(cont)
-
-	var terminal bool
-	for _, p := range cont.Processes {
-		if p.Pid == InitFriendlyName {
-			terminal = p.Terminal
-		}
-	}
-
-	fifoCtx, cancel := context.WithCancel(context.Background())
-	defer func() {
-		if err != nil {
-			cancel()
-		}
-	}()
-
-	iopipe, err := container.openFifos(fifoCtx, terminal)
-	if err != nil {
-		return err
-	}
-	var stdinOnce sync.Once
-	stdin := iopipe.Stdin
-	iopipe.Stdin = ioutils.NewWriteCloserWrapper(stdin, func() error {
-		var err error
-		stdinOnce.Do(func() { // on error from attach we don't know if stdin was already closed
-			err = stdin.Close()
-		})
-		return err
-	})
-
-	if err := attachStdio(*iopipe); err != nil {
-		container.closeFifos(iopipe)
-		return err
-	}
-
-	clnt.appendContainer(container)
-
-	err = clnt.backend.StateChanged(containerID, StateInfo{
-		CommonStateInfo: CommonStateInfo{
-			State: StateRestore,
-			Pid:   container.systemPid,
-		}})
-
-	if err != nil {
-		container.closeFifos(iopipe)
-		return err
-	}
-
-	if lastEvent != nil {
-		// This should only be a pause or resume event
-		if lastEvent.Type == StatePause || lastEvent.Type == StateResume {
-			return clnt.backend.StateChanged(containerID, StateInfo{
-				CommonStateInfo: CommonStateInfo{
-					State: lastEvent.Type,
-					Pid:   container.systemPid,
-				}})
-		}
-
-		logrus.Warnf("libcontainerd: unexpected backlog event: %#v", lastEvent)
-	}
-
-	return nil
-}
-
 func (clnt *client) getContainerLastEventSinceTime(id string, tsp *timestamp.Timestamp) (*containerd.Event, error) {
 	er := &containerd.EventsRequest{
 		Timestamp:  tsp,
@@ -458,15 +375,8 @@ func (clnt *client) Restore(containerID string, attachStdio StdioCallback, optio
 		return nil
 	}
 
-	// container is still alive
-	if clnt.liveRestore {
-		if err := clnt.restore(cont, ev, attachStdio, options...); err != nil {
-			logrus.Errorf("libcontainerd: error restoring %s: %v", containerID, err)
-		}
-		return nil
-	}
-
-	// Kill the container if liveRestore == false
+	// The container is still alive: the daemon does not restore running
+	// containers across a restart, so stop it.
 	w := clnt.getOrCreateExitNotifier(containerID)
 	clnt.lock(cont.Id)
 	container := clnt.newContainer(cont.BundlePath)

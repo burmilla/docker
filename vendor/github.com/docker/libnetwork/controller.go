@@ -190,7 +190,7 @@ func New(cfgOptions ...config.Option) (NetworkController, error) {
 	c.reservePools()
 
 	// Cleanup resources
-	c.sandboxCleanup(c.cfg.ActiveSandboxes)
+	c.sandboxCleanup()
 	c.cleanupLocalEndpoints()
 	c.networkCleanup()
 
@@ -771,7 +771,7 @@ func (c *controller) NewSandbox(containerID string, options ...SandboxOption) (S
 
 	if sb.config.useDefaultSandBox {
 		c.sboxOnce.Do(func() {
-			c.defOsSbox, err = osl.NewSandbox(sb.Key(), false, false)
+			c.defOsSbox, err = osl.NewSandbox(sb.Key(), false)
 		})
 
 		if err != nil {
@@ -783,7 +783,7 @@ func (c *controller) NewSandbox(containerID string, options ...SandboxOption) (S
 	}
 
 	if sb.osSbox == nil && !sb.config.useExternalKey {
-		if sb.osSbox, err = osl.NewSandbox(sb.Key(), !sb.config.useDefaultSandBox, false); err != nil {
+		if sb.osSbox, err = osl.NewSandbox(sb.Key(), !sb.config.useDefaultSandBox); err != nil {
 			return nil, fmt.Errorf("failed to create new osl sandbox: %v", err)
 		}
 	}

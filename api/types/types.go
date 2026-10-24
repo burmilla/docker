@@ -153,10 +153,6 @@ type Info struct {
 	ServerVersion      string
 	ClusterStore       string
 	ClusterAdvertise   string
-	// LiveRestoreEnabled determines whether containers should be kept
-	// running when the daemon is shutdown or upon daemon start if
-	// running containers are detected
-	LiveRestoreEnabled bool
 	ContainerdCommit   Commit
 	RuncCommit         Commit
 	SecurityOptions    []string

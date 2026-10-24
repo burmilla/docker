@@ -56,7 +56,6 @@ type remote struct {
 	eventTsPath          string
 	runtime              string
 	daemonWaitCh         chan struct{}
-	liveRestore          bool
 	oomScore             int
 	restoreFromTimestamp *timestamp.Timestamp
 }
@@ -213,7 +212,6 @@ func (r *remote) Client(b Backend) (Client, error) {
 		},
 		remote:        r,
 		exitNotifiers: make(map[string]*exitNotifier),
-		liveRestore:   r.liveRestore,
 	}
 
 	r.Lock()
@@ -501,24 +499,6 @@ func (d debugLog) Apply(r Remote) error {
 		return nil
 	}
 	return fmt.Errorf("WithDebugLog option not supported for this remote")
-}
-
-// WithLiveRestore defines if containers are stopped on shutdown or restored.
-func WithLiveRestore(v bool) RemoteOption {
-	return liveRestore(v)
-}
-
-type liveRestore bool
-
-func (l liveRestore) Apply(r Remote) error {
-	if remote, ok := r.(*remote); ok {
-		remote.liveRestore = bool(l)
-		for _, c := range remote.clients {
-			c.liveRestore = bool(l)
-		}
-		return nil
-	}
-	return fmt.Errorf("WithLiveRestore option not supported for this remote")
 }
 
 // WithOOMScore defines the oom_score_adj to set for the containerd process.

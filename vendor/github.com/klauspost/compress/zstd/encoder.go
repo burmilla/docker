@@ -11,7 +11,7 @@ import (
 	rdebug "runtime/debug"
 	"sync"
 
-	"github.com/klauspost/compress/math"
+	"math"
 
 	"github.com/klauspost/compress/zstd/internal/xxhash"
 )

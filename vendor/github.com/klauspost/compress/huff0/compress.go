@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/klauspost/compress/math"
+	"math"
 )
 
 // Compress1X will compress the input.

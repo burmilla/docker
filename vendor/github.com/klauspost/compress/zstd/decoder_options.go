@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/klauspost/compress/math/bits"
+	"math/bits"
 )
 
 // DOption is an option for creating a decoder.

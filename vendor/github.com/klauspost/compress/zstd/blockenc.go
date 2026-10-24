@@ -8,8 +8,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/klauspost/compress/math"
-	"github.com/klauspost/compress/math/bits"
+	"math"
+	"math/bits"
 
 	"github.com/klauspost/compress/huff0"
 )

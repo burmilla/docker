@@ -1,6 +1,6 @@
 package compress
 
-import "github.com/klauspost/compress/math"
+import "math"
 
 // Estimate returns a normalized compressibility estimate of block b.
 // Values close to zero are likely uncompressible.

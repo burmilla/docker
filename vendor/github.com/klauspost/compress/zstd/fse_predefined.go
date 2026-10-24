@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/klauspost/compress/math"
+	"math"
 )
 
 var (

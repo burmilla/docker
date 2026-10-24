@@ -6,8 +6,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/klauspost/compress/math"
-	"github.com/klauspost/compress/math/bits"
+	"math"
+	"math/bits"
 )
 
 // EOption is an option for creating a encoder.

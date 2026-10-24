@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/klauspost/compress/math"
+	"math"
 )
 
 const (

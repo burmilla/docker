@@ -9,8 +9,8 @@ import (
 	"errors"
 	"log"
 
-	"github.com/klauspost/compress/math"
-	"github.com/klauspost/compress/math/bits"
+	"math"
+	"math/bits"
 )
 
 // enable debug printing

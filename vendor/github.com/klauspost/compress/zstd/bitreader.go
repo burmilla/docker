@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/klauspost/compress/math/bits"
+	"math/bits"
 )
 
 // bitReader reads a bitstream in reverse.

@@ -3,6 +3,10 @@
 DOCKER_GITCOMMIT := $(shell git rev-parse --short HEAD || echo unsupported)
 export DOCKER_GITCOMMIT
 
+# target architecture in Go naming (amd64, arm64, loong64, riscv64), defaults to the build host
+# e.g. `make ARCH=riscv64 binary` cross compiles on any host
+ARCH ?= $(shell uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/' -e 's/loongarch64/loong64/')
+
 # env vars passed through directly to the build scripts
 # to allow things like `make KEEPBUNDLE=1 binary` easily
 DOCKER_ENVS := \
@@ -26,7 +30,7 @@ DOCKER_MOUNT := $(if $(DOCKER_MOUNT),$(DOCKER_MOUNT),-v /go/src/github.com/docke
 
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 GIT_BRANCH_CLEAN := $(shell echo $(GIT_BRANCH) | sed -e "s/[^[:alnum:]]/-/g")
-DOCKER_IMAGE := docker-dev$(if $(GIT_BRANCH_CLEAN),:$(GIT_BRANCH_CLEAN))
+DOCKER_IMAGE := docker-dev:$(if $(GIT_BRANCH_CLEAN),$(GIT_BRANCH_CLEAN)-)$(ARCH)
 
 DOCKER_FLAGS := docker run --rm -i $(DOCKER_ENVS) $(DOCKER_MOUNT)
 
@@ -46,7 +50,7 @@ binary: build ## build the linux binaries
 	$(DOCKER_RUN_DOCKER) hack/make.sh binary
 
 build: bundles
-	docker build ${DOCKER_BUILD_ARGS} -t "$(DOCKER_IMAGE)" .
+	docker build ${DOCKER_BUILD_ARGS} --build-arg ARCH=$(ARCH) -t "$(DOCKER_IMAGE)" .
 
 bundles:
 	mkdir bundles

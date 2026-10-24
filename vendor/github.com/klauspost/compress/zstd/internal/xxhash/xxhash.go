@@ -8,7 +8,7 @@ import (
 	"encoding/binary"
 	"errors"
 
-	"github.com/klauspost/compress/math/bits"
+	"math/bits"
 )
 
 const (

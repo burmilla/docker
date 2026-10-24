@@ -2,8 +2,8 @@
 
 # crun 1.30.1
 CRUN_COMMIT=079ff6a7a16d029460af882f9ea44674e6a510b6
-# containerd v0.2.9 plus the crun compatibility patch (burmilla/containerd)
-CONTAINERD_COMMIT=3fb68c93aca333744ae4c2ca759eb468b4dc7d71
+# containerd v0.2.9 plus the crun compatibility patch, built without cgo (burmilla/containerd)
+CONTAINERD_COMMIT=67a1ec8caee360ded5c5a70312d38c2e8eeace87
 # json-c 0.18 (json-c-0.18-20240915), linked statically into crun
 JSON_C_COMMIT=41a55cfcedb54d9c1874f2f0eb07b504091d7e37
 # libcap, linked statically into crun
